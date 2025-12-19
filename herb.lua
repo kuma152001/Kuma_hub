@@ -1,152 +1,122 @@
---[[ 
-    V61: ORION VERSION (Dành cho máy không hiện Rayfield)
-    Tối ưu hóa: Không treo máy, không crash, tự động tìm cỏ.
-]]
+--==============================================================
+--  HERB COLLECTOR V62 (KHÔNG THƯ VIỆN - CHỐNG LỖI UI)
+--==============================================================
 
--- Xóa UI cũ nếu có
-local uiName = "Orion"
-if game.CoreGui:FindFirstChild(uiName) then
-    game.CoreGui[uiName]:Destroy()
-end
-
--- Tải thư viện Orion (Link cực kỳ ổn định)
-local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
-
-local Window = OrionLib:MakeWindow({Name = "KuMa HUB - Herb V61", HidePremium = false, SaveConfig = true, ConfigFolder = "KumaV61", IntroText = "Khởi chạy V61..."})
-
--- BIẾN HỆ THỐNG
 local LP = game:GetService("Players").LocalPlayer
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 
-_G.AutoHerb = false
-_G.SelectedHerbs = {}
-_G.TweenSpeed = 120
+-- Xóa UI cũ nếu có
+if game.CoreGui:FindFirstChild("KumaHerbUI") then game.CoreGui.KumaHerbUI:Destroy() end
 
--- HÀM TÌM CỎ
-local function GetHerbs()
-    local list = {}
-    -- Tìm trong thư mục Herbs hoặc quét toàn bộ Map
-    local folder = workspace:FindFirstChild("Herbs")
-    local source = folder and folder:GetChildren() or workspace:GetDescendants()
-    
-    for _, v in ipairs(source) do
-        if v:IsA("ProximityPrompt") then
-            local name = v.Parent.Name
-            if not table.find(list, name) then
-                table.insert(list, name)
-            end
-        end
-        if #list > 100 then break end -- Giới hạn để không lag
-    end
-    table.sort(list)
-    return list
-end
+-- [1] TẠO GIAO DIỆN GỐC (KHÔNG DÙNG THƯ VIỆN NGOÀI)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "KumaHerbUI"
+ScreenGui.Parent = game.CoreGui
 
--- HÀM DI CHUYỂN
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 250, 0, 300)
+MainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.Active = true
+MainFrame.Draggable = true -- Có thể kéo di chuyển menu
+MainFrame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Text = "KUMA HUB V62"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Title.Parent = MainFrame
+
+-- Ô nhập tên cỏ
+local Input = Instance.new("TextBox")
+Input.Size = UDim2.new(0.9, 0, 0, 40)
+Input.Position = UDim2.new(0.05, 0, 0.2, 0)
+Input.PlaceholderText = "Nhập tên cỏ (VD: Green Lotus)"
+Input.Text = ""
+Input.Parent = MainFrame
+
+-- Nút Bật/Tắt
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0.9, 0, 0, 50)
+ToggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
+ToggleBtn.Text = "AUTO: OFF"
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+ToggleBtn.Parent = MainFrame
+
+-- Nút Quét ESP (Để kiểm tra xem game có cỏ không)
+local ESPBtn = Instance.new("TextButton")
+ESPBtn.Size = UDim2.new(0.9, 0, 0, 50)
+ESPBtn.Position = UDim2.new(0.05, 0, 0.6, 0)
+ESPBtn.Text = "HIỆN KHUNG CỎ (ESP)"
+ESPBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+ESPBtn.Parent = MainFrame
+
+-- [2] BIẾN ĐIỀU KHIỂN
+local AutoEnabled = false
+local TargetName = ""
+local Speed = 120
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    AutoEnabled = not AutoEnabled
+    TargetName = Input.Text
+    ToggleBtn.Text = AutoEnabled and "AUTO: ON" or "AUTO: OFF"
+    ToggleBtn.BackgroundColor3 = AutoEnabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+end)
+
+-- [3] HỆ THỐNG DI CHUYỂN
 local function MoveTo(targetPart)
     local char = LP.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     local hrp = char.HumanoidRootPart
 
-    -- Chống rơi bằng BodyVelocity
     local bv = Instance.new("BodyVelocity")
     bv.Velocity = Vector3.zero
     bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
     bv.Parent = hrp
 
-    -- Noclip xuyên tường
-    local nc = RunService.Stepped:Connect(function()
-        for _, p in pairs(char:GetDescendants()) do
-            if p:IsA("BasePart") then p.CanCollide = false end
-        end
-    end)
-
-    local targetPos = targetPart.Position + Vector3.new(0, 3, 0)
-    local dist = (hrp.Position - targetPos).Magnitude
-    local tween = TweenService:Create(hrp, TweenInfo.new(dist / _G.TweenSpeed, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos)})
+    local dist = (hrp.Position - targetPart.Position).Magnitude
+    local tween = TweenService:Create(hrp, TweenInfo.new(dist/Speed, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPart.Position + Vector3.new(0,3,0))})
     
     tween:Play()
     tween.Completed:Wait()
-
-    nc:Disconnect()
     bv:Destroy()
 end
 
--- TABS
-local Tab = Window:MakeTab({
-	Name = "Auto Collect",
-	Icon = "rbxassetid://4483362458",
-	PremiumOnly = false
-})
-
-Tab:AddDropdown({
-	Name = "Chọn loại cỏ",
-	Default = "",
-	Options = GetHerbs(),
-	Callback = function(Value)
-		_G.SelectedHerbs = {Value} -- Với Orion dùng 1 loại hoặc chỉnh lại logic
-	end    
-})
-
-Tab:AddButton({
-	Name = "🔄 Làm mới danh sách cỏ",
-	Callback = function()
-      		OrionLib:MakeNotification({Name = "Thông báo", Content = "Đang quét map...", Time = 2})
-		-- (Lưu ý: Dropdown Orion không hỗ trợ Refresh trực tiếp dễ dàng, bạn chọn loại đã hiện sẵn)
-	end
-})
-
-Tab:AddToggle({
-	Name = "Bật Auto Nhặt Cỏ",
-	Default = false,
-	Callback = function(Value)
-		_G.AutoHerb = Value
-	end    
-})
-
-Tab:AddSlider({
-	Name = "Tốc độ bay",
-	Min = 50,
-	Max = 300,
-	Default = 120,
-	Color = Color3.fromRGB(255,255,255),
-	Increment = 10,
-	ValueName = "Speed",
-	Callback = function(Value)
-		_G.TweenSpeed = Value
-	end    
-})
-
--- VÒNG LẶP CHÍNH
+-- [4] VÒNG LẶP CHÍNH
 task.spawn(function()
     while true do
-        if _G.AutoHerb and #_G.SelectedHerbs > 0 then
+        if AutoEnabled and TargetName ~= "" then
             pcall(function()
-                local targetP, targetO
+                local closest = nil
                 local dist = math.huge
-                local myPos = LP.Character.HumanoidRootPart.Position
-
+                
+                -- Quét toàn bộ map tìm ProximityPrompt có tên khớp
                 for _, v in ipairs(workspace:GetDescendants()) do
                     if v:IsA("ProximityPrompt") then
                         local obj = v.Parent
-                        if obj.Name == _G.SelectedHerbs[1] then
-                            local p = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
-                            if p then
-                                local d = (p.Position - myPos).Magnitude
+                        if string.find(obj.Name:lower(), TargetName:lower()) then
+                            local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
+                            if part then
+                                local d = (part.Position - LP.Character.HumanoidRootPart.Position).Magnitude
                                 if d < dist then
-                                    dist = d; targetP = v; targetO = p
+                                    dist = d
+                                    closest = {p = v, o = part}
                                 end
                             end
                         end
                     end
                 end
 
-                if targetP and targetO then
-                    MoveTo(targetO)
+                if closest then
+                    print("Tìm thấy cỏ, đang bay tới...")
+                    MoveTo(closest.o)
                     task.wait(0.2)
-                    fireproximityprompt(targetP)
-                    task.wait(0.3)
+                    fireproximityprompt(closest.p)
+                    task.wait(0.5)
+                else
+                    print("Không tìm thấy cỏ nào tên: " .. TargetName)
                 end
             end)
         end
@@ -154,4 +124,28 @@ task.spawn(function()
     end
 end)
 
-OrionLib:Init()
+-- [5] HỆ THỐNG ESP (HIỆN KHUNG ĐỂ BIẾT CỎ Ở ĐÂU)
+ESPBtn.MouseButton1Click:Connect(function()
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("ProximityPrompt") then
+            local obj = v.Parent
+            if not obj:FindFirstChild("HerbHighlight") then
+                local hl = Instance.new("Highlight")
+                hl.Name = "HerbHighlight"
+                hl.FillColor = Color3.new(0, 1, 0)
+                hl.Parent = obj
+                
+                local bg = Instance.new("BillboardGui")
+                bg.Size = UDim2.new(0, 100, 0, 20)
+                bg.AlwaysOnTop = true
+                bg.Parent = obj
+                local tl = Instance.new("TextLabel")
+                tl.Size = UDim2.new(1,0,1,0)
+                tl.Text = obj.Name
+                tl.TextColor3 = Color3.new(1,1,1)
+                tl.BackgroundTransparency = 1
+                tl.Parent = bg
+            end
+        end
+    end
+end)
