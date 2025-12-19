@@ -2,7 +2,6 @@
 --  KUMA HUB V79 - GHOST EDITION (ITEM ONLY - NO COMBAT CODE)
 --==============================================================
 
--- [1] HỆ THỐNG "TÀNG HÌNH" KHI INJECT
 local ScriptID = tick()
 _G.KumaInstanceID = ScriptID
 
@@ -10,28 +9,25 @@ local function IsAlive()
     return _G.KumaInstanceID == ScriptID
 end
 
--- Xóa sạch dấu vết các bản cũ để tránh bị quét chồng luồng
 pcall(function()
     for _, v in pairs(game:GetService("CoreGui"):GetChildren()) do
         if v.Name:find("Kuma") or v.Name:find("Secure") then v:Destroy() end
     end
 end)
 
--- [2] KHAI BÁO BIẾN AN TOÀN
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
 local CG = game:GetService("CoreGui")
 local TS = game:GetService("TweenService")
 
--- Danh sách item hiếm (giữ nguyên từ bản gốc của bạn)
 local flameList = {"Karmic Dao Flame", "Poison Death Flame", "Great River Flame", "Disaster Rose Flame", "Ice Devil Flame", "Azure Moon Flame", "Ruinous Flame", "Earth Flame", "Heaven Flame", "Obsidian Flame", "Bone Chill Flame", "Green Lotus Flame", "Sea Heart Flame", "Volcanic Flame", "Purifying Lotus Demon Flame", "Gold Emperor Burning Sky Flame"}
 local manualList = {"Qi Condensation Sutra", "Six Yin Scripture", "Nine Yang Scripture", "Maniac's Cultivation Tips", "Verdant Wind Scripture", "Copper Body Formula", "LotusSutra", "Mother Earth Technique", "Pure Heart Skill", "Heavenly Demon Scripture", "Extreme Sword Sutra", "Principle of Motion", "Shadowless Canon", "Principle of Stillness", "Earth Flame Method", "Steel Body Formula", "Rising Dragon Art", "Soul Shedding Manual", "Star Reaving Scripture", "Return to Basic", "Taotie's Blood Devouring", "Tower Forging", "BeastSoul", "Journey To The West", "Book of Life and Death"}
 
 _G.Config = {
     Enabled = false,
     Selected = {},
-    Speed = 115, -- Tốc độ hơi lẻ để giả lập người dùng
+    Speed = 115,
     MaxDist = 3000,
     ESP = {Flames = false, Manuals = false, Herbs = false}
 }
@@ -40,16 +36,12 @@ local ItemCache = {Items = {}}
 local SecureFolder = Instance.new("Folder", CG)
 SecureFolder.Name = "SafeVisuals_" .. math.random(100, 999)
 
--- Hàm kiểm tra tên
 local function isTarget(name, list)
     local n = name:lower()
     for _, v in pairs(list) do if n == v:lower() then return true end end
     return false
 end
 
-----------------------------------------------------------------
--- [3] GIAO DIỆN SIÊU NHẸ (KHÔNG GÂY LAG/BAN)
-----------------------------------------------------------------
 local sg = Instance.new("ScreenGui", CG); sg.Name = "KumaV79"
 local main = Instance.new("Frame", sg)
 main.Size = UDim2.new(0, 260, 0, 420); main.Position = UDim2.new(0.05, 0, 0.2, 0)
@@ -77,28 +69,20 @@ local scroll = Instance.new("ScrollingFrame", content)
 scroll.Size = UDim2.new(0.95, 0, 0, 150); scroll.BackgroundColor3 = Color3.fromRGB(25, 25, 25); scroll.BorderSizePixel = 0
 Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 3)
 
-----------------------------------------------------------------
--- [4] DI CHUYỂN "TÀNG HÌNH" (STEALTH LERP)
-----------------------------------------------------------------
 local function GhostMove(targetPart)
     local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     if not hrp or not targetPart or not targetPart.Parent then return end
-
     local targetPos = targetPart.Position + Vector3.new(0, 2.8, 0)
     local reached = false
     local bv = Instance.new("BodyVelocity", hrp); bv.Velocity = Vector3.zero; bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-
     local conn
     conn = RS.Heartbeat:Connect(function(dt)
         if not IsAlive() or not _G.Config.Enabled or not targetPart.Parent then conn:Disconnect(); return end
         local diff = targetPos - hrp.Position
-        if diff.Magnitude < 1.5 then
-            reached = true; conn:Disconnect()
+        if diff.Magnitude < 1.5 then reached = true; conn:Disconnect()
         else
-            -- Tốc độ biến thiên ngẫu nhiên cực nhỏ để đánh lừa Anti-cheat
             local s = (_G.Config.Speed + math.random(-3, 6)) * dt
             hrp.CFrame = CFrame.lookAt(hrp.Position + (diff.Unit * math.min(s, diff.Magnitude)), targetPart.Position)
-            -- Noclip
             for _, p in pairs(LP.Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end
         end
     end)
@@ -106,19 +90,13 @@ local function GhostMove(targetPart)
     if bv then bv:Destroy() end
 end
 
-----------------------------------------------------------------
--- [5] QUÉT VẬT PHẨM (KHÔNG QUÉT HUMANOID/MOB)
-----------------------------------------------------------------
 local function ScanArea()
     ItemCache.Items = {}
     for _, v in pairs(scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-
     local all = workspace:GetDescendants()
     local foundNames = {}
-
     for i, v in ipairs(all) do
         if not IsAlive() then break end
-        -- Tuyệt đối không quét Humanoid, chỉ quét ProximityPrompt
         local prompt = v:FindFirstChildWhichIsA("ProximityPrompt", true)
         if prompt then
             table.insert(ItemCache.Items, {o = v, p = prompt})
@@ -128,12 +106,8 @@ local function ScanArea()
                 b.Size = UDim2.new(1, -10, 0, 30)
                 b.MouseButton1Click:Connect(function()
                     local idx = table.find(_G.Config.Selected, v.Name)
-                    if not idx then
-                        table.insert(_G.Config.Selected, v.Name); b.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-                    else
-                        for i2, n in pairs(_G.Config.Selected) do if n == v.Name then table.remove(_G.Config.Selected, i2) end end
-                        b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-                    end
+                    if not idx then table.insert(_G.Config.Selected, v.Name); b.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+                    else for i2, n in pairs(_G.Config.Selected) do if n == v.Name then table.remove(_G.Config.Selected, i2) end end b.BackgroundColor3 = Color3.fromRGB(45, 45, 45) end
                 end)
             end
         end
@@ -142,9 +116,6 @@ local function ScanArea()
 end
 scanBtn.MouseButton1Click:Connect(ScanArea)
 
-----------------------------------------------------------------
--- [6] VÒNG LẶP FARM (GHOST MODE)
-----------------------------------------------------------------
 task.spawn(function()
     while IsAlive() do
         if _G.Config.Enabled and #_G.Config.Selected > 0 then
@@ -152,7 +123,6 @@ task.spawn(function()
                 local hrp = LP.Character.HumanoidRootPart
                 local target, prompt
                 local dist = _G.Config.MaxDist
-
                 for _, item in pairs(ItemCache.Items) do
                     if table.find(_G.Config.Selected, item.o.Name) then
                         local part = item.o:IsA("BasePart") and item.o or item.o:FindFirstChildWhichIsA("BasePart", true)
@@ -162,23 +132,13 @@ task.spawn(function()
                         end
                     end
                 end
-
-                if target then
-                    GhostMove(target)
-                    -- Độ trễ ngẫu nhiên mô phỏng người thật
-                    task.wait(0.2 + math.random()*0.3)
-                    if prompt then fireproximityprompt(prompt) end
-                    task.wait(0.4)
-                end
+                if target then GhostMove(target); task.wait(0.2 + math.random()*0.3); if prompt then fireproximityprompt(prompt) end; task.wait(0.4) end
             end)
         end
         task.wait(0.6)
     end
 end)
 
-----------------------------------------------------------------
--- [7] ESP BẢO MẬT (ANTI-DETECTION)
-----------------------------------------------------------------
 local function CreateESP(obj, text, color)
     local t = Instance.new("Folder", SecureFolder)
     local hl = Instance.new("Highlight", t); hl.Adornee = obj; hl.FillColor = color; hl.FillTransparency = 0.7
@@ -199,9 +159,6 @@ task.spawn(function()
     end
 end)
 
-----------------------------------------------------------------
--- [8] UI CONTROL
-----------------------------------------------------------------
 toggleFarm.MouseButton1Click:Connect(function()
     _G.Config.Enabled = not _G.Config.Enabled
     toggleFarm.Text = "START GHOST FARM: " .. (_G.Config.Enabled and "ON" or "OFF")
@@ -216,9 +173,7 @@ local function addEsp(txt, key)
         b.BackgroundColor3 = _G.Config.ESP[key] and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(45, 45, 45)
     end)
 end
-addEsp("ESP Flames", "Flames")
-addEsp("ESP Manuals", "Manuals")
-addEsp("ESP Herbs", "Herbs")
+addEsp("ESP Flames", "Flames"); addEsp("ESP Manuals", "Manuals"); addEsp("ESP Herbs", "Herbs")
 
 local minimized = false
 minBtn.MouseButton1Click:Connect(function()
@@ -228,4 +183,4 @@ minBtn.MouseButton1Click:Connect(function()
     minBtn.Text = minimized and "+" or "-"
 end)
 
-print("✅ KUMA HUB V79 LOADED - GHOST EDITION (SAFE INJECT)")
+print("✅ KUMA HUB V79 LOADED")
