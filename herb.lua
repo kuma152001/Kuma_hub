@@ -1,71 +1,45 @@
 --==============================================================
---  HERB COLLECTOR V62 (KHÔNG THƯ VIỆN - CHỐNG LỖI UI)
+--  HERB COLLECTOR V63 (SIÊU ĐƠN GIẢN - TỰ ĐỘNG 100%)
 --==============================================================
+
+print("--- KUMA HUB V63 STARTING ---")
 
 local LP = game:GetService("Players").LocalPlayer
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 
--- Xóa UI cũ nếu có
-if game.CoreGui:FindFirstChild("KumaHerbUI") then game.CoreGui.KumaHerbUI:Destroy() end
+-- Hàm thông báo lên màn hình (Dùng hệ thống mặc định của Roblox)
+local function Notify(msg)
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "Kuma Hub V63",
+        Text = msg,
+        Duration = 5
+    })
+    print("[DEBUG]: " .. msg)
+end
 
--- [1] TẠO GIAO DIỆN GỐC (KHÔNG DÙNG THƯ VIỆN NGOÀI)
+Notify("Script đang khởi động... Đợi 3 giây")
+task.wait(3)
+
+-- 1. TẠO NÚT BẬT/TẮT SIÊU NHỎ (Để chắc chắn hiện được)
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "KumaHerbUI"
-ScreenGui.Parent = game.CoreGui
-
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 300)
-MainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-MainFrame.Active = true
-MainFrame.Draggable = true -- Có thể kéo di chuyển menu
-MainFrame.Parent = ScreenGui
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Text = "KUMA HUB V62"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-Title.Parent = MainFrame
-
--- Ô nhập tên cỏ
-local Input = Instance.new("TextBox")
-Input.Size = UDim2.new(0.9, 0, 0, 40)
-Input.Position = UDim2.new(0.05, 0, 0.2, 0)
-Input.PlaceholderText = "Nhập tên cỏ (VD: Green Lotus)"
-Input.Text = ""
-Input.Parent = MainFrame
-
--- Nút Bật/Tắt
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Size = UDim2.new(0.9, 0, 0, 50)
-ToggleBtn.Position = UDim2.new(0.05, 0, 0.4, 0)
-ToggleBtn.Text = "AUTO: OFF"
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-ToggleBtn.Parent = MainFrame
-
--- Nút Quét ESP (Để kiểm tra xem game có cỏ không)
-local ESPBtn = Instance.new("TextButton")
-ESPBtn.Size = UDim2.new(0.9, 0, 0, 50)
-ESPBtn.Position = UDim2.new(0.05, 0, 0.6, 0)
-ESPBtn.Text = "HIỆN KHUNG CỎ (ESP)"
-ESPBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-ESPBtn.Parent = MainFrame
-
--- [2] BIẾN ĐIỀU KHIỂN
-local AutoEnabled = false
-local TargetName = ""
-local Speed = 120
-
-ToggleBtn.MouseButton1Click:Connect(function()
-    AutoEnabled = not AutoEnabled
-    TargetName = Input.Text
-    ToggleBtn.Text = AutoEnabled and "AUTO: ON" or "AUTO: OFF"
-    ToggleBtn.BackgroundColor3 = AutoEnabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 0, 0)
+ScreenGui.Name = "KumaSimpleUI"
+-- Thử parent vào PlayerGui nếu CoreGui lỗi
+local successUI, errUI = pcall(function()
+    ScreenGui.Parent = LP:WaitForChild("PlayerGui")
 end)
 
--- [3] HỆ THỐNG DI CHUYỂN
+local MainBtn = Instance.new("TextButton")
+MainBtn.Size = UDim2.new(0, 150, 0, 50)
+MainBtn.Position = UDim2.new(0.5, -75, 0, 50) -- Nằm chính giữa phía trên
+MainBtn.Text = "BẮT ĐẦU NHẶT (OFF)"
+MainBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+MainBtn.Parent = ScreenGui
+
+local Running = false
+local Speed = 100
+
+-- 2. HỆ THỐNG DI CHUYỂN
 local function MoveTo(targetPart)
     local char = LP.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
@@ -76,76 +50,77 @@ local function MoveTo(targetPart)
     bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
     bv.Parent = hrp
 
-    local dist = (hrp.Position - targetPart.Position).Magnitude
-    local tween = TweenService:Create(hrp, TweenInfo.new(dist/Speed, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPart.Position + Vector3.new(0,3,0))})
+    -- Noclip xuyên tường
+    local nc = RunService.Stepped:Connect(function()
+        if char then
+            for _, p in pairs(char:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide = false end
+            end
+        end
+    end)
+
+    local targetPos = targetPart.Position
+    local dist = (hrp.Position - targetPos).Magnitude
+    local tween = TweenService:Create(hrp, TweenInfo.new(dist/Speed, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos + Vector3.new(0,2,0))})
     
     tween:Play()
     tween.Completed:Wait()
+    
+    nc:Disconnect()
     bv:Destroy()
 end
 
--- [4] VÒNG LẶP CHÍNH
+-- 3. LOGIC NHẶT MỌI THỨ
+MainBtn.MouseButton1Click:Connect(function()
+    Running = not Running
+    if Running then
+        MainBtn.Text = "ĐANG NHẶT (ON)"
+        MainBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        Notify("Đã BẬT: Đang quét vật phẩm quanh đây...")
+    else
+        MainBtn.Text = "BẮT ĐẦU NHẶT (OFF)"
+        MainBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        Notify("Đã TẮT.")
+    end
+end)
+
 task.spawn(function()
     while true do
-        if AutoEnabled and TargetName ~= "" then
+        if Running then
             pcall(function()
-                local closest = nil
-                local dist = math.huge
+                local char = LP.Character
+                if not char or not char:FindFirstChild("HumanoidRootPart") then return end
                 
-                -- Quét toàn bộ map tìm ProximityPrompt có tên khớp
+                local targetP = nil
+                local targetO = nil
+                local minDist = 1000 -- Chỉ nhặt trong bán kính 1000 studs
+
+                -- Quét mọi ProximityPrompt có trên map
                 for _, v in ipairs(workspace:GetDescendants()) do
                     if v:IsA("ProximityPrompt") then
                         local obj = v.Parent
-                        if string.find(obj.Name:lower(), TargetName:lower()) then
-                            local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
-                            if part then
-                                local d = (part.Position - LP.Character.HumanoidRootPart.Position).Magnitude
-                                if d < dist then
-                                    dist = d
-                                    closest = {p = v, o = part}
-                                end
+                        local part = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart", true)
+                        
+                        if part then
+                            local d = (part.Position - char.HumanoidRootPart.Position).Magnitude
+                            if d < minDist then
+                                minDist = d
+                                targetP = v
+                                targetO = part
                             end
                         end
                     end
                 end
 
-                if closest then
-                    print("Tìm thấy cỏ, đang bay tới...")
-                    MoveTo(closest.o)
-                    task.wait(0.2)
-                    fireproximityprompt(closest.p)
+                if targetP and targetO then
+                    Notify("Tìm thấy: " .. targetO.Name .. ". Đang bay tới!")
+                    MoveTo(targetO)
+                    task.wait(0.3)
+                    fireproximityprompt(targetP)
                     task.wait(0.5)
-                else
-                    print("Không tìm thấy cỏ nào tên: " .. TargetName)
                 end
             end)
         end
         task.wait(1)
-    end
-end)
-
--- [5] HỆ THỐNG ESP (HIỆN KHUNG ĐỂ BIẾT CỎ Ở ĐÂU)
-ESPBtn.MouseButton1Click:Connect(function()
-    for _, v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("ProximityPrompt") then
-            local obj = v.Parent
-            if not obj:FindFirstChild("HerbHighlight") then
-                local hl = Instance.new("Highlight")
-                hl.Name = "HerbHighlight"
-                hl.FillColor = Color3.new(0, 1, 0)
-                hl.Parent = obj
-                
-                local bg = Instance.new("BillboardGui")
-                bg.Size = UDim2.new(0, 100, 0, 20)
-                bg.AlwaysOnTop = true
-                bg.Parent = obj
-                local tl = Instance.new("TextLabel")
-                tl.Size = UDim2.new(1,0,1,0)
-                tl.Text = obj.Name
-                tl.TextColor3 = Color3.new(1,1,1)
-                tl.BackgroundTransparency = 1
-                tl.Parent = bg
-            end
-        end
     end
 end)
