@@ -1,8 +1,7 @@
 --==============================================================
---  KUMA HUB V89 - FIX ESP MANUAL & FLAME (PRECISION SCAN)
+--  KUMA HUB V106 - SUPER COLORFUL ESP (FIXED)
 --==============================================================
 
--- [1] HỆ THỐNG DỌN DẸP
 local ScriptID = tick()
 _G.KumaInstanceID = ScriptID
 local function IsAlive() return _G.KumaInstanceID == ScriptID end
@@ -13,217 +12,192 @@ pcall(function()
     end
 end)
 
--- [2] SERVICES & DATA
 local LP = game:GetService("Players").LocalPlayer
-local TS = game:GetService("TweenService")
 local RS = game:GetService("RunService")
 local CG = game:GetService("CoreGui")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
 
-local function toLookup(list)
-    local t = {}
-    for _, v in pairs(list) do t[v:lower()] = true end
-    return t
-end
-
-local flameLookup = toLookup({"Karmic Dao Flame", "Poison Death Flame", "Great River Flame", "Disaster Rose Flame", "Ice Devil Flame", "Azure Moon Flame", "Ruinous Flame", "Earth Flame", "Heaven Flame", "Obsidian Flame", "Bone Chill Flame", "Green Lotus Flame", "Sea Heart Flame", "Volcanic Flame", "Purifying Lotus Demon Flame", "Gold Emperor Burning Sky Flame"})
-local manualLookup = toLookup({"Qi Condensation Sutra", "Six Yin Scripture", "Nine Yang Scripture", "Maniac's Cultivation Tips", "Verdant Wind Scripture", "Copper Body Formula", "LotusSutra", "Mother Earth Technique", "Pure Heart Skill", "Heavenly Demon Scripture", "Extreme Sword Sutra", "Principle of Motion", "Shadowless Canon", "Principle of Stillness", "Earth Flame Method", "Steel Body Formula", "Rising Dragon Art", "Soul Shedding Manual", "Star Reaving Scripture", "Return to Basic", "Taotie's Blood Devouring", "Tower Forging", "BeastSoul", "Journey To The West", "Book of Life and Death"})
-
-_G.Config = {
-    Enabled = false,
-    Selected = {},
-    Speed = 125,
-    ESP = { Flames = false, Manuals = false, Age10 = false, Age100 = false, Age1000 = false }
-}
-
+_G.Config = { Tracking = {}, AutoScan = false }
 local ItemCache = {} 
 local SecureFolder = Instance.new("Folder", CG)
-SecureFolder.Name = "KumaSecure_V89"
+SecureFolder.Name = "KumaSecure_V106"
 
-----------------------------------------------------------------
--- [3] HÀM MOVE V69 (SIÊU MƯỢT)
-----------------------------------------------------------------
-local function MoveV69(targetPart)
-    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp or not targetPart or not targetPart.Parent then return end
-    
-    local targetPos = targetPart.Position + Vector3.new(0, 3, 0)
-    local bv = Instance.new("BodyVelocity", hrp)
-    bv.Velocity = Vector3.zero; bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+local function GetRealName(prompt)
+    if not prompt then return "" end
+    local text = (prompt.ObjectText ~= "" and prompt.ObjectText) or (prompt.ActionText ~= "" and prompt.ActionText)
+    return (text == "" or text == "Interact") and prompt.Parent.Name or text
+end
 
-    local nc = RS.Stepped:Connect(function()
-        if LP.Character then
-            for _, v in pairs(LP.Character:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end
+local function HopServer()
+    local PlaceId = game.PlaceId
+    local Servers = {}
+    pcall(function()
+        local req = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..PlaceId.."/servers/Public?sortOrder=Desc&limit=100"))
+        if req and req.data then
+            for _, v in pairs(req.data) do
+                if v.playing < v.maxPlayers and v.id ~= game.JobId then
+                    table.insert(Servers, v.id)
+                end
+            end
         end
     end)
-
-    local dist = (hrp.Position - targetPos).Magnitude
-    local tween = TS:Create(hrp, TweenInfo.new(dist/_G.Config.Speed, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos)})
-    tween:Play()
-    tween.Completed:Wait()
-    nc:Disconnect(); bv:Destroy()
+    if #Servers > 0 then TeleportService:TeleportToPlaceInstance(PlaceId, Servers[math.random(1, #Servers)], LP)
+    else TeleportService:Teleport(PlaceId, LP) end
 end
 
-----------------------------------------------------------------
--- [4] GIAO DIỆN PHÂN NHÓM
-----------------------------------------------------------------
-local sg = Instance.new("ScreenGui", CG); sg.Name = "KumaV89"
+-- UI
+local sg = Instance.new("ScreenGui", CG); sg.Name = "KumaV106"
 local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 260, 0, 420); main.Position = UDim2.new(0.05, 0, 0.2, 0)
+main.Size = UDim2.new(0, 260, 0, 480); main.Position = UDim2.new(0.05, 0, 0.2, 0)
 main.BackgroundColor3 = Color3.fromRGB(15, 15, 15); main.BorderSizePixel = 0; main.Active = true; main.Draggable = true
 
+local minBtn = Instance.new("TextButton", main)
+minBtn.Size = UDim2.new(0, 35, 0, 35); minBtn.Position = UDim2.new(1, -35, 0, 0); minBtn.Text = "-"; minBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40); minBtn.TextColor3 = Color3.new(1, 1, 1)
+
 local title = Instance.new("TextLabel", main)
-title.Size = UDim2.new(1, -35, 0, 35); title.Text = " 🐉 KUMA HUB V89 - FIXED ESP"; title.BackgroundColor3 = Color3.fromRGB(30, 30, 30); title.TextColor3 = Color3.new(1, 1, 1); title.TextXAlignment = Enum.TextXAlignment.Left
+title.Size = UDim2.new(1, -40, 0, 35); title.Text = " 🐉 KUMA V106 - RAINBOW"; title.BackgroundColor3 = Color3.fromRGB(30, 30, 30); title.TextColor3 = Color3.new(1, 1, 1)
 
 local content = Instance.new("ScrollingFrame", main)
-content.Size = UDim2.new(1, 0, 1, -40); content.Position = UDim2.new(0, 0, 0, 40); content.BackgroundTransparency = 1; content.CanvasSize = UDim2.new(0, 0, 3.5, 0)
+content.Size = UDim2.new(1, 0, 1, -40); content.Position = UDim2.new(0, 0, 0, 40); content.BackgroundTransparency = 1; content.CanvasSize = UDim2.new(0, 0, 5, 0)
 Instance.new("UIListLayout", content).Padding = UDim.new(0, 5); Instance.new("UIPadding", content).PaddingLeft = UDim.new(0, 10)
 
-local toggleFarm = Instance.new("TextButton", content)
-toggleFarm.Size = UDim2.new(0.92, 0, 0, 40); toggleFarm.Text = "AUTO FARM: OFF"; toggleFarm.BackgroundColor3 = Color3.fromRGB(120, 30, 30); toggleFarm.TextColor3 = Color3.new(1,1,1); toggleFarm.BorderSizePixel = 0
+local scanBtn = Instance.new("TextButton", content)
+scanBtn.Size = UDim2.new(0.92, 0, 0, 40); scanBtn.Text = "🔄 SCAN ITEMS"; scanBtn.BackgroundColor3 = Color3.fromRGB(30, 80, 150); scanBtn.TextColor3 = Color3.new(1,1,1)
 
-local function createGroup(label, height)
-    Instance.new("TextLabel", content).Text = "--- " .. label .. " ---"; content.TextLabel.Size = UDim2.new(0.9, 0, 0, 20); content.TextLabel.BackgroundTransparency = 1; content.TextLabel.TextColor3 = Color3.new(0.6,0.6,0.6)
-    local sc = Instance.new("ScrollingFrame", content); sc.Size = UDim2.new(0.92, 0, 0, height); sc.BackgroundColor3 = Color3.fromRGB(25, 25, 25); sc.BorderSizePixel = 0
-    Instance.new("UIListLayout", sc).Padding = UDim.new(0, 2); return sc
-end
+local autoScanBtn = Instance.new("TextButton", content)
+autoScanBtn.Size = UDim2.new(0.92, 0, 0, 40); autoScanBtn.Text = "🤖 AUTO SCAN: OFF"; autoScanBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60); autoScanBtn.TextColor3 = Color3.new(1,1,1)
 
-local gFlame = createGroup("CHỌN LỬA", 80); local gManual = createGroup("CHỌN SÁCH", 80); local gHerb = createGroup("CHỌN CỎ", 80)
+local hopBtn = Instance.new("TextButton", content)
+hopBtn.Size = UDim2.new(0.92, 0, 0, 40); hopBtn.Text = "🚀 SERVER HOP"; hopBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50); hopBtn.TextColor3 = Color3.new(1,1,1)
 
-local function fillList(list, parent, color)
-    local sorted = {} for n in pairs(list) do table.insert(sorted, n) end
-    table.sort(sorted)
-    for _, name in pairs(sorted) do
-        local b = Instance.new("TextButton", parent); b.Size = UDim2.new(1, -10, 0, 28); b.Text = name; b.BackgroundColor3 = color; b.TextColor3 = Color3.new(1,1,1); b.BorderSizePixel = 0
-        b.MouseButton1Click:Connect(function()
-            local idx = table.find(_G.Config.Selected, name)
-            if not idx then table.insert(_G.Config.Selected, name); b.BackgroundColor3 = Color3.fromRGB(30, 150, 30)
-            else table.remove(_G.Config.Selected, idx); b.BackgroundColor3 = color end
-        end)
-    end
-end
+local listFrame = Instance.new("ScrollingFrame", content)
+listFrame.Size = UDim2.new(0.92, 0, 0, 260); listFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25); listFrame.CanvasSize = UDim2.new(0,0,15,0)
+Instance.new("UIListLayout", listFrame).Padding = UDim.new(0, 2)
 
-fillList(flameLookup, gFlame, Color3.fromRGB(60, 30, 15))
-fillList(manualLookup, gManual, Color3.fromRGB(60, 50, 15))
-
-task.spawn(function()
-    local rep = game.ReplicatedStorage:WaitForChild("Herbs", 5)
-    if rep then
-        local names = {} for _, v in pairs(rep:GetChildren()) do names[v.Name] = true end
-        fillList(names, gHerb, Color3.fromRGB(35, 35, 35))
-    end
-end)
-
-----------------------------------------------------------------
--- [5] SMART SCANNER (FIXED FOR MANUAL/FLAME)
-----------------------------------------------------------------
-task.spawn(function()
-    while IsAlive() do
-        local tempCache = {}
-        -- Quét toàn bộ Descendants nhưng có nghỉ frame để chống lag
-        local all = workspace:GetDescendants()
-        for i = 1, #all do
-            if not IsAlive() then break end
-            local v = all[i]
-            -- Chỉ quan tâm vật phẩm có ProximityPrompt
-            local prompt = v:FindFirstChildWhichIsA("ProximityPrompt", true)
-            if prompt then
-                table.insert(tempCache, {o = v, p = prompt, n = v.Name})
-            end
-            if i % 300 == 0 then RS.Heartbeat:Wait() end
-        end
-        ItemCache = tempCache
-        task.wait(5) 
-    end
-end)
-
-----------------------------------------------------------------
--- [6] FARM LOOP
-----------------------------------------------------------------
-task.spawn(function()
-    while IsAlive() do
-        if _G.Config.Enabled and #_G.Config.Selected > 0 then
-            pcall(function()
-                local hrp = LP.Character.HumanoidRootPart
-                local target, prompt; local d = 4000
-                for i = 1, #ItemCache do
-                    local item = ItemCache[i]
-                    if table.find(_G.Config.Selected, item.n) and item.o.Parent then
-                        local o = item.o:IsA("BasePart") and item.o or item.o:FindFirstChildWhichIsA("BasePart", true)
-                        if o then
-                            local dist = (o.Position - hrp.Position).Magnitude
-                            if dist < d then d = dist; target = o; prompt = item.p end
-                        end
-                    end
+-- LOGIC SCAN
+local function ScanLive()
+    local found = {}
+    local tempCache = {}
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if not IsAlive() then break end
+        local prompt = v:FindFirstChildWhichIsA("ProximityPrompt", true)
+        if prompt then
+            local realName = GetRealName(prompt)
+            table.insert(tempCache, {o = v, p = prompt, n = realName})
+            if not found[realName] then
+                found[realName] = true
+                if not listFrame:FindFirstChild(realName) then
+                    local b = Instance.new("TextButton", listFrame)
+                    b.Name = realName; b.Size = UDim2.new(1, -10, 0, 28); b.Text = realName; b.BackgroundColor3 = Color3.fromRGB(45, 45, 45); b.TextColor3 = Color3.new(1,1,1)
+                    b.MouseButton1Click:Connect(function()
+                        local idx = table.find(_G.Config.Tracking, realName)
+                        if not idx then table.insert(_G.Config.Tracking, realName); b.BackgroundColor3 = Color3.fromRGB(30, 150, 30)
+                        else table.remove(_G.Config.Tracking, idx); b.BackgroundColor3 = Color3.fromRGB(45, 45, 45) end
+                    end)
                 end
-                if target then MoveV69(target); fireproximityprompt(prompt); task.wait(0.2) end
-            end)
+            end
         end
-        task.wait(0.5)
     end
+    ItemCache = tempCache
+end
+
+scanBtn.MouseButton1Click:Connect(ScanLive)
+autoScanBtn.MouseButton1Click:Connect(function()
+    _G.Config.AutoScan = not _G.Config.AutoScan
+    autoScanBtn.Text = "🤖 AUTO SCAN: " .. (_G.Config.AutoScan and "ON" or "OFF")
+    autoScanBtn.BackgroundColor3 = _G.Config.AutoScan and Color3.fromRGB(30, 150, 30) or Color3.fromRGB(60, 60, 60)
 end)
+hopBtn.MouseButton1Click:Connect(HopServer)
 
 ----------------------------------------------------------------
--- [7] ESP SYSTEM (SỬA LỖI KHÔNG HIỆN)
+-- HỆ THỐNG ESP SIÊU SẶC SỠ (RAINBOW + NEON)
 ----------------------------------------------------------------
-local function CreateESP(obj, text, color)
-    if not obj or not obj.Parent then return end
+local function CreateESP(obj, text, color, isRare)
     local id = "ESP_" .. tostring(obj:GetDebugId())
     if SecureFolder:FindFirstChild(id) then return end
     
     local tag = Instance.new("Folder", SecureFolder); tag.Name = id
-    local hl = Instance.new("Highlight", tag); hl.Adornee = obj; hl.FillColor = color; hl.FillTransparency = 0.7; hl.OutlineColor = Color3.new(1,1,1)
-    local bg = Instance.new("BillboardGui", tag); bg.Adornee = obj; bg.Size = UDim2.new(0, 100, 0, 20); bg.AlwaysOnTop = true; bg.StudsOffset = Vector3.new(0, 3, 0)
-    local tl = Instance.new("TextLabel", bg); tl.Size = UDim2.new(1,0,1,0); tl.BackgroundTransparency = 1; tl.Text = text; tl.TextColor3 = color; tl.Font = Enum.Font.GothamBold; tl.TextSize = 10
+    
+    -- HIGHLIGHT (Khung màu bao quanh vật phẩm)
+    local hl = Instance.new("Highlight", tag)
+    hl.Adornee = obj
+    hl.FillColor = color
+    hl.FillTransparency = 0.2 -- Đậm màu hơn
+    hl.OutlineColor = Color3.new(1, 1, 1)
+    hl.OutlineTransparency = 0
+    
+    -- BILLBOARD (Khung chữ)
+    local bg = Instance.new("BillboardGui", tag)
+    bg.Adornee = obj
+    bg.Size = UDim2.new(0, 250, 0, 50)
+    bg.AlwaysOnTop = true
+    bg.StudsOffset = Vector3.new(0, 5, 0)
+    
+    -- TEXT LABEL (Chữ to, rõ, có nền)
+    local tl = Instance.new("TextLabel", bg)
+    tl.Size = UDim2.new(1, 0, 1, 0)
+    tl.BackgroundTransparency = 0.5 -- Có nền mờ giúp chữ cực rõ
+    tl.BackgroundColor3 = Color3.new(0, 0, 0)
+    tl.Text = ">>> " .. text:upper() .. " <<<"
+    tl.TextColor3 = color
+    tl.Font = Enum.Font.LuckiestGuy -- Font chữ mập và to
+    tl.TextSize = 22 -- Cực to
+    tl.TextStrokeTransparency = 0
+    tl.TextStrokeColor3 = Color3.new(0, 0, 0)
+
+    -- Hiệu ứng cầu vồng cho đồ hiếm
+    if isRare then
+        task.spawn(function()
+            while tag.Parent and IsAlive() do
+                local hue = tick() % 3 / 3
+                local rainbowColor = Color3.fromHSV(hue, 1, 1)
+                tl.TextColor3 = rainbowColor
+                hl.FillColor = rainbowColor
+                task.wait()
+            end
+        end)
+    end
 end
 
 task.spawn(function()
     while IsAlive() do
-        SecureFolder:ClearAllChildren() -- Làm mới ESP
-        for i = 1, #ItemCache do
-            local v = ItemCache[i].o
-            if not v.Parent then continue end
-            
-            local nameLow = v.Name:lower()
-            local age = v:GetAttribute("Age") or 0
-            
-            -- Kiểm tra Flame
-            if flameLookup[nameLow] and _G.Config.ESP.Flames then
-                CreateESP(v, "🔥 " .. v.Name, Color3.new(1, 0.3, 0))
-            -- Kiểm tra Manual
-            elseif manualLookup[nameLow] and _G.Config.ESP.Manuals then
-                CreateESP(v, "📖 " .. v.Name, Color3.new(1, 0.9, 0))
-            -- Kiểm tra Cỏ theo năm
-            elseif v.Parent.Name == "Herbs" or workspace:FindFirstChild("Herbs") then
-                if _G.Config.ESP.Age1000 and age >= 1000 then CreateESP(v, v.Name.." [1000Y]", Color3.new(1, 0, 1))
-                elseif _G.Config.ESP.Age100 and age >= 100 then CreateESP(v, v.Name.." [100Y]", Color3.new(0, 0.8, 1))
-                elseif _G.Config.ESP.Age10 and age >= 10 then CreateESP(v, v.Name.." [10Y]", Color3.new(1, 1, 1)) end
+        SecureFolder:ClearAllChildren()
+        if #_G.Config.Tracking > 0 then
+            for i = 1, #ItemCache do
+                local item = ItemCache[i]
+                if item.o and item.o.Parent and table.find(_G.Config.Tracking, item.n) then
+                    local color = Color3.fromRGB(0, 255, 100) -- Mặc định là xanh Neon
+                    local isRare = false
+                    local lowName = item.n:lower()
+                    
+                    if lowName:find("flame") or lowName:find("sutra") or lowName:find("manual") then
+                        color = Color3.fromRGB(255, 255, 0) -- Vàng rực
+                        isRare = true -- Đồ cực hiếm sẽ có cầu vồng
+                    elseif item.o:GetAttribute("Age") then
+                        local age = item.o:GetAttribute("Age")
+                        if age >= 1000 then 
+                            color = Color3.fromRGB(255, 0, 255); isRare = true 
+                        elseif age >= 100 then 
+                            color = Color3.fromRGB(0, 255, 255) 
+                        end
+                    end
+                    CreateESP(item.o, item.n, color, isRare)
+                end
             end
-            if i % 100 == 0 then RS.Heartbeat:Wait() end
         end
-        task.wait(2.5) -- Tần suất làm mới ESP
+        task.wait(2)
     end
 end)
 
-----------------------------------------------------------------
--- [8] UI TOGGLES
-----------------------------------------------------------------
-local function addEspBtn(txt, key)
-    local b = Instance.new("TextButton", content)
-    b.Size = UDim2.new(0.92, 0, 0, 30); b.Text = txt .. ": OFF"; b.BackgroundColor3 = Color3.fromRGB(45, 45, 45); b.TextColor3 = Color3.new(1,1,1); b.BorderSizePixel = 0
-    b.MouseButton1Click:Connect(function()
-        _G.Config.ESP[key] = not _G.Config.ESP[key]
-        b.Text = txt .. (_G.Config.ESP[key] and ": ON" or ": OFF")
-        b.BackgroundColor3 = _G.Config.ESP[key] and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(45, 45, 45)
-    end)
-end
-
-toggleFarm.MouseButton1Click:Connect(function()
-    _G.Config.Enabled = not _G.Config.Enabled
-    toggleFarm.Text = "AUTO FARM: " .. (_G.Config.Enabled and "ON" or "OFF")
-    toggleFarm.BackgroundColor3 = _G.Config.Enabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(120, 30, 30)
+-- Thu nhỏ
+local minimized = false
+minBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    content.Visible = not minimized
+    main:TweenSize(minimized and UDim2.new(0, 260, 0, 35) or UDim2.new(0, 260, 0, 480), "Out", "Quad", 0.3, true)
+    minBtn.Text = minimized and "+" or "-"
 end)
 
-Instance.new("TextLabel", content).Text = "--- THIẾT LẬP ESP ---"; content.TextLabel.Size = UDim2.new(0.9, 0, 0, 20); content.TextLabel.BackgroundTransparency = 1; content.TextLabel.TextColor3 = Color3.new(0.6,0.6,0.6)
-addEspBtn("ESP Flames", "Flames"); addEspBtn("ESP Manuals", "Manuals"); addEspBtn("ESP Cỏ 10Y", "Age10"); addEspBtn("ESP Cỏ 100Y", "Age100"); addEspBtn("ESP Cỏ 1000Y", "Age1000")
-
-print("✅ KUMA HUB V89 LOADED - PRECISION SCAN")
+task.spawn(ScanLive)
+print("✅ KUMA HUB V106 - RAINBOW ESP READY")
