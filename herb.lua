@@ -1,15 +1,15 @@
 --==============================================================
---  KUMA HUB V155 - HYBRID (V154 UI + V139 INTERACT)
+--  KUMA HUB V161 - GHOST ESP (FIX STREAMING ENABLED)
 --==============================================================
 
 local ScriptID = tick()
 _G.KumaInstanceID = ScriptID
 local function IsAlive() return _G.KumaInstanceID == ScriptID end
 
--- Dọn dẹp UI cũ
+-- Dọn dẹp
 pcall(function()
     for _, v in pairs(game:GetService("CoreGui"):GetChildren()) do
-        if v.Name:find("Kuma") or v.Name:find("Secure") then v:Destroy() end
+        if v.Name:find("Kuma") or v.Name:find("Secure") or v.Name:find("ESP") then v:Destroy() end
     end
 end)
 
@@ -20,6 +20,8 @@ local LP = game:GetService("Players").LocalPlayer
 local CG = game:GetService("CoreGui")
 local VIM = game:GetService("VirtualInputManager")
 local WS = game:GetService("Workspace")
+local RS = game:GetService("RunService")
+local PLRS = game:GetService("Players")
 
 -- === CONFIG & DATA ===
 local PRESET_LIST = {
@@ -31,36 +33,31 @@ _G.Config = {
     Tracking = {},       
     AutoLoot = false,
     FarmAll = false,     
-    HoldDelay = 0.2,     -- Theo V139
-    SyncDelay = 0.6,     -- Theo V139
+    HoldDelay = 0.2,     
+    SyncDelay = 0.6,     
     ScanInterval = 5,
     AutoReturn = false,   
     SavedPosition = nil,
-    
-    -- Config Sequence (V154)
-    KeySequence = {},    
-    SequenceDelay = 1.0, 
-    TempKey = "Z",
     ExtraKeys = {},    
-    ExtraKeyDelay = 1.0
+    ExtraKeyDelay = 1.0,
+    TempKey = "Z"
 }
 
 local GlobalCache = {} 
-local FailedList = {} -- Dùng kiểu V139: FailedList[Instance] = true
-local SecureFolder = Instance.new("Folder", CG); SecureFolder.Name = "KumaSecure_Hybrid"
+local FailedList = {} 
+local SecureFolder = Instance.new("Folder", CG); SecureFolder.Name = "KumaSecure_Final"
 
--- === GIAO DIỆN RAYFIELD (V154) ===
+-- === GIAO DIỆN ===
 local Window = Rayfield:CreateWindow({
-   Name = "🦗 KUMA HUB V155 | Hybrid Logic",
+   Name = "🦗 KUMA HUB V161 | Ghost ESP",
    LoadingTitle = "Loading...",
-   LoadingSubtitle = "V139 Interact + V154 Return",
+   LoadingSubtitle = "Fixing 1500 Studs Limit",
    ConfigurationSaving = { Enabled = false },
    KeySystem = false,
 })
 
 -- === TAB 1: MAIN FARMING ===
 local TabMain = Window:CreateTab("🏠 Main Farming", 4483362458)
-
 local SectionStatus = TabMain:CreateSection("Status")
 local StatusLabel = TabMain:CreateLabel("Status: Idle")
 
@@ -84,8 +81,7 @@ TabMain:CreateToggle({
    Callback = function(Value) _G.Config.FarmAll = Value end,
 })
 
-local SectionReturn = TabMain:CreateSection("Auto Return")
-
+TabMain:CreateSection("Auto Return")
 TabMain:CreateButton({
    Name = "📍 Save Current Position",
    Callback = function()
@@ -103,60 +99,33 @@ TabMain:CreateToggle({
    Callback = function(Value) _G.Config.AutoReturn = Value end,
 })
 
--- === TAB 2: EXTRA KEYS (V154) ===
+-- === TAB 2: EXTRA KEYS ===
 local TabKeys = Window:CreateTab("🎹 Extra Keys", 4483362458)
-TabKeys:CreateSection("Add Skills (Press AFTER 'C')")
+TabKeys:CreateSection("Skills to press AFTER 'C'")
 
 local SequenceDisplay = TabKeys:CreateLabel("Extra Keys: [ None ]")
-
 local function UpdateDisplay()
-    if #_G.Config.ExtraKeys == 0 then
-        SequenceDisplay:Set("Extra Keys: [ None ]")
-    else
-        SequenceDisplay:Set("Extra Keys: " .. table.concat(_G.Config.ExtraKeys, " -> "))
-    end
+    if #_G.Config.ExtraKeys == 0 then SequenceDisplay:Set("Extra Keys: [ None ]")
+    else SequenceDisplay:Set("Extra Keys: " .. table.concat(_G.Config.ExtraKeys, " -> ")) end
 end
 
-TabKeys:CreateSlider({
-   Name = "Delay Between Keys",
-   Range = {0.1, 3}, Increment = 0.1, Suffix = "s", CurrentValue = 1.0,
-   Callback = function(Value) _G.Config.ExtraKeyDelay = Value end,
-})
-
+TabKeys:CreateSlider({ Name = "Delay Between Keys", Range = {0.1, 3}, Increment = 0.1, Suffix = "s", CurrentValue = 1.0, Callback = function(V) _G.Config.ExtraKeyDelay = V end})
 local AvailableKeys = {"Z", "X", "V", "Q", "E", "R", "T", "Y", "U", "Space"}
-TabKeys:CreateDropdown({
-   Name = "Select Key",
-   Options = AvailableKeys,
-   CurrentOption = "Z",
-   Callback = function(Option) _G.Config.TempKey = Option[1] end,
-})
+TabKeys:CreateDropdown({ Name = "Select Key", Options = AvailableKeys, CurrentOption = "Z", Callback = function(Option) _G.Config.TempKey = Option[1] end})
+TabKeys:CreateButton({ Name = "➕ Add Key", Callback = function() table.insert(_G.Config.ExtraKeys, _G.Config.TempKey); UpdateDisplay() end})
+TabKeys:CreateButton({ Name = "🗑 Clear Extra Keys", Callback = function() _G.Config.ExtraKeys = {}; UpdateDisplay() end})
 
-TabKeys:CreateButton({
-   Name = "➕ Add Key",
-   Callback = function()
-        table.insert(_G.Config.ExtraKeys, _G.Config.TempKey)
-        UpdateDisplay()
-    end,
-})
-
-TabKeys:CreateButton({
-   Name = "🗑 Clear Extra Keys",
-   Callback = function() _G.Config.ExtraKeys = {}; UpdateDisplay() end,
-})
-
--- === SETTINGS (V154) ===
+-- === SETTINGS ===
 local TabSettings = Window:CreateTab("⚙ Settings", 4483362458)
 TabSettings:CreateSlider({ Name = "TP Wait Time", Range = {0.1, 5}, Increment = 0.1, Suffix = "s", CurrentValue = 0.6, Callback = function(V) _G.Config.SyncDelay = V end})
 TabSettings:CreateSlider({ Name = "Hold Extra Time", Range = {0, 4}, Increment = 0.1, Suffix = "s", CurrentValue = 3.0, Callback = function(V) _G.Config.HoldDelay = V end})
-TabSettings:CreateButton({ Name = "🛠 Force Re-Scan", Callback = function() _G.ForceUpdate = true end })
-
 local TabFilter = Window:CreateTab("📜 Item Filter", 4483362458)
 TabFilter:CreateButton({ Name = "Select All", Callback = function() _G.Config.Tracking={}; for _,v in ipairs(PRESET_LIST) do table.insert(_G.Config.Tracking,v) end; _G.ForceUpdate=true end})
 TabFilter:CreateButton({ Name = "Deselect All", Callback = function() _G.Config.Tracking={}; _G.ForceUpdate=true end })
 for _, item in ipairs(PRESET_LIST) do TabFilter:CreateToggle({ Name = item, CurrentValue = false, Callback = function(V) if V then table.insert(_G.Config.Tracking, item) else for i,v in ipairs(_G.Config.Tracking) do if v==item then table.remove(_G.Config.Tracking, i) end end end _G.ForceUpdate=true end}) end
 
 --==============================================================
--- CORE LOGIC (HYBRID: SCAN/INTERACT OF V139 + RETURN OF V154)
+-- CORE LOGIC (V139 + V154)
 --==============================================================
 
 local function IsValidTarget(name)
@@ -164,7 +133,6 @@ local function IsValidTarget(name)
     return nil
 end
 
--- [LOGIC V139] Tìm Prompt/Click ngay từ lúc Scan
 local function FindInteractable(model)
     local prompt = model:FindFirstChildWhichIsA("ProximityPrompt", true)
     if prompt then return prompt, "Prompt" end
@@ -173,7 +141,6 @@ local function FindInteractable(model)
     return nil, nil
 end
 
--- [LOGIC V154] Hàm Return giữ nguyên
 local function PerformAutoReturn()
     if not _G.Config.AutoReturn or not _G.Config.SavedPosition then return end
     
@@ -183,18 +150,14 @@ local function PerformAutoReturn()
     if not hrp then return end
 
     StatusLabel:Set("Status: Returning...")
-    
-    -- TP Về
     hrp.CFrame = _G.Config.SavedPosition
     task.wait(0.5)
 
-    -- Bấm C
     StatusLabel:Set("Status: Pressing 'C'...")
     VIM:SendKeyEvent(true, Enum.KeyCode.C, false, game)
     task.wait(0.1)
     VIM:SendKeyEvent(false, Enum.KeyCode.C, false, game)
     
-    -- Bấm phím phụ
     if #_G.Config.ExtraKeys > 0 then
         for _, keyName in ipairs(_G.Config.ExtraKeys) do
             task.wait(_G.Config.ExtraKeyDelay)
@@ -207,11 +170,9 @@ local function PerformAutoReturn()
             end
         end
     end
-    
     StatusLabel:Set("Status: Cultivating...")
 end
 
--- [LOGIC V139] Hàm Scan cải tiến
 function UpdateCache()
     if not _G.Config.AutoLoot then return end
     StatusLabel:Set("Status: Scanning Models...")
@@ -224,10 +185,8 @@ function UpdateCache()
                 local lbl = bb:FindFirstChildWhichIsA("TextLabel", true)
                 if lbl and lbl.Text ~= "" then rawName = lbl.Text end
             end
-            
             local validName = IsValidTarget(rawName)
             if validName then 
-                -- V139: Lưu luôn Instance (Prompt/Click) vào cache
                 local interactObj, type = FindInteractable(v)
                 if interactObj then
                     table.insert(tempCache, { Name = validName, Obj = v, Instance = interactObj, Type = type })
@@ -239,7 +198,6 @@ function UpdateCache()
     StatusLabel:Set("Status: Found " .. #GlobalCache .. " targets.")
 end
 
--- [LOGIC V139] Hàm Ổn định nhân vật
 local function Stabilize(hrp)
     if not hrp then return end
     hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
@@ -257,15 +215,12 @@ task.spawn(function()
     end
 end)
 
--- [LOGIC V139 + V154 Return] Hàm Nhặt đồ thay thế
 local function Interact(item)
     local char = LP.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     local hrp = char.HumanoidRootPart
     
     StatusLabel:Set("Target: " .. item.Name)
-    
-    -- V139: Zero Velocity trước khi TP
     hrp.AssemblyLinearVelocity = Vector3.zero
     
     local targetPos = item.Obj.GetPivot and item.Obj:GetPivot().Position or item.Obj.CFrame.Position
@@ -273,25 +228,18 @@ local function Interact(item)
     
     task.wait(_G.Config.SyncDelay)
     
-    -- V139: Stabilize + Anchor
     Stabilize(hrp)
-    hrp.Anchored = true
+    hrp.Anchored = true 
     
-    -- V139: Check khoảng cách sau khi TP (Chống lag)
     if (hrp.Position - targetPos).Magnitude > 15 then
         StatusLabel:Set("Status: Too far (Lag), Retrying...")
-        hrp.Anchored = false
-        task.wait(0.2)
-        return -- Thoát để thử lại sau
+        hrp.Anchored = false; task.wait(0.2); return 
     end
 
     local holdTime = 0
-    if item.Type == "Prompt" then 
-        holdTime = item.Instance.HoldDuration + _G.Config.HoldDelay 
-    end
+    if item.Type == "Prompt" then holdTime = item.Instance.HoldDuration + _G.Config.HoldDelay end
     
     local attempts = 0
-    -- V139: Check item.Instance.Parent trong vòng lặp
     while attempts < 3 and item.Instance.Parent and IsAlive() and _G.Config.AutoLoot do
         attempts = attempts + 1
         if item.Type == "Prompt" then
@@ -302,38 +250,26 @@ local function Interact(item)
         if not item.Instance.Parent then break else task.wait(0.2) end
     end
     
-    hrp.Anchored = false
-    
-    -- V139: Đưa vào FailedList nếu nhặt không thành công (mà item vẫn còn)
+    hrp.Anchored = false 
     if item.Instance.Parent then FailedList[item.Instance] = true end
-    
-    -- Xóa khỏi Cache hiện tại
     for i, v in ipairs(GlobalCache) do if v.Instance == item.Instance then table.remove(GlobalCache, i); break end end
-    
-    -- GỌI AUTO RETURN (Của V154)
     PerformAutoReturn()
     task.wait(0.1)
 end
 
--- Main Loop
 task.spawn(function()
     while IsAlive() do
         local myPos = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and LP.Character.HumanoidRootPart.Position
         if myPos then
             SecureFolder:ClearAllChildren()
             local bestItem, minDst = nil, 999999
-            
             for _, item in ipairs(GlobalCache) do
                 if item.Instance and item.Instance.Parent then
-                    -- Check FailedList kiểu V139
                     if not FailedList[item.Instance] then
                         local isSelected = table.find(_G.Config.Tracking, item.Name)
                         local isFarmAll = _G.Config.FarmAll
                         local itemPos = item.Obj.GetPivot and item.Obj:GetPivot().Position or item.Obj.Position
                         local dist = (itemPos - myPos).Magnitude
-                        
-                        -- ESP (Giản lược)
-                        
                         if _G.Config.AutoLoot and (isSelected or isFarmAll) then
                             if dist < minDst then minDst = dist; bestItem = item end
                         end
@@ -351,16 +287,138 @@ LP.CharacterAdded:Connect(function(newChar)
     if _G.Config.AutoReturn and _G.Config.SavedPosition then
         task.spawn(function()
             local hrp = newChar:WaitForChild("HumanoidRootPart", 20)
-            if hrp then
-                task.wait(1.5)
-                PerformAutoReturn()
-            end
+            if hrp then task.wait(1.5); PerformAutoReturn() end
         end)
     end
 end)
 
+-- === [GHOST ESP - FIX 1500 STUDS] ===
+local TabESP = Window:CreateTab("👁 Ghost ESP", 4483362458)
+
+local ESP_Config = { 
+    Enabled = false, 
+    Holder = nil, 
+    Conn = nil,
+    LastKnownPositions = {} -- [MỚI] Lưu vị trí cuối cùng
+}
+
+local function CleanupESP()
+    if ESP_Config.Holder then ESP_Config.Holder:Destroy(); ESP_Config.Holder = nil end
+    if ESP_Config.Conn then ESP_Config.Conn:Disconnect(); ESP_Config.Conn = nil end
+end
+
+local function CreateBillboard(name, color, text)
+    if not ESP_Config.Holder then return nil end
+    local bg = Instance.new("BillboardGui", ESP_Config.Holder)
+    bg.Name = "ESP_" .. name
+    bg.Size = UDim2.new(0, 200, 0, 50)
+    bg.AlwaysOnTop = true 
+    bg.StudsOffset = Vector3.new(0, 4, 0)
+    bg.MaxDistance = math.huge 
+    
+    local lbl = Instance.new("TextLabel", bg)
+    lbl.Size = UDim2.new(1,0,1,0)
+    lbl.BackgroundTransparency = 1
+    lbl.TextColor3 = color
+    lbl.TextStrokeTransparency = 0 
+    lbl.Font = Enum.Font.GothamBlack 
+    lbl.TextSize = 13
+    lbl.Text = text
+    return bg
+end
+
+local function InitESP()
+    CleanupESP()
+    if not ESP_Config.Enabled then return end
+    
+    ESP_Config.Holder = Instance.new("Folder", CG); ESP_Config.Holder.Name = "KumaESP_V161"
+    
+    ESP_Config.Conn = RS.RenderStepped:Connect(function()
+        if not ESP_Config.Enabled then CleanupESP(); return end
+        
+        -- Dọn dẹp cache nếu người chơi out
+        for plrName, _ in pairs(ESP_Config.LastKnownPositions) do
+            if not PLRS:FindFirstChild(plrName) then
+                ESP_Config.LastKnownPositions[plrName] = nil
+                local bg = ESP_Config.Holder:FindFirstChild("ESP_" .. plrName)
+                if bg then bg:Destroy() end
+            end
+        end
+        
+        for _, plr in ipairs(PLRS:GetPlayers()) do
+            if plr ~= LP then
+                -- Check xem nhân vật có tồn tại (Trong tầm nhìn)
+                local char = plr.Character
+                local rootPart = char and char:FindFirstChild("HumanoidRootPart")
+                
+                local bg = ESP_Config.Holder:FindFirstChild("ESP_" .. plr.Name)
+                local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                local distText = "?"
+                
+                if rootPart then
+                    -- TRƯỜNG HỢP 1: NHÌN THẤY (XANH)
+                    -- Cập nhật vị trí mới nhất
+                    ESP_Config.LastKnownPositions[plr.Name] = rootPart.Position
+                    
+                    if not bg then bg = CreateBillboard(plr.Name, Color3.fromRGB(0, 255, 100), "") end
+                    
+                    bg.Adornee = rootPart
+                    bg.StudsOffset = Vector3.new(0, 4, 0)
+                    
+                    local lbl = bg:FindFirstChildWhichIsA("TextLabel")
+                    lbl.TextColor3 = Color3.fromRGB(0, 255, 100) -- Xanh lá
+                    
+                    if myHrp then
+                        local dist = math.floor((myHrp.Position - rootPart.Position).Magnitude)
+                        distText = tostring(dist) .. "m"
+                    end
+                    lbl.Text = plr.Name .. "\n[" .. distText .. "]"
+                    
+                elseif ESP_Config.LastKnownPositions[plr.Name] then
+                    -- TRƯỜNG HỢP 2: KHÔNG THẤY NHƯNG ĐÃ TỪNG GẶP (ĐỎ - GHOST)
+                    if not bg then bg = CreateBillboard(plr.Name, Color3.fromRGB(255, 50, 50), "") end
+                    
+                    bg.Adornee = nil -- Gỡ khỏi nhân vật (vì nhân vật đã mất)
+                    bg.Parent = ESP_Config.Holder -- Đảm bảo còn tồn tại
+                    
+                    -- Tạo một part ảo để gắn vào nếu chưa có
+                    local ghostPart = ESP_Config.Holder:FindFirstChild("Ghost_" .. plr.Name)
+                    if not ghostPart then
+                        ghostPart = Instance.new("Part", ESP_Config.Holder)
+                        ghostPart.Name = "Ghost_" .. plr.Name
+                        ghostPart.Size = Vector3.new(1,1,1)
+                        ghostPart.Anchored = true
+                        ghostPart.Transparency = 1
+                        ghostPart.CanCollide = false
+                    end
+                    ghostPart.Position = ESP_Config.LastKnownPositions[plr.Name]
+                    bg.Adornee = ghostPart
+                    
+                    local lbl = bg:FindFirstChildWhichIsA("TextLabel")
+                    lbl.TextColor3 = Color3.fromRGB(255, 50, 50) -- Đỏ
+                    
+                    if myHrp then
+                        local dist = math.floor((myHrp.Position - ghostPart.Position).Magnitude)
+                        distText = tostring(dist) .. "m"
+                    end
+                    lbl.Text = plr.Name .. "\n[Last Seen: " .. distText .. "]"
+                end
+            end
+        end
+    end)
+end
+
+TabESP:CreateToggle({
+   Name = "Enable Ghost ESP",
+   CurrentValue = false,
+   Callback = function(Value)
+       ESP_Config.Enabled = Value
+       if Value then InitESP() else CleanupESP() end
+   end,
+})
+
 Rayfield:Notify({
-   Title = "KUMA HUB V155",
-   Content = "V139 Interact + V154 Return",
+   Title = "KUMA HUB V161",
+   Content = "Ghost ESP (Fix 1500 limit)",
    Duration = 5,
 })
