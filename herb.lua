@@ -1,6 +1,7 @@
 --==============================================================
---  KUMA HUB V167 - FIXED V2 (Auto Return Death Logic)
---  Layout: Farm | Teleport | Misc | Settings
+--  KUMA HUB V167 - FIXED V3 (Final Optimized)
+--  Removed: Return After Map Clear
+--  Kept: Auto Return Death & All Logic
 --==============================================================
 
 local ScriptID = tick()
@@ -40,7 +41,6 @@ _G.Config = {
     SyncDelay = 0.6,     
     ScanInterval = 1000, 
     AutoReturnDeath = false, -- Tự quay lại khi chết
-    ReturnOnFinish = false, 
     SavedPosition = nil,
     TempKey = "Z",
     ExtraKeys = {},    
@@ -109,10 +109,10 @@ end
 
 -- === GUI CREATION ===
 local Window = Rayfield:CreateWindow({
-   Name = "🦗 KUMA HUB V167 | FIXED V2",
+   Name = "🦗 KUMA HUB V167 | FIXED V3",
    LoadingTitle = "Loading...",
-   LoadingSubtitle = "Auto Return Death Logic Added",
-   ConfigurationSaving = { Enabled = true, FolderName = "KumaHubConfig", FileName = "SettingsV167_2" },
+   LoadingSubtitle = "Optimized Version",
+   ConfigurationSaving = { Enabled = true, FolderName = "KumaHubConfig", FileName = "SettingsV167_3" },
    KeySystem = false,
 })
 
@@ -180,11 +180,11 @@ for _, item in ipairs(PRESET_LIST) do
 end
 
 -- =============================================================
--- TAB 2: TELE (FIXED LOGIC HERE)
+-- TAB 2: TELE (AUTO RETURN DEATH LOGIC)
 -- =============================================================
 local TabTele = Window:CreateTab("🚀 Tele", 4483362458)
 
--- FUNCTION RETURN THƯỜNG (Manual / Finish Map)
+-- FUNCTION RETURN THƯỜNG (Manual)
 local function PerformAutoReturn(useKeys)
     if not _G.Config.SavedPosition then 
         Rayfield:Notify({Title = "Error", Content = "No Saved Position!", Duration = 2})
@@ -204,8 +204,6 @@ local function PerformAutoReturn(useKeys)
     
     task.wait(0.5) 
     
-    -- NOTE: Đã xóa spam phím "C" mặc định.
-    -- Chỉ dùng Extra Keys nếu được yêu cầu (useKeys = true)
     if useKeys and #_G.Config.ExtraKeys > 0 then
         StatusLabel:Set("Casting Skills...")
         for _, keyName in ipairs(_G.Config.ExtraKeys) do
@@ -253,7 +251,7 @@ end)
 TabTele:CreateSection("Auto Return System")
 TabTele:CreateButton({ Name = "📍 Save Current Position (Return Point)", Callback = function() if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then _G.Config.SavedPosition = LP.Character.HumanoidRootPart.CFrame; Rayfield:Notify({Title="Success", Content="Position Saved"}) end end })
 
--- Nút này là Force Return (Thủ công) -> Không spam skill (theo yêu cầu)
+-- Nút này là Force Return (Thủ công) -> Không spam skill
 TabTele:CreateButton({ Name = "🚨 FORCE RETURN (No Skill)", Callback = function() PerformAutoReturn(false) end })
 
 -- Toggle quan trọng: Tự về khi chết
@@ -268,8 +266,6 @@ TabTele:CreateToggle({
         end
     end 
 })
-
-TabTele:CreateToggle({ Name = "🔄 Return After Map Clear (No Skill)", CurrentValue = false, Flag = "ReturnOnFinish", Callback = function(Value) _G.Config.ReturnOnFinish = Value end })
 
 TabTele:CreateSection("Waypoints Loop")
 local WaypointLabel = TabTele:CreateLabel("Saved Points: 0")
@@ -459,11 +455,6 @@ task.spawn(function()
                         task.wait(0.2)
                     end
                 end
-                
-                if _G.Config.ReturnOnFinish then
-                    PerformAutoReturn(false) -- False = Không xài skill
-                    task.wait(2) 
-                end
             else
                 StatusLabel:Set("Cache Empty. Scan Map First!")
                 task.wait(2)
@@ -496,4 +487,4 @@ end)
 task.spawn(function() while IsAlive() do task.wait(60); if _G.Config.AutoClean then SmartGC() end end end)
 
 Rayfield:LoadConfiguration()
-Rayfield:Notify({Title = "KUMA HUB", Content = "Auto Return Death Logic Loaded!", Duration = 5})
+Rayfield:Notify({Title = "KUMA HUB", Content = "Script Loaded (No ReturnMap)", Duration = 5})
