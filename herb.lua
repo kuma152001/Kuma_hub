@@ -1,7 +1,6 @@
 --==============================================================
---  KUMA HUB V167 - FIXED V3 (Final Optimized)
---  Removed: Return After Map Clear
---  Kept: Auto Return Death & All Logic
+--  KUMA HUB V168 - INTEGRATED CRAFT V20
+--  Features: Farm + Tele + Misc + Settings + AUTO CRAFT (Fixed)
 --==============================================================
 
 local ScriptID = tick()
@@ -26,11 +25,11 @@ local WS = game:GetService("Workspace")
 local RS = game:GetService("RunService")
 local PLRS = game:GetService("Players")
 local LGT = game:GetService("Lighting")
+local RE = game:GetService("ReplicatedStorage")
 
 -- === CONFIG DEFAULT ===
 local PRESET_LIST = {
-    "Ginseng", "Spirit Rose", "Qi Flower", "Qi Berries", "Moon Flower", "Death Flower",
-    
+    "Ginseng", "Spirit Rose", "Qi Flower", "Qi Berries", "Moon Flower", "Death Flower", "Star Grass", "Soul Root"
 }
 
 _G.Config = { 
@@ -40,7 +39,7 @@ _G.Config = {
     HoldDelay = 0.2,     
     SyncDelay = 0.6,     
     ScanInterval = 1000, 
-    AutoReturnDeath = false, -- Tự quay lại khi chết
+    AutoReturnDeath = false, 
     SavedPosition = nil,
     TempKey = "Z",
     ExtraKeys = {},    
@@ -49,12 +48,39 @@ _G.Config = {
     WaypointDelay = 2,
     AutoWaypoint = false, 
     AutoClean = true,
-    FPSBoost = false
+    FPSBoost = false,
+    -- Craft Config
+    CraftEnabled = false,
+    CraftRecipe = "Lesser Qi Condensation Pill",
+    CraftYear = "100000 Year",
+    CraftAmount = 1,
+    CraftLevel = 10
 }
 
 local LocationCache = {} 
 local IsReturning = false 
-local SecureFolder = Instance.new("Folder", CG); SecureFolder.Name = "KumaSecure_V167"
+local SecureFolder = Instance.new("Folder", CG); SecureFolder.Name = "KumaSecure_V168"
+
+-- === CRAFT DATA (V20 Logic) ===
+local YearToGrade = {
+    ["100000 Year"] = 6, -- GR6
+    ["10000 Year"]  = 5, -- GR5
+    ["1000 Year"]   = 4, -- GR4
+    ["100 Year"]    = 3, -- GR3
+    ["10 Year"]     = 2, -- GR2
+    ["1 Year"]      = 1  -- GR1
+}
+
+local CraftRecipes = {
+    {Name = "Lesser Qi Condensation Pill", Items = {"Qi Berries", "Qi Berries", "Spirit Rose", "Qi Flower"}},
+    {Name = "Refined Qi Flow Pill",        Items = {"Ginseng", "Ginseng", "Spirit Rose", "Qi Flower"}},
+    {Name = "Body Tempering Pill",         Items = {"Qi Berries", "Ginseng", "Qi Flower", "Moon Flower"}},
+    {Name = "Blood Moon Fury Pill",        Items = {"Qi Berries", "Spirit Rose", "Moon Flower", "Death Flower"}},
+    {Name = "Serene Fortune Pill",         Items = {"Spirit Rose", "Spirit Rose", "Death Flower", "Death Flower"}},
+    {Name = "Harvester's Insight Pill",    Items = {"Qi Berries", "Ginseng", "Spirit Rose", "Qi Flower"}},
+    {Name = "Spirit Shield Pill",          Items = {"Ginseng", "Ginseng", "Spirit Rose", "Moon Flower"}},
+    {Name = "Moonlit Destruction Pill",    Items = {"Spirit Rose", "Qi Flower", "Moon Flower", "Death Flower"}}
+}
 
 -- === HELPER FUNCTIONS ===
 local function PressKey(keyName)
@@ -67,9 +93,18 @@ local function PressKey(keyName)
 end
 
 -- === SAVE/LOAD SYSTEM ===
-local FileName = "KumaHub_V167_Data.json"
+local FileName = "KumaHub_V168_Data.json"
 local function SaveCustomData()
-    local data = { Waypoints = {}, ExtraKeys = _G.Config.ExtraKeys, SavedPos = nil }
+    local data = { 
+        Waypoints = {}, 
+        ExtraKeys = _G.Config.ExtraKeys, 
+        SavedPos = nil,
+        CraftConfig = {
+            Year = _G.Config.CraftYear,
+            Recipe = _G.Config.CraftRecipe,
+            Level = _G.Config.CraftLevel
+        }
+    }
     if _G.Config.SavedPosition then
         data.SavedPos = {_G.Config.SavedPosition:GetComponents()}
     end
@@ -87,6 +122,11 @@ local function LoadCustomData()
         end
         if decoded.SavedPos then
             _G.Config.SavedPosition = CFrame.new(unpack(decoded.SavedPos))
+        end
+        if decoded.CraftConfig then
+            _G.Config.CraftYear = decoded.CraftConfig.Year or "100000 Year"
+            _G.Config.CraftRecipe = decoded.CraftConfig.Recipe or "Lesser Qi Condensation Pill"
+            _G.Config.CraftLevel = decoded.CraftConfig.Level or 10
         end
         Rayfield:Notify({Title = "Loaded", Content = "Data Restored", Duration = 1})
     else Rayfield:Notify({Title = "Error", Content = "No Save File", Duration = 1}) end
@@ -109,10 +149,10 @@ end
 
 -- === GUI CREATION ===
 local Window = Rayfield:CreateWindow({
-   Name = "🦗 KUMA HUB V167 | FIXED V3",
+   Name = "🦗 KUMA HUB V168 | CRAFT FIXED",
    LoadingTitle = "Loading...",
-   LoadingSubtitle = "Optimized Version",
-   ConfigurationSaving = { Enabled = true, FolderName = "KumaHubConfig", FileName = "SettingsV167_3" },
+   LoadingSubtitle = "With Auto Craft V20",
+   ConfigurationSaving = { Enabled = true, FolderName = "KumaHubConfig", FileName = "SettingsV168" },
    KeySystem = false,
 })
 
@@ -180,20 +220,17 @@ for _, item in ipairs(PRESET_LIST) do
 end
 
 -- =============================================================
--- TAB 2: TELE (AUTO RETURN DEATH LOGIC)
+-- TAB 2: TELE 
 -- =============================================================
 local TabTele = Window:CreateTab("🚀 Tele", 4483362458)
 
--- FUNCTION RETURN THƯỜNG (Manual)
 local function PerformAutoReturn(useKeys)
     if not _G.Config.SavedPosition then 
         Rayfield:Notify({Title = "Error", Content = "No Saved Position!", Duration = 2})
         return 
     end
-    
     IsReturning = true 
     StatusLabel:Set("Status: Returning...")
-    
     local char = LP.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         local hrp = char.HumanoidRootPart
@@ -201,9 +238,7 @@ local function PerformAutoReturn(useKeys)
         hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
         hrp.CFrame = _G.Config.SavedPosition
     end
-    
     task.wait(0.5) 
-    
     if useKeys and #_G.Config.ExtraKeys > 0 then
         StatusLabel:Set("Casting Skills...")
         for _, keyName in ipairs(_G.Config.ExtraKeys) do
@@ -211,30 +246,22 @@ local function PerformAutoReturn(useKeys)
             PressKey(keyName)
         end
     end
-    
     IsReturning = false 
     StatusLabel:Set("Status: Returned")
 end
 
--- LOGIC AUTO RETURN ON DEATH
 LP.CharacterAdded:Connect(function(newChar)
     if not IsAlive() then return end
     if _G.Config.AutoReturnDeath and _G.Config.SavedPosition then
-        -- Chờ nhân vật load xong
         local hrp = newChar:WaitForChild("HumanoidRootPart", 10)
         local hum = newChar:WaitForChild("Humanoid", 10)
-        
         if hrp and hum then
             StatusLabel:Set("Respawned! Returning...")
-            task.wait(1.5) -- Đợi game load ổn định chút
-            
-            -- Tele về vị trí cũ
+            task.wait(1.5)
             hrp.CFrame = _G.Config.SavedPosition
             hrp.AssemblyLinearVelocity = Vector3.zero
-            
-            -- Sau khi Tele xong thì mới xài Extra Keys
             if #_G.Config.ExtraKeys > 0 then
-                task.wait(0.8) -- Delay sau khi tele
+                task.wait(0.8)
                 Rayfield:Notify({Title = "Auto Return", Content = "Using Extra Keys...", Duration = 2})
                 for _, keyName in ipairs(_G.Config.ExtraKeys) do
                     if hum.Health > 0 then
@@ -250,27 +277,12 @@ end)
 
 TabTele:CreateSection("Auto Return System")
 TabTele:CreateButton({ Name = "📍 Save Current Position (Return Point)", Callback = function() if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then _G.Config.SavedPosition = LP.Character.HumanoidRootPart.CFrame; Rayfield:Notify({Title="Success", Content="Position Saved"}) end end })
-
--- Nút này là Force Return (Thủ công) -> Không spam skill
 TabTele:CreateButton({ Name = "🚨 FORCE RETURN (No Skill)", Callback = function() PerformAutoReturn(false) end })
-
--- Toggle quan trọng: Tự về khi chết
-TabTele:CreateToggle({ 
-    Name = "💀 Auto Return On Death (+ Use Keys)", 
-    CurrentValue = false, 
-    Flag = "AutoReturnDeath", 
-    Callback = function(Value) 
-        _G.Config.AutoReturnDeath = Value 
-        if Value and not _G.Config.SavedPosition then
-             Rayfield:Notify({Title = "Warning", Content = "Please Save Position First!", Duration = 3})
-        end
-    end 
-})
+TabTele:CreateToggle({ Name = "💀 Auto Return On Death (+ Use Keys)", CurrentValue = false, Flag = "AutoReturnDeath", Callback = function(Value) _G.Config.AutoReturnDeath = Value end })
 
 TabTele:CreateSection("Waypoints Loop")
 local WaypointLabel = TabTele:CreateLabel("Saved Points: 0")
 local function UpdateWaypointLabel() WaypointLabel:Set("Saved Points: " .. #_G.Config.Waypoints) end
-
 TabTele:CreateButton({ Name = "➕ Add Current Position", Callback = function() if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then table.insert(_G.Config.Waypoints, LP.Character.HumanoidRootPart.CFrame); UpdateWaypointLabel() end end})
 TabTele:CreateButton({ Name = "🗑 Clear All Points", Callback = function() _G.Config.Waypoints = {}; UpdateWaypointLabel() end})
 TabTele:CreateToggle({ Name = "▶ Start Loop Teleport", CurrentValue = false, Flag = "AutoWaypoint", Callback = function(Value) _G.Config.AutoWaypoint = Value end})
@@ -382,6 +394,137 @@ TabSettings:CreateSlider({ Name = "Extra Key Delay", Range = {0.1, 3}, Increment
 TabSettings:CreateSlider({ Name = "Waypoint Loop Delay", Range = {0, 60}, Increment = 0.5, Suffix = "s", CurrentValue = 2.0, Flag = "WaypointDelay", Callback = function(V) _G.Config.WaypointDelay = V end})
 
 -- =============================================================
+-- TAB 5: CRAFT (NEW FEATURE - FIXED V3 Logic)
+-- =============================================================
+local TabCraft = Window:CreateTab("⚗ Craft", 4483362458)
+local CraftStatus = TabCraft:CreateLabel("Status: Idle")
+
+-- Craft UI Helpers
+local RecipeNames = {}
+for _, v in ipairs(CraftRecipes) do table.insert(RecipeNames, v.Name) end
+local YearKeys = {"100000 Year", "10000 Year", "1000 Year", "100 Year", "10 Year", "1 Year"}
+
+TabCraft:CreateSection("Crafting Configuration")
+
+TabCraft:CreateDropdown({
+    Name = "Select Recipe",
+    Options = RecipeNames,
+    CurrentOption = RecipeNames[1],
+    Flag = "CraftRecipe",
+    Callback = function(Option)
+        _G.Config.CraftRecipe = Option[1]
+    end
+})
+
+TabCraft:CreateDropdown({
+    Name = "Select Year (Auto Grade)",
+    Options = YearKeys,
+    CurrentOption = "100000 Year",
+    Flag = "CraftYear",
+    Callback = function(Option)
+        _G.Config.CraftYear = Option[1]
+    end
+})
+
+TabCraft:CreateInput({
+    Name = "Cauldron Level",
+    PlaceholderText = "10",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        _G.Config.CraftLevel = tonumber(Text) or 10
+    end
+})
+
+TabCraft:CreateInput({
+    Name = "Amount To Craft",
+    PlaceholderText = "1",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        _G.Config.CraftAmount = tonumber(Text) or 1
+    end
+})
+
+-- AUTO CRAFT LOGIC (Based on V20 Fixed Grade)
+TabCraft:CreateToggle({
+    Name = "▶ START AUTO CRAFT",
+    CurrentValue = false,
+    Flag = "AutoCraft",
+    Callback = function(Value)
+        _G.Config.CraftEnabled = Value
+        
+        if Value then
+            task.spawn(function()
+                local Remote_Add = RE:WaitForChild("Events"):WaitForChild("UseHerbAlchemy")
+                local Remote_Craft = RE:WaitForChild("Events"):WaitForChild("CraftPill")
+                local Remote_Reset = RE:FindFirstChild("ReturnHerbalAlchemy", true)
+                
+                local loops = _G.Config.CraftAmount or 1
+                local count = 0
+                
+                while _G.Config.CraftEnabled and count < loops and IsAlive() do
+                    count = count + 1
+                    -- Calculate Grade
+                    local targetGrade = YearToGrade[_G.Config.CraftYear] or 1
+                    CraftStatus:Set("Crafting: " .. count .. "/" .. loops .. " (GR" .. targetGrade .. ")")
+                    
+                    -- 1. Reset
+                    pcall(function() if Remote_Reset then Remote_Reset:FireServer() end end)
+                    task.wait(0.8)
+                    if not _G.Config.CraftEnabled then break end
+                    
+                    -- 2. Add Herbs (Find correct ingredients from Recipe)
+                    local recipeData = nil
+                    for _, r in ipairs(CraftRecipes) do 
+                        if r.Name == _G.Config.CraftRecipe then recipeData = r; break end 
+                    end
+                    
+                    if recipeData then
+                        local loaded = 0
+                        -- recipeData.Items has {Item1, Item2, Item3, Item4} -> Slot 1, 2, 3, 4
+                        for slot, herbName in ipairs(recipeData.Items) do
+                            if not _G.Config.CraftEnabled then break end
+                            -- Note: The game uses the STRING year for Adding Herbs
+                            Remote_Add:FireServer(herbName, _G.Config.CraftYear, slot)
+                            loaded = loaded + 1
+                            task.wait(0.4)
+                        end
+                        
+                        task.wait(0.5)
+                        
+                        -- 3. Craft (Use Grade Number)
+                        if _G.Config.CraftEnabled and loaded == 4 then
+                            -- CraftPill(Name, Grade, Level, 1) -> Based on Spy Log
+                            local args = {
+                                _G.Config.CraftRecipe,
+                                targetGrade,
+                                _G.Config.CraftLevel,
+                                1
+                            }
+                            Remote_Craft:FireServer(unpack(args))
+                            CraftStatus:Set("Sent Craft Request...")
+                        end
+                    else
+                        Rayfield:Notify({Title="Error", Content="Recipe not found!"})
+                        _G.Config.CraftEnabled = false
+                        break
+                    end
+                    
+                    -- 4. Wait for Cooldown
+                    for i=1, 30 do if not _G.Config.CraftEnabled then break end task.wait(0.1) end
+                end
+                
+                _G.Config.CraftEnabled = false
+                CraftStatus:Set("Status: Finished / Stopped")
+                -- Turn off toggle visually if possible (Rayfield doesn't always support set state easily externally)
+                Rayfield:Notify({Title="Craft", Content="Job Complete"})
+            end)
+        else
+            CraftStatus:Set("Status: Idle")
+        end
+    end
+})
+
+-- =============================================================
 -- LOGIC
 -- =============================================================
 local function FindInteractableLocal(pos, range)
@@ -487,4 +630,4 @@ end)
 task.spawn(function() while IsAlive() do task.wait(60); if _G.Config.AutoClean then SmartGC() end end end)
 
 Rayfield:LoadConfiguration()
-Rayfield:Notify({Title = "KUMA HUB", Content = "Script Loaded (No ReturnMap)", Duration = 5})
+Rayfield:Notify({Title = "KUMA HUB", Content = "Script Loaded (Craft Added)", Duration = 5})
