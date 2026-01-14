@@ -1,6 +1,6 @@
 --==============================================================
---  KUMA HUB V173 - FIX STUCK / TELEPORT IN PLACE
---  Fix: Force remove item from Cache immediately after farming
+--  KUMA HUB V174 - OPTIMIZED SETTINGS + WHITE SCREEN
+--  Update: Moved Optimization to Settings + Added AFK White Screen
 --==============================================================
 
 local ScriptID = tick()
@@ -49,6 +49,7 @@ _G.Config = {
     AutoWaypoint = false, 
     AutoClean = true,
     FPSBoost = false,
+    WhiteScreen = false, -- New Config
     -- Craft Config
     CraftEnabled = false,
     CraftRecipe = "Lesser Qi Condensation Pill",
@@ -59,8 +60,28 @@ _G.Config = {
 
 local LocationCache = {} 
 local IsReturning = false 
-local SecureFolder = Instance.new("Folder", CG); SecureFolder.Name = "KumaSecure_V173"
+local SecureFolder = Instance.new("Folder", CG); SecureFolder.Name = "KumaSecure_V174"
 local CollectRemote = RE:FindFirstChild("CollectHerb", true)
+
+-- === WHITE SCREEN GUI ===
+local WhiteScreenGUI = Instance.new("ScreenGui")
+WhiteScreenGUI.Name = "KumaWhiteScreen"
+WhiteScreenGUI.Parent = CG
+WhiteScreenGUI.Enabled = false
+WhiteScreenGUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local WhiteFrame = Instance.new("Frame", WhiteScreenGUI)
+WhiteFrame.Size = UDim2.new(1, 0, 1, 0)
+WhiteFrame.BackgroundColor3 = Color3.new(1, 1, 1) -- Màu trắng
+WhiteFrame.ZIndex = 99999
+
+local AFKText = Instance.new("TextLabel", WhiteFrame)
+AFKText.Size = UDim2.new(1, 0, 1, 0)
+AFKText.BackgroundTransparency = 1
+AFKText.Text = "KUMA HUB - AFK MODE (SAVING GPU)"
+AFKText.TextColor3 = Color3.new(0, 0, 0)
+AFKText.TextSize = 24
+AFKText.Font = Enum.Font.GothamBold
 
 -- === CRAFT DATA (V20 Logic) ===
 local YearToGrade = {
@@ -90,7 +111,7 @@ local function PressKey(keyName)
 end
 
 -- === SAVE/LOAD SYSTEM ===
-local FileName = "KumaHub_V173_Data.json"
+local FileName = "KumaHub_V174_Data.json"
 local function SaveCustomData()
     local data = { 
         Waypoints = {}, ExtraKeys = _G.Config.ExtraKeys, SavedPos = nil,
@@ -135,10 +156,10 @@ local function SmartGC() SecureFolder:ClearAllChildren() end
 
 -- === GUI CREATION ===
 local Window = Rayfield:CreateWindow({
-   Name = "🦗 KUMA HUB V173 | FIX STUCK",
+   Name = "🦗 KUMA HUB V174 | OPTIMIZED",
    LoadingTitle = "Loading...",
-   LoadingSubtitle = "Auto Remove Cache Logic",
-   ConfigurationSaving = { Enabled = true, FolderName = "KumaHubConfig", FileName = "SettingsV173" },
+   LoadingSubtitle = "With White Screen & Anti-Lag",
+   ConfigurationSaving = { Enabled = true, FolderName = "KumaHubConfig", FileName = "SettingsV174" },
    KeySystem = false,
 })
 
@@ -152,7 +173,6 @@ local StatusLabel = TabFarm:CreateLabel("Status: Idle")
 task.spawn(function()
     while IsAlive() do
         -- Chỉ cập nhật cache nếu danh sách đang RỖNG hoặc gần rỗng
-        -- Điều này ngăn Scanner ghi đè việc xóa cache của Main Loop quá nhanh
         if #LocationCache < 2 then 
             local plantFolder = WS:FindFirstChild("Plants")
             local scanTarget = plantFolder and plantFolder:GetChildren() or WS:GetDescendants()
@@ -191,7 +211,6 @@ task.spawn(function()
                 end
             end
             
-            -- Chỉ cập nhật nếu tìm thấy nhiều hơn 0
             if count > 0 then
                 LocationCache = tempCache
             end
@@ -200,7 +219,7 @@ task.spawn(function()
                 StatusLabel:Set("Scanner: Found " .. count .. " items")
             end
         end
-        task.wait(1.5) -- Giãn thời gian scan ra để Main Loop kịp xử lý
+        task.wait(1.5) 
     end
 end)
 
@@ -279,7 +298,7 @@ TabTele:CreateButton({ Name = "🗑 Clear All Points", Callback = function() _G.
 TabTele:CreateToggle({ Name = "▶ Start Loop Teleport", CurrentValue = false, Flag = "AutoWaypoint", Callback = function(Value) _G.Config.AutoWaypoint = Value end})
 
 -- =============================================================
--- TAB 3: MISC 
+-- TAB 3: MISC (Moved Items to Settings)
 -- =============================================================
 local TabMisc = Window:CreateTab("🧩 Misc", 4483362458)
 local ESP_Config = { Enabled = false, Holder = nil, Conn = nil }
@@ -326,13 +345,27 @@ local function UpdateDisplay() if #_G.Config.ExtraKeys == 0 then SequenceDisplay
 TabMisc:CreateDropdown({ Name = "Select Key To Add", Options = {"Z", "X", "V", "C", "Q", "E", "R", "T", "Y", "U", "Space", "G", "H", "B"}, CurrentOption = "Z", Flag = "KeyDropdown", Callback = function(O) _G.Config.TempKey = O[1] end})
 TabMisc:CreateButton({ Name = "➕ Add Selected Key", Callback = function() table.insert(_G.Config.ExtraKeys, _G.Config.TempKey); UpdateDisplay() end})
 TabMisc:CreateButton({ Name = "🗑 Clear All Keys", Callback = function() _G.Config.ExtraKeys = {}; UpdateDisplay() end})
-TabMisc:CreateToggle({ Name = "🧹 Auto Clean RAM", CurrentValue = true, Flag = "AutoClean", Callback = function(V) _G.Config.AutoClean = V end })
-TabMisc:CreateButton({ Name = "⚡ BOOST FPS", Callback = function() BoostFPS() end })
 
 -- =============================================================
--- TAB 4: SETTINGS 
+-- TAB 4: SETTINGS (MOVED ITEMS + WHITE SCREEN)
 -- =============================================================
 local TabSettings = Window:CreateTab("⚙ Settings", 4483362458)
+
+TabSettings:CreateSection("Optimization & AFK (Moved Here)")
+TabSettings:CreateButton({ Name = "⚡ BOOST FPS", Callback = function() BoostFPS() end })
+TabSettings:CreateToggle({ Name = "🧹 Auto Clean RAM", CurrentValue = true, Flag = "AutoClean", Callback = function(V) _G.Config.AutoClean = V end })
+TabSettings:CreateToggle({ 
+    Name = "📺 White Screen (AFK/Low CPU)", 
+    CurrentValue = false, 
+    Flag = "WhiteScreen", 
+    Callback = function(Value) 
+        _G.Config.WhiteScreen = Value 
+        -- Logic: Bật GUI Trắng + Tắt Render 3D
+        WhiteScreenGUI.Enabled = Value
+        RS:Set3dRenderingEnabled(not Value)
+    end 
+})
+
 TabSettings:CreateSection("Data Management")
 TabSettings:CreateButton({ Name = "💾 Save Settings & Position", Callback = function() SaveCustomData() end})
 TabSettings:CreateButton({ Name = "📂 Load Settings & Position", Callback = function() LoadCustomData(); UpdateWaypointLabel(); UpdateDisplay() end})
@@ -485,13 +518,12 @@ task.spawn(function()
 
                 if bestTarget and bestIndex ~= -1 then
                     ProcessItem(bestTarget)
-                    -- FIX STUCK: XÓA NGAY KHỎI CACHE SAU KHI FARM
+                    -- FIX STUCK: XÓA NGAY KHỎI CACHE
                     if bestIndex <= #LocationCache then
                         table.remove(LocationCache, bestIndex)
                     end
                 else
                     StatusLabel:Set("Finding new items...")
-                    -- Xóa bớt cache ảo
                     table.remove(LocationCache, 1)
                     task.wait(0.2)
                 end
@@ -526,4 +558,4 @@ end)
 
 task.spawn(function() while IsAlive() do task.wait(60); if _G.Config.AutoClean then SmartGC() end end end)
 Rayfield:LoadConfiguration()
-Rayfield:Notify({Title = "KUMA HUB V173", Content = "Fix Stuck + Auto Remove Cache", Duration = 5})
+Rayfield:Notify({Title = "KUMA HUB V174", Content = "Optimization & White Screen Added", Duration = 5})
