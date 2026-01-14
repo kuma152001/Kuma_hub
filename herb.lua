@@ -1,6 +1,6 @@
 --==============================================================
---  KUMA HUB V175 - PROFILE CONFIG SYSTEM
---  Update: Config saved per Roblox Account (UserID) + Reset Button
+--  KUMA HUB V177 - FIXED SETTINGS UI
+--  Update: Restored Missing "Waypoint Loop Delay" Slider
 --==============================================================
 
 local ScriptID = tick()
@@ -26,13 +26,13 @@ local RS = game:GetService("RunService")
 local PLRS = game:GetService("Players")
 local LGT = game:GetService("Lighting")
 local RE = game:GetService("ReplicatedStorage")
+local VU = game:GetService("VirtualUser")
 
--- === CONFIG DEFAULT (Hồ sơ gốc) ===
+-- === CONFIG DEFAULT ===
 local PRESET_LIST = {
     "Ginseng", "Spirit Rose", "Qi Flower", "Qi Berries", "Moon Flower", "Death Flower", "Star Grass", "Soul Root"
 }
 
--- Định nghĩa cấu hình mặc định để dùng cho nút Reset
 local Default_Config = { 
     Tracking = {},       
     AutoLoot = false,     
@@ -46,11 +46,12 @@ local Default_Config = {
     ExtraKeys = {},    
     ExtraKeyDelay = 1.0,
     Waypoints = {},
-    WaypointDelay = 2,
+    WaypointDelay = 2, -- Default Loop Delay
     AutoWaypoint = false, 
     AutoClean = true,
     FPSBoost = false,
     WhiteScreen = false,
+    AntiAFK = true,
     -- Craft Config
     CraftEnabled = false,
     CraftRecipe = "Lesser Qi Condensation Pill",
@@ -59,13 +60,21 @@ local Default_Config = {
     CraftLevel = 10
 }
 
--- Tạo bảng Config hiện tại bằng cách copy từ Default
+-- Load Default
 _G.Config = HttpService:JSONDecode(HttpService:JSONEncode(Default_Config))
 
 local LocationCache = {} 
 local IsReturning = false 
-local SecureFolder = Instance.new("Folder", CG); SecureFolder.Name = "KumaSecure_V175"
+local SecureFolder = Instance.new("Folder", CG); SecureFolder.Name = "KumaSecure_V177"
 local CollectRemote = RE:FindFirstChild("CollectHerb", true)
+
+-- === SYSTEM ANTI-AFK ===
+LP.Idled:Connect(function()
+    if _G.Config.AntiAFK then
+        VU:CaptureController()
+        VU:ClickButton2(Vector2.new())
+    end
+end)
 
 -- === WHITE SCREEN GUI ===
 local WhiteScreenGUI = Instance.new("ScreenGui")
@@ -73,26 +82,13 @@ WhiteScreenGUI.Name = "KumaWhiteScreen"
 WhiteScreenGUI.Parent = CG
 WhiteScreenGUI.Enabled = false
 WhiteScreenGUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
 local WhiteFrame = Instance.new("Frame", WhiteScreenGUI)
-WhiteFrame.Size = UDim2.new(1, 0, 1, 0)
-WhiteFrame.BackgroundColor3 = Color3.new(1, 1, 1) -- Màu trắng
-WhiteFrame.ZIndex = 99999
-
+WhiteFrame.Size = UDim2.new(1, 0, 1, 0); WhiteFrame.BackgroundColor3 = Color3.new(1, 1, 1); WhiteFrame.ZIndex = 99999
 local AFKText = Instance.new("TextLabel", WhiteFrame)
-AFKText.Size = UDim2.new(1, 0, 1, 0)
-AFKText.BackgroundTransparency = 1
-AFKText.Text = "KUMA HUB - AFK MODE (SAVING GPU)"
-AFKText.TextColor3 = Color3.new(0, 0, 0)
-AFKText.TextSize = 24
-AFKText.Font = Enum.Font.GothamBold
+AFKText.Size = UDim2.new(1, 0, 1, 0); AFKText.BackgroundTransparency = 1; AFKText.Text = "KUMA HUB - AFK MODE"; AFKText.TextColor3 = Color3.new(0, 0, 0); AFKText.TextSize = 24; AFKText.Font = Enum.Font.GothamBold
 
 -- === CRAFT DATA ===
-local YearToGrade = {
-    ["100000 Year"] = 6, ["10000 Year"] = 5, ["1000 Year"] = 4, 
-    ["100 Year"] = 3, ["10 Year"] = 2, ["1 Year"] = 1
-}
-
+local YearToGrade = { ["100000 Year"] = 6, ["10000 Year"] = 5, ["1000 Year"] = 4, ["100 Year"] = 3, ["10 Year"] = 2, ["1 Year"] = 1 }
 local CraftRecipes = {
     {Name = "Lesser Qi Condensation Pill", Items = {"Qi Berries", "Qi Berries", "Spirit Rose", "Qi Flower"}},
     {Name = "Refined Qi Flow Pill",        Items = {"Ginseng", "Ginseng", "Spirit Rose", "Qi Flower"}},
@@ -107,15 +103,10 @@ local CraftRecipes = {
 -- === HELPER FUNCTIONS ===
 local function PressKey(keyName)
     local key = Enum.KeyCode[keyName]
-    if key then
-        VIM:SendKeyEvent(true, key, false, game)
-        task.wait(0.05) 
-        VIM:SendKeyEvent(false, key, false, game)
-    end
+    if key then VIM:SendKeyEvent(true, key, false, game); task.wait(0.05); VIM:SendKeyEvent(false, key, false, game) end
 end
 
--- === SAVE/LOAD SYSTEM (PROFILE BASED) ===
--- Tên file sẽ bao gồm UserID để tách biệt từng Account
+-- === SAVE/LOAD SYSTEM ===
 local ProfileName = "KumaHub_Profile_" .. LP.UserId .. ".json"
 
 local function SaveCustomData()
@@ -127,88 +118,65 @@ local function SaveCustomData()
         Settings = {
             SyncDelay = _G.Config.SyncDelay,
             HoldDelay = _G.Config.HoldDelay,
-            AutoClean = _G.Config.AutoClean
+            AutoClean = _G.Config.AutoClean,
+            AntiAFK = _G.Config.AntiAFK,
+            WaypointDelay = _G.Config.WaypointDelay -- Added to Save
         }
     }
-    
-    if _G.Config.SavedPosition then 
-        data.SavedPos = {_G.Config.SavedPosition:GetComponents()} 
-    end
-    
-    for _, cf in ipairs(_G.Config.Waypoints) do 
-        table.insert(data.Waypoints, {cf:GetComponents()}) 
-    end
-    
-    if writefile then 
-        writefile(ProfileName, HttpService:JSONEncode(data))
-        Rayfield:Notify({Title = "Profile Saved", Content = "Saved for ID: " .. LP.UserId, Duration = 2}) 
-    end
+    if _G.Config.SavedPosition then data.SavedPos = {_G.Config.SavedPosition:GetComponents()} end
+    for _, cf in ipairs(_G.Config.Waypoints) do table.insert(data.Waypoints, {cf:GetComponents()}) end
+    if writefile then writefile(ProfileName, HttpService:JSONEncode(data)); Rayfield:Notify({Title = "Profile Saved", Content = "Saved for ID: " .. LP.UserId, Duration = 2}) end
 end
 
 local function LoadCustomData()
     if isfile and isfile(ProfileName) then
-        local content = readfile(ProfileName)
-        local decoded = HttpService:JSONDecode(content)
-        
+        local content = readfile(ProfileName); local decoded = HttpService:JSONDecode(content)
         if decoded.ExtraKeys then _G.Config.ExtraKeys = decoded.ExtraKeys end
-        
         if decoded.Waypoints then
             _G.Config.Waypoints = {}
             for _, comp in ipairs(decoded.Waypoints) do table.insert(_G.Config.Waypoints, CFrame.new(unpack(comp))) end
         end
-        
-        if decoded.SavedPos then 
-            _G.Config.SavedPosition = CFrame.new(unpack(decoded.SavedPos)) 
-        end
-        
+        if decoded.SavedPos then _G.Config.SavedPosition = CFrame.new(unpack(decoded.SavedPos)) end
         if decoded.CraftConfig then
             _G.Config.CraftYear = decoded.CraftConfig.Year or "100000 Year"
             _G.Config.CraftRecipe = decoded.CraftConfig.Recipe or "Lesser Qi Condensation Pill"
             _G.Config.CraftLevel = decoded.CraftConfig.Level or 10
         end
-
-        -- Load thêm cài đặt delay
         if decoded.Settings then
             _G.Config.SyncDelay = decoded.Settings.SyncDelay or 0.6
             _G.Config.HoldDelay = decoded.Settings.HoldDelay or 0.2
             _G.Config.AutoClean = decoded.Settings.AutoClean
+            if decoded.Settings.AntiAFK ~= nil then _G.Config.AntiAFK = decoded.Settings.AntiAFK end
+            if decoded.Settings.WaypointDelay then _G.Config.WaypointDelay = decoded.Settings.WaypointDelay end -- Added to Load
         end
-        
         Rayfield:Notify({Title = "Profile Loaded", Content = "Loaded for ID: " .. LP.UserId, Duration = 2})
-    else 
-        Rayfield:Notify({Title = "Error", Content = "No Config Found for this Account", Duration = 2}) 
-    end
+    else Rayfield:Notify({Title = "Error", Content = "No Config Found", Duration = 2}) end
 end
 
 local function ResetCustomData()
-    if isfile and isfile(ProfileName) then
-        delfile(ProfileName)
-    end
-    -- Reset về mặc định
+    if isfile and isfile(ProfileName) then delfile(ProfileName) end
     _G.Config = HttpService:JSONDecode(HttpService:JSONEncode(Default_Config))
-    Rayfield:Notify({Title = "Reset Success", Content = "Config Deleted & Reset to Default", Duration = 2})
+    Rayfield:Notify({Title = "Reset Success", Content = "Config Deleted & Reset", Duration = 2})
 end
 
 -- === OPTIMIZATION ===
 local function BoostFPS()
     settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-    LGT.GlobalShadows = false
-    LGT.FogEnd = 9e9
+    LGT.GlobalShadows = false; LGT.FogEnd = 9e9
     for _, v in pairs(game:GetDescendants()) do
         if v:IsA("Texture") or v:IsA("Decal") then v.Texture = "" end
         if v:IsA("ParticleEmitter") or v:IsA("Trail") then v.Enabled = false end
     end
-    Rayfield:Notify({Title = "Boost FPS", Content = "Max FPS Optimized", Duration = 2})
+    Rayfield:Notify({Title = "Boost FPS", Content = "Optimized", Duration = 2})
 end
-
 local function SmartGC() SecureFolder:ClearAllChildren() end
 
 -- === GUI CREATION ===
 local Window = Rayfield:CreateWindow({
-   Name = "🦗 KUMA HUB V175 | PROFILE SYSTEM",
+   Name = "🦗 KUMA HUB V177 | SETTINGS FIXED",
    LoadingTitle = "Loading...",
-   LoadingSubtitle = "Account: " .. LP.Name,
-   ConfigurationSaving = { Enabled = true, FolderName = "KumaHubConfig", FileName = "SettingsV175" },
+   LoadingSubtitle = "Smooth Teleport + System AFK",
+   ConfigurationSaving = { Enabled = true, FolderName = "KumaHubConfig", FileName = "SettingsV177" },
    KeySystem = false,
 })
 
@@ -218,7 +186,7 @@ local Window = Rayfield:CreateWindow({
 local TabFarm = Window:CreateTab("🌿 Farm", 4483362458)
 local StatusLabel = TabFarm:CreateLabel("Status: Idle")
 
--- === SCANNER ENGINE ===
+-- SCANNER
 task.spawn(function()
     while IsAlive() do
         if #LocationCache < 2 then 
@@ -226,7 +194,6 @@ task.spawn(function()
             local scanTarget = plantFolder and plantFolder:GetChildren() or WS:GetDescendants()
             local tempCache = {}
             local count = 0
-            
             for _, v in ipairs(scanTarget) do
                 if v:IsA("Model") or v:IsA("BasePart") then
                     local rawName = v.Name
@@ -235,21 +202,12 @@ task.spawn(function()
                         local lbl = bb:FindFirstChildWhichIsA("TextLabel", true)
                         if lbl and lbl.Text ~= "" then rawName = lbl.Text end
                     end
-
                     local isTarget = false
-                    if _G.Config.FarmAll then
-                        isTarget = true
+                    if _G.Config.FarmAll then isTarget = true
                     else
-                        for _, track in ipairs(_G.Config.Tracking) do
-                            if rawName:find(track) then isTarget = true; break end
-                        end
-                        if #_G.Config.Tracking == 0 then
-                             for _, preset in ipairs(PRESET_LIST) do
-                                 if rawName:find(preset) then isTarget = true; break end
-                             end
-                        end
+                        for _, track in ipairs(_G.Config.Tracking) do if rawName:find(track) then isTarget = true; break end end
+                        if #_G.Config.Tracking == 0 then for _, preset in ipairs(PRESET_LIST) do if rawName:find(preset) then isTarget = true; break end end end
                     end
-
                     if isTarget and v.Parent then
                         local pos = (v:IsA("Model") and v:GetPivot().Position) or v.Position
                         table.insert(tempCache, {Name = rawName, Position = pos, Instance = v})
@@ -257,7 +215,6 @@ task.spawn(function()
                     end
                 end
             end
-            
             if count > 0 then LocationCache = tempCache end
             if _G.Config.AutoLoot or _G.Config.InstantFarm then StatusLabel:Set("Scanner: Found " .. count .. " items") end
         end
@@ -272,23 +229,17 @@ TabFarm:CreateToggle({
    Flag = "InstantFarm", 
    Callback = function(Value)
         _G.Config.InstantFarm = Value
-        if Value then 
-            _G.Config.AutoLoot = false 
-            if not CollectRemote then Rayfield:Notify({Title="Error", Content="Remote not found! Fallback to Legit."}) end
-        end
+        if Value then _G.Config.AutoLoot = false; if not CollectRemote then Rayfield:Notify({Title="Error", Content="Remote not found! Fallback to Legit."}) end end
    end,
 })
-
 TabFarm:CreateToggle({
    Name = "▶ LEGIT FARM (Hold E)",
    CurrentValue = false,
    Flag = "AutoLoot", 
    Callback = function(Value)
-        _G.Config.AutoLoot = Value
-        if Value then _G.Config.InstantFarm = false end
+        _G.Config.AutoLoot = Value; if Value then _G.Config.InstantFarm = false end
    end,
 })
-
 TabFarm:CreateToggle({ Name = "🌍 FARM ALL (Ignore List)", CurrentValue = false, Flag = "FarmAll", Callback = function(Value) _G.Config.FarmAll = Value end })
 
 TabFarm:CreateSection("Filter Configuration")
@@ -296,8 +247,7 @@ TabFarm:CreateButton({ Name = "Select All", Callback = function() _G.Config.Trac
 TabFarm:CreateButton({ Name = "Deselect All", Callback = function() _G.Config.Tracking={}; Rayfield:Notify({Title="Filter", Content="Cleared"}) end })
 for _, item in ipairs(PRESET_LIST) do 
     TabFarm:CreateToggle({ Name = item, CurrentValue = false, Flag = "Filter_" .. item, Callback = function(V) 
-        if V then table.insert(_G.Config.Tracking, item) 
-        else for i,v in ipairs(_G.Config.Tracking) do if v==item then table.remove(_G.Config.Tracking, i) end end end 
+        if V then table.insert(_G.Config.Tracking, item) else for i,v in ipairs(_G.Config.Tracking) do if v==item then table.remove(_G.Config.Tracking, i) end end end 
     end}) 
 end
 
@@ -389,51 +339,32 @@ TabMisc:CreateButton({ Name = "➕ Add Selected Key", Callback = function() tabl
 TabMisc:CreateButton({ Name = "🗑 Clear All Keys", Callback = function() _G.Config.ExtraKeys = {}; UpdateDisplay() end})
 
 -- =============================================================
--- TAB 4: SETTINGS (PROFILE SYSTEM)
+-- TAB 4: SETTINGS (FIXED)
 -- =============================================================
 local TabSettings = Window:CreateTab("⚙ Settings", 4483362458)
 
-TabSettings:CreateSection("Optimization & AFK")
+TabSettings:CreateSection("System Anti-AFK")
+TabSettings:CreateToggle({ Name = "🛡 System Anti-AFK (Send Signal)", CurrentValue = true, Flag = "AntiAFK", Callback = function(Value) _G.Config.AntiAFK = Value end })
+
+TabSettings:CreateSection("Optimization & Screen")
 TabSettings:CreateButton({ Name = "⚡ BOOST FPS", Callback = function() BoostFPS() end })
 TabSettings:CreateToggle({ Name = "🧹 Auto Clean RAM", CurrentValue = true, Flag = "AutoClean", Callback = function(V) _G.Config.AutoClean = V end })
-TabSettings:CreateToggle({ 
-    Name = "📺 White Screen (AFK Mode)", 
-    CurrentValue = false, 
-    Flag = "WhiteScreen", 
-    Callback = function(Value) 
-        _G.Config.WhiteScreen = Value 
-        WhiteScreenGUI.Enabled = Value
-        RS:Set3dRenderingEnabled(not Value)
-    end 
-})
+TabSettings:CreateToggle({ Name = "📺 White Screen (AFK Mode)", CurrentValue = false, Flag = "WhiteScreen", Callback = function(Value) _G.Config.WhiteScreen = Value; WhiteScreenGUI.Enabled = Value; RS:Set3dRenderingEnabled(not Value) end })
 
-TabSettings:CreateSection("Account Profile (Data Management)")
--- Hiển thị tên Account đang sử dụng
-TabSettings:CreateLabel("Current Profile: " .. LP.Name .. " (ID: " .. LP.UserId .. ")")
-
-TabSettings:CreateButton({ 
-    Name = "💾 Save Config (This Account)", 
-    Callback = function() SaveCustomData() end
-})
-
-TabSettings:CreateButton({ 
-    Name = "📂 Load Config (This Account)", 
-    Callback = function() LoadCustomData(); UpdateWaypointLabel(); UpdateDisplay() end
-})
-
-TabSettings:CreateButton({ 
-    Name = "🗑 RESET Config (Delete Profile)", 
-    Callback = function() ResetCustomData(); UpdateWaypointLabel(); UpdateDisplay() end
-})
+TabSettings:CreateSection("Account Profile")
+TabSettings:CreateLabel("Current Profile: " .. LP.Name)
+TabSettings:CreateButton({ Name = "💾 Save Config (This Account)", Callback = function() SaveCustomData() end})
+TabSettings:CreateButton({ Name = "📂 Load Config (This Account)", Callback = function() LoadCustomData(); UpdateWaypointLabel(); UpdateDisplay() end})
+TabSettings:CreateButton({ Name = "🗑 RESET Config", Callback = function() ResetCustomData(); UpdateWaypointLabel(); UpdateDisplay() end})
 
 TabSettings:CreateSection("Delays & Speed")
-TabSettings:CreateSlider({ Name = "Sync/Remote Delay", Range = {0.1, 5}, Increment = 0.1, Suffix = "s", CurrentValue = 0.6, Flag = "SyncDelay", Callback = function(V) _G.Config.SyncDelay = V end})
+TabSettings:CreateSlider({ Name = "Sync/Remote Delay (Safe=0.6)", Range = {0.1, 5}, Increment = 0.1, Suffix = "s", CurrentValue = 0.6, Flag = "SyncDelay", Callback = function(V) _G.Config.SyncDelay = V end})
 TabSettings:CreateSlider({ Name = "Hold Interaction Time", Range = {0, 4}, Increment = 0.1, Suffix = "s", CurrentValue = 0.2, Flag = "HoldDelay", Callback = function(V) _G.Config.HoldDelay = V end})
-TabSettings:CreateSlider({ Name = "Extra Key Delay", Range = {0.1, 3}, Increment = 0.1, Suffix = "s", CurrentValue = 1.0, Flag = "ExtraKeyDelay", Callback = function(V) _G.Config.ExtraKeyDelay = V end})
+-- ĐÃ THÊM LẠI:
 TabSettings:CreateSlider({ Name = "Waypoint Loop Delay", Range = {0, 60}, Increment = 0.5, Suffix = "s", CurrentValue = 2.0, Flag = "WaypointDelay", Callback = function(V) _G.Config.WaypointDelay = V end})
 
 -- =============================================================
--- TAB 5: CRAFT (FIXED V20)
+-- TAB 5: CRAFT
 -- =============================================================
 local TabCraft = Window:CreateTab("⚗ Craft", 4483362458)
 local CraftStatus = TabCraft:CreateLabel("Status: Idle")
@@ -482,7 +413,7 @@ TabCraft:CreateToggle({
 })
 
 -- =============================================================
--- LOGIC (PROCESS ITEM + FORCE REMOVE CACHE)
+-- LOGIC (PROCESS ITEM + PHYSICS SYNC FIX)
 -- =============================================================
 local function FindInteractableLocal(pos, range)
     for _, v in ipairs(WS:GetDescendants()) do
@@ -507,14 +438,17 @@ local function ProcessItem(data)
     
     StatusLabel:Set("Teleporting: " .. data.Name)
     
+    -- === FIX LAG TELEPORT ===
+    hrp.AssemblyLinearVelocity = Vector3.zero
+    hrp.AssemblyAngularVelocity = Vector3.zero
+    RS.Heartbeat:Wait()
+    
     if _G.Config.InstantFarm then
         -- === INSTANT MODE ===
         if data.Instance and data.Instance.Parent then
             hrp.CFrame = CFrame.new(data.Position)
             hrp.AssemblyLinearVelocity = Vector3.zero
-            
             task.wait(_G.Config.SyncDelay) 
-            
             if data.Instance.Parent and (hrp.Position - data.Position).Magnitude <= 20 then
                 StatusLabel:Set("Instant Collect: " .. data.Name)
                 if CollectRemote then
@@ -529,10 +463,8 @@ local function ProcessItem(data)
         local targetCF = CFrame.new(data.Position) * CFrame.new(0, 4, 0)
         hrp.CFrame = targetCF
         hrp.AssemblyLinearVelocity = Vector3.zero
-        
         task.wait(_G.Config.SyncDelay)
         hrp.Anchored = true
-        
         local instance, type, obj = FindInteractableLocal(data.Position, 20)
         if instance and instance.Parent then
             StatusLabel:Set("Collecting: " .. data.Name)
@@ -561,24 +493,15 @@ task.spawn(function()
                 local bestTarget = nil
                 local bestIndex = -1
                 local minDst = 9999999
-                
                 for i, data in ipairs(LocationCache) do
                     if data.Instance and data.Instance.Parent then
                         local dst = myPos and (data.Position - myPos).Magnitude or 99999
-                        if dst < minDst then
-                            minDst = dst
-                            bestTarget = data
-                            bestIndex = i
-                        end
+                        if dst < minDst then minDst = dst; bestTarget = data; bestIndex = i end
                     end
                 end
-
                 if bestTarget and bestIndex ~= -1 then
                     ProcessItem(bestTarget)
-                    -- FIX STUCK: XÓA NGAY KHỎI CACHE
-                    if bestIndex <= #LocationCache then
-                        table.remove(LocationCache, bestIndex)
-                    end
+                    if bestIndex <= #LocationCache then table.remove(LocationCache, bestIndex) end
                 else
                     StatusLabel:Set("Finding new items...")
                     table.remove(LocationCache, 1)
@@ -615,4 +538,4 @@ end)
 
 task.spawn(function() while IsAlive() do task.wait(60); if _G.Config.AutoClean then SmartGC() end end end)
 Rayfield:LoadConfiguration()
-Rayfield:Notify({Title = "KUMA HUB V175", Content = "Profile Loaded: " .. LP.Name, Duration = 5})
+Rayfield:Notify({Title = "KUMA HUB V177", Content = "Restored Settings & Fixed", Duration = 5})
