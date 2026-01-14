@@ -1,6 +1,6 @@
 --==============================================================
---  KUMA HUB V174 - OPTIMIZED SETTINGS + WHITE SCREEN
---  Update: Moved Optimization to Settings + Added AFK White Screen
+--  KUMA HUB V175 - PROFILE CONFIG SYSTEM
+--  Update: Config saved per Roblox Account (UserID) + Reset Button
 --==============================================================
 
 local ScriptID = tick()
@@ -27,12 +27,13 @@ local PLRS = game:GetService("Players")
 local LGT = game:GetService("Lighting")
 local RE = game:GetService("ReplicatedStorage")
 
--- === CONFIG DEFAULT ===
+-- === CONFIG DEFAULT (Hồ sơ gốc) ===
 local PRESET_LIST = {
     "Ginseng", "Spirit Rose", "Qi Flower", "Qi Berries", "Moon Flower", "Death Flower", "Star Grass", "Soul Root"
 }
 
-_G.Config = { 
+-- Định nghĩa cấu hình mặc định để dùng cho nút Reset
+local Default_Config = { 
     Tracking = {},       
     AutoLoot = false,     
     InstantFarm = false,  
@@ -49,7 +50,7 @@ _G.Config = {
     AutoWaypoint = false, 
     AutoClean = true,
     FPSBoost = false,
-    WhiteScreen = false, -- New Config
+    WhiteScreen = false,
     -- Craft Config
     CraftEnabled = false,
     CraftRecipe = "Lesser Qi Condensation Pill",
@@ -58,9 +59,12 @@ _G.Config = {
     CraftLevel = 10
 }
 
+-- Tạo bảng Config hiện tại bằng cách copy từ Default
+_G.Config = HttpService:JSONDecode(HttpService:JSONEncode(Default_Config))
+
 local LocationCache = {} 
 local IsReturning = false 
-local SecureFolder = Instance.new("Folder", CG); SecureFolder.Name = "KumaSecure_V174"
+local SecureFolder = Instance.new("Folder", CG); SecureFolder.Name = "KumaSecure_V175"
 local CollectRemote = RE:FindFirstChild("CollectHerb", true)
 
 -- === WHITE SCREEN GUI ===
@@ -83,7 +87,7 @@ AFKText.TextColor3 = Color3.new(0, 0, 0)
 AFKText.TextSize = 24
 AFKText.Font = Enum.Font.GothamBold
 
--- === CRAFT DATA (V20 Logic) ===
+-- === CRAFT DATA ===
 local YearToGrade = {
     ["100000 Year"] = 6, ["10000 Year"] = 5, ["1000 Year"] = 4, 
     ["100 Year"] = 3, ["10 Year"] = 2, ["1 Year"] = 1
@@ -110,34 +114,79 @@ local function PressKey(keyName)
     end
 end
 
--- === SAVE/LOAD SYSTEM ===
-local FileName = "KumaHub_V174_Data.json"
+-- === SAVE/LOAD SYSTEM (PROFILE BASED) ===
+-- Tên file sẽ bao gồm UserID để tách biệt từng Account
+local ProfileName = "KumaHub_Profile_" .. LP.UserId .. ".json"
+
 local function SaveCustomData()
     local data = { 
-        Waypoints = {}, ExtraKeys = _G.Config.ExtraKeys, SavedPos = nil,
-        CraftConfig = { Year = _G.Config.CraftYear, Recipe = _G.Config.CraftRecipe, Level = _G.Config.CraftLevel }
+        Waypoints = {}, 
+        ExtraKeys = _G.Config.ExtraKeys, 
+        SavedPos = nil,
+        CraftConfig = { Year = _G.Config.CraftYear, Recipe = _G.Config.CraftRecipe, Level = _G.Config.CraftLevel },
+        Settings = {
+            SyncDelay = _G.Config.SyncDelay,
+            HoldDelay = _G.Config.HoldDelay,
+            AutoClean = _G.Config.AutoClean
+        }
     }
-    if _G.Config.SavedPosition then data.SavedPos = {_G.Config.SavedPosition:GetComponents()} end
-    for _, cf in ipairs(_G.Config.Waypoints) do table.insert(data.Waypoints, {cf:GetComponents()}) end
-    if writefile then writefile(FileName, HttpService:JSONEncode(data)); Rayfield:Notify({Title = "Saved", Content = "Data Saved", Duration = 1}) end
+    
+    if _G.Config.SavedPosition then 
+        data.SavedPos = {_G.Config.SavedPosition:GetComponents()} 
+    end
+    
+    for _, cf in ipairs(_G.Config.Waypoints) do 
+        table.insert(data.Waypoints, {cf:GetComponents()}) 
+    end
+    
+    if writefile then 
+        writefile(ProfileName, HttpService:JSONEncode(data))
+        Rayfield:Notify({Title = "Profile Saved", Content = "Saved for ID: " .. LP.UserId, Duration = 2}) 
+    end
 end
 
 local function LoadCustomData()
-    if isfile and isfile(FileName) then
-        local content = readfile(FileName); local decoded = HttpService:JSONDecode(content)
+    if isfile and isfile(ProfileName) then
+        local content = readfile(ProfileName)
+        local decoded = HttpService:JSONDecode(content)
+        
         if decoded.ExtraKeys then _G.Config.ExtraKeys = decoded.ExtraKeys end
+        
         if decoded.Waypoints then
             _G.Config.Waypoints = {}
             for _, comp in ipairs(decoded.Waypoints) do table.insert(_G.Config.Waypoints, CFrame.new(unpack(comp))) end
         end
-        if decoded.SavedPos then _G.Config.SavedPosition = CFrame.new(unpack(decoded.SavedPos)) end
+        
+        if decoded.SavedPos then 
+            _G.Config.SavedPosition = CFrame.new(unpack(decoded.SavedPos)) 
+        end
+        
         if decoded.CraftConfig then
             _G.Config.CraftYear = decoded.CraftConfig.Year or "100000 Year"
             _G.Config.CraftRecipe = decoded.CraftConfig.Recipe or "Lesser Qi Condensation Pill"
             _G.Config.CraftLevel = decoded.CraftConfig.Level or 10
         end
-        Rayfield:Notify({Title = "Loaded", Content = "Data Restored", Duration = 1})
-    else Rayfield:Notify({Title = "Error", Content = "No Save File", Duration = 1}) end
+
+        -- Load thêm cài đặt delay
+        if decoded.Settings then
+            _G.Config.SyncDelay = decoded.Settings.SyncDelay or 0.6
+            _G.Config.HoldDelay = decoded.Settings.HoldDelay or 0.2
+            _G.Config.AutoClean = decoded.Settings.AutoClean
+        end
+        
+        Rayfield:Notify({Title = "Profile Loaded", Content = "Loaded for ID: " .. LP.UserId, Duration = 2})
+    else 
+        Rayfield:Notify({Title = "Error", Content = "No Config Found for this Account", Duration = 2}) 
+    end
+end
+
+local function ResetCustomData()
+    if isfile and isfile(ProfileName) then
+        delfile(ProfileName)
+    end
+    -- Reset về mặc định
+    _G.Config = HttpService:JSONDecode(HttpService:JSONEncode(Default_Config))
+    Rayfield:Notify({Title = "Reset Success", Content = "Config Deleted & Reset to Default", Duration = 2})
 end
 
 -- === OPTIMIZATION ===
@@ -156,10 +205,10 @@ local function SmartGC() SecureFolder:ClearAllChildren() end
 
 -- === GUI CREATION ===
 local Window = Rayfield:CreateWindow({
-   Name = "🦗 KUMA HUB V174 | OPTIMIZED",
+   Name = "🦗 KUMA HUB V175 | PROFILE SYSTEM",
    LoadingTitle = "Loading...",
-   LoadingSubtitle = "With White Screen & Anti-Lag",
-   ConfigurationSaving = { Enabled = true, FolderName = "KumaHubConfig", FileName = "SettingsV174" },
+   LoadingSubtitle = "Account: " .. LP.Name,
+   ConfigurationSaving = { Enabled = true, FolderName = "KumaHubConfig", FileName = "SettingsV175" },
    KeySystem = false,
 })
 
@@ -169,14 +218,12 @@ local Window = Rayfield:CreateWindow({
 local TabFarm = Window:CreateTab("🌿 Farm", 4483362458)
 local StatusLabel = TabFarm:CreateLabel("Status: Idle")
 
--- === SCANNER ENGINE (CODE 2) ===
+-- === SCANNER ENGINE ===
 task.spawn(function()
     while IsAlive() do
-        -- Chỉ cập nhật cache nếu danh sách đang RỖNG hoặc gần rỗng
         if #LocationCache < 2 then 
             local plantFolder = WS:FindFirstChild("Plants")
             local scanTarget = plantFolder and plantFolder:GetChildren() or WS:GetDescendants()
-            
             local tempCache = {}
             local count = 0
             
@@ -211,13 +258,8 @@ task.spawn(function()
                 end
             end
             
-            if count > 0 then
-                LocationCache = tempCache
-            end
-            
-            if _G.Config.AutoLoot or _G.Config.InstantFarm then
-                StatusLabel:Set("Scanner: Found " .. count .. " items")
-            end
+            if count > 0 then LocationCache = tempCache end
+            if _G.Config.AutoLoot or _G.Config.InstantFarm then StatusLabel:Set("Scanner: Found " .. count .. " items") end
         end
         task.wait(1.5) 
     end
@@ -298,7 +340,7 @@ TabTele:CreateButton({ Name = "🗑 Clear All Points", Callback = function() _G.
 TabTele:CreateToggle({ Name = "▶ Start Loop Teleport", CurrentValue = false, Flag = "AutoWaypoint", Callback = function(Value) _G.Config.AutoWaypoint = Value end})
 
 -- =============================================================
--- TAB 3: MISC (Moved Items to Settings)
+-- TAB 3: MISC 
 -- =============================================================
 local TabMisc = Window:CreateTab("🧩 Misc", 4483362458)
 local ESP_Config = { Enabled = false, Holder = nil, Conn = nil }
@@ -347,30 +389,45 @@ TabMisc:CreateButton({ Name = "➕ Add Selected Key", Callback = function() tabl
 TabMisc:CreateButton({ Name = "🗑 Clear All Keys", Callback = function() _G.Config.ExtraKeys = {}; UpdateDisplay() end})
 
 -- =============================================================
--- TAB 4: SETTINGS (MOVED ITEMS + WHITE SCREEN)
+-- TAB 4: SETTINGS (PROFILE SYSTEM)
 -- =============================================================
 local TabSettings = Window:CreateTab("⚙ Settings", 4483362458)
 
-TabSettings:CreateSection("Optimization & AFK (Moved Here)")
+TabSettings:CreateSection("Optimization & AFK")
 TabSettings:CreateButton({ Name = "⚡ BOOST FPS", Callback = function() BoostFPS() end })
 TabSettings:CreateToggle({ Name = "🧹 Auto Clean RAM", CurrentValue = true, Flag = "AutoClean", Callback = function(V) _G.Config.AutoClean = V end })
 TabSettings:CreateToggle({ 
-    Name = "📺 White Screen (AFK/Low CPU)", 
+    Name = "📺 White Screen (AFK Mode)", 
     CurrentValue = false, 
     Flag = "WhiteScreen", 
     Callback = function(Value) 
         _G.Config.WhiteScreen = Value 
-        -- Logic: Bật GUI Trắng + Tắt Render 3D
         WhiteScreenGUI.Enabled = Value
         RS:Set3dRenderingEnabled(not Value)
     end 
 })
 
-TabSettings:CreateSection("Data Management")
-TabSettings:CreateButton({ Name = "💾 Save Settings & Position", Callback = function() SaveCustomData() end})
-TabSettings:CreateButton({ Name = "📂 Load Settings & Position", Callback = function() LoadCustomData(); UpdateWaypointLabel(); UpdateDisplay() end})
+TabSettings:CreateSection("Account Profile (Data Management)")
+-- Hiển thị tên Account đang sử dụng
+TabSettings:CreateLabel("Current Profile: " .. LP.Name .. " (ID: " .. LP.UserId .. ")")
+
+TabSettings:CreateButton({ 
+    Name = "💾 Save Config (This Account)", 
+    Callback = function() SaveCustomData() end
+})
+
+TabSettings:CreateButton({ 
+    Name = "📂 Load Config (This Account)", 
+    Callback = function() LoadCustomData(); UpdateWaypointLabel(); UpdateDisplay() end
+})
+
+TabSettings:CreateButton({ 
+    Name = "🗑 RESET Config (Delete Profile)", 
+    Callback = function() ResetCustomData(); UpdateWaypointLabel(); UpdateDisplay() end
+})
+
 TabSettings:CreateSection("Delays & Speed")
-TabSettings:CreateSlider({ Name = "Sync/Remote Delay (Safe=0.6)", Range = {0.1, 5}, Increment = 0.1, Suffix = "s", CurrentValue = 0.6, Flag = "SyncDelay", Callback = function(V) _G.Config.SyncDelay = V end})
+TabSettings:CreateSlider({ Name = "Sync/Remote Delay", Range = {0.1, 5}, Increment = 0.1, Suffix = "s", CurrentValue = 0.6, Flag = "SyncDelay", Callback = function(V) _G.Config.SyncDelay = V end})
 TabSettings:CreateSlider({ Name = "Hold Interaction Time", Range = {0, 4}, Increment = 0.1, Suffix = "s", CurrentValue = 0.2, Flag = "HoldDelay", Callback = function(V) _G.Config.HoldDelay = V end})
 TabSettings:CreateSlider({ Name = "Extra Key Delay", Range = {0.1, 3}, Increment = 0.1, Suffix = "s", CurrentValue = 1.0, Flag = "ExtraKeyDelay", Callback = function(V) _G.Config.ExtraKeyDelay = V end})
 TabSettings:CreateSlider({ Name = "Waypoint Loop Delay", Range = {0, 60}, Increment = 0.5, Suffix = "s", CurrentValue = 2.0, Flag = "WaypointDelay", Callback = function(V) _G.Config.WaypointDelay = V end})
@@ -558,4 +615,4 @@ end)
 
 task.spawn(function() while IsAlive() do task.wait(60); if _G.Config.AutoClean then SmartGC() end end end)
 Rayfield:LoadConfiguration()
-Rayfield:Notify({Title = "KUMA HUB V174", Content = "Optimization & White Screen Added", Duration = 5})
+Rayfield:Notify({Title = "KUMA HUB V175", Content = "Profile Loaded: " .. LP.Name, Duration = 5})
