@@ -1,4 +1,4 @@
--- ===== KUMA HUB LOADER (FIXED) =====
+-- ===== KUMA HUB LOADER (NO PromptTextInput) =====
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
@@ -9,20 +9,23 @@ local gui = Instance.new("ScreenGui")
 gui.Name = "KumaKeyGui"
 gui.Parent = game.CoreGui
 
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.fromScale(0.25, 0.2)
-frame.Position = UDim2.fromScale(0.375, 0.4)
+local frame = Instance.new("Frame")
+frame.Parent = gui
+frame.Size = UDim2.fromScale(0.3, 0.22)
+frame.Position = UDim2.fromScale(0.35, 0.39)
 frame.BackgroundColor3 = Color3.fromRGB(25,25,25)
 
-local box = Instance.new("TextBox", frame)
-box.Size = UDim2.fromScale(0.9, 0.4)
+local box = Instance.new("TextBox")
+box.Parent = frame
+box.Size = UDim2.fromScale(0.9, 0.35)
 box.Position = UDim2.fromScale(0.05, 0.2)
 box.PlaceholderText = "Nhập key..."
 box.Text = ""
 box.TextColor3 = Color3.new(1,1,1)
 box.BackgroundColor3 = Color3.fromRGB(40,40,40)
 
-local btn = Instance.new("TextButton", frame)
+local btn = Instance.new("TextButton")
+btn.Parent = frame
 btn.Size = UDim2.fromScale(0.9, 0.25)
 btn.Position = UDim2.fromScale(0.05, 0.65)
 btn.Text = "Xác nhận"
