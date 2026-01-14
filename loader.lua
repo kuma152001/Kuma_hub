@@ -1,89 +1,149 @@
--- ===== KUMA HUB LOADER (BEAUTY UI) =====
+-- [[ KUMA HUB PRO LOADER - MODERN DESIGN ]] --
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
 local player = Players.LocalPlayer
 
 local KEY = "kuma1501"
+local SCRIPT_URL = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/main/herb.lua"
 
--- ScreenGui
+-- Cleanup
+if CoreGui:FindFirstChild("KumaKeyUI_Pro") then CoreGui.KumaKeyUI_Pro:Destroy() end
+
 local gui = Instance.new("ScreenGui")
-gui.Name = "KumaKeyUI"
-gui.Parent = game.CoreGui
+gui.Name = "KumaKeyUI_Pro"
+gui.Parent = CoreGui
+gui.IgnoreGuiInset = true
 
--- Main frame
-local main = Instance.new("Frame", gui)
-main.Size = UDim2.fromScale(0.32, 0.24)
-main.Position = UDim2.fromScale(0.34, 0.38)
-main.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-main.BackgroundTransparency = 1
+-- Main Frame
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Parent = gui
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Main.BorderSizePixel = 0
+Main.Position = UDim2.new(0.5, -160, 0.5, -100) -- Căn giữa
+Main.Size = UDim2.new(0, 320, 0, 200)
+Main.ClipsDescendants = true
+Main.AnchorPoint = Vector2.new(0.5, 0.5)
+Main.Position = UDim2.new(0.5, 0, 1.2, 0) -- Bắt đầu từ dưới màn hình để chạy hiệu ứng trượt lên
 
--- Corner
-local corner = Instance.new("UICorner", main)
-corner.CornerRadius = UDim.new(0, 14)
+local MainCorner = Instance.new("UICorner", Main)
+MainCorner.CornerRadius = UDim.new(0, 12)
 
--- Shadow
-local shadow = Instance.new("ImageLabel", main)
-shadow.Size = UDim2.fromScale(1.1, 1.2)
-shadow.Position = UDim2.fromScale(-0.05, -0.05)
-shadow.BackgroundTransparency = 1
-shadow.Image = "rbxassetid://1316045217"
-shadow.ImageTransparency = 0.6
-shadow.ZIndex = 0
+-- Border Glow (Viền Neon)
+local Stroke = Instance.new("UIStroke")
+Stroke.Parent = Main
+Stroke.Color = Color3.fromRGB(255, 140, 0)
+Stroke.Thickness = 2
+Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
-main.ZIndex = 1
+-- Title Section
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, 0, 0, 50)
+Title.BackgroundTransparency = 1
+Title.Text = "🐻 KUMA HUB"
+Title.TextColor3 = Color3.fromRGB(255, 170, 0)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 24
 
--- Title
-local title = Instance.new("TextLabel", main)
-title.Size = UDim2.fromScale(1, 0.25)
-title.BackgroundTransparency = 1
-title.Text = "KUMA HUB"
-title.TextColor3 = Color3.fromRGB(255, 170, 0)
-title.Font = Enum.Font.GothamBold
-title.TextSize = 26
+local SubTitle = Instance.new("TextLabel", Main)
+SubTitle.Size = UDim2.new(1, 0, 0, 20)
+SubTitle.Position = UDim2.new(0, 0, 0, 40)
+SubTitle.BackgroundTransparency = 1
+SubTitle.Text = "Please enter your access key"
+SubTitle.TextColor3 = Color3.fromRGB(150, 150, 150)
+SubTitle.Font = Enum.Font.Gotham
+SubTitle.TextSize = 12
 
--- TextBox
-local box = Instance.new("TextBox", main)
-box.Size = UDim2.fromScale(0.85, 0.28)
-box.Position = UDim2.fromScale(0.075, 0.35)
-box.PlaceholderText = "Nhập key..."
-box.Text = ""
-box.TextColor3 = Color3.new(1,1,1)
-box.Font = Enum.Font.Gotham
-box.TextSize = 18
-box.BackgroundColor3 = Color3.fromRGB(35,35,35)
+-- Key Input Box
+local InputFrame = Instance.new("Frame", Main)
+InputFrame.Size = UDim2.new(0, 260, 0, 45)
+InputFrame.Position = UDim2.new(0.5, -130, 0.45, 0)
+InputFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+local InputCorner = Instance.new("UICorner", InputFrame)
 
-Instance.new("UICorner", box).CornerRadius = UDim.new(0, 10)
+local Box = Instance.new("TextBox", InputFrame)
+Box.Size = UDim2.new(1, -20, 1, 0)
+Box.Position = UDim2.new(0, 10, 0, 0)
+Box.BackgroundTransparency = 1
+Box.PlaceholderText = "Enter Key Here..."
+Box.Text = ""
+Box.TextColor3 = Color3.new(1, 1, 1)
+Box.PlaceholderColor3 = Color3.fromRGB(80, 80, 80)
+Box.Font = Enum.Font.Gotham
+Box.TextSize = 16
 
--- Button
-local btn = Instance.new("TextButton", main)
-btn.Size = UDim2.fromScale(0.85, 0.22)
-btn.Position = UDim2.fromScale(0.075, 0.68)
-btn.Text = "UNLOCK"
-btn.Font = Enum.Font.GothamBold
-btn.TextSize = 18
-btn.TextColor3 = Color3.new(1,1,1)
-btn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+-- Unlock Button
+local Btn = Instance.new("TextButton", Main)
+Btn.Size = UDim2.new(0, 260, 0, 40)
+Btn.Position = UDim2.new(0.5, -130, 0.75, 0)
+Btn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+Btn.Text = "UNLOCK ACCESS"
+Btn.TextColor3 = Color3.new(1, 1, 1)
+Btn.Font = Enum.Font.GothamBold
+Btn.TextSize = 14
+Btn.AutoButtonColor = false
+local BtnCorner = Instance.new("UICorner", Btn)
 
-Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+-- Gradient cho Nút
+local Grad = Instance.new("UIGradient", Btn)
+Grad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 170, 0)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 100, 0))
+})
 
--- Fade in animation
-TweenService:Create(
-    main,
-    TweenInfo.new(0.4, Enum.EasingStyle.Quad),
-    {BackgroundTransparency = 0}
-):Play()
-
--- Button logic
-btn.MouseButton1Click:Connect(function()
-    if box.Text ~= KEY then
-        btn.Text = "SAI KEY!"
-        btn.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
-        return
+-- Animations & Logic
+local function ShakeUI()
+    local originalPos = UDim2.new(0.5, 0, 0.5, 0)
+    for i = 1, 6 do
+        local xOffset = (i % 2 == 0 and 10 or -10)
+        TweenService:Create(Main, TweenInfo.new(0.05), {Position = UDim2.new(0.5, xOffset, 0.5, 0)}):Play()
+        task.wait(0.05)
     end
+    TweenService:Create(Main, TweenInfo.new(0.05), {Position = originalPos}):Play()
+end
 
-    gui:Destroy()
+-- Hiệu ứng di chuột (Hover)
+Btn.MouseEnter:Connect(function()
+    TweenService:Create(Btn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(255, 200, 0)}):Play()
+    TweenService:Create(Stroke, TweenInfo.new(0.3), {Thickness = 4}):Play()
+end)
 
-    loadstring(game:HttpGet(
-        "https://raw.githubusercontent.com/kuma152001/Kuma_hub/main/herb.lua"
-    ))()
+Btn.MouseLeave:Connect(function()
+    TweenService:Create(Btn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(255, 140, 0)}):Play()
+    TweenService:Create(Stroke, TweenInfo.new(0.3), {Thickness = 2}):Play()
+end)
+
+-- Hiệu ứng mượt trượt lên khi mở
+Main:TweenPosition(UDim2.new(0.5, 0, 0.5, 0), "Out", "Back", 0.6, true)
+
+-- Logic Click
+Btn.MouseButton1Click:Connect(function()
+    if Box.Text == KEY then
+        Btn.Text = "SUCCESS! LOADING..."
+        TweenService:Create(Btn, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(0, 200, 100)}):Play()
+        TweenService:Create(Stroke, TweenInfo.new(0.3), {Color = Color3.fromRGB(0, 255, 120)}):Play()
+        
+        task.wait(1)
+        
+        -- Hiệu ứng biến mất
+        Main:TweenPosition(UDim2.new(0.5, 0, 1.2, 0), "In", "Back", 0.5, true)
+        task.wait(0.5)
+        gui:Destroy()
+
+        -- Tải script kèm Cache Buster để luôn lấy bản mới nhất
+        local success, err = pcall(function()
+            loadstring(game:HttpGet(SCRIPT_URL .. "?t=" .. tick()))()
+        end)
+        
+        if not success then
+            warn("KUMA HUB Load Error: " .. tostring(err))
+        end
+    else
+        Box.Text = ""
+        Btn.Text = "INVALID KEY!"
+        ShakeUI()
+        task.wait(1)
+        Btn.Text = "UNLOCK ACCESS"
+    end
 end)
