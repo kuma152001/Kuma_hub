@@ -1,4 +1,4 @@
--- [[ 📜 CỔ MA THẦN LỤC - KUMA HUB V9 (CINEMATIC XIANXIA) 📜 ]] --
+-- [[ 📜 CỔ MA ĐẾ TÔN - KUMA HUB V10 (CINEMATIC WIDE) 📜 ]] --
 -- [[ CẢNH BÁO: TUYỆT ĐỐI KHÔNG PUBLIC CÔNG PHÁP MA ĐẠO NÀY ]] --
 
 local Players = game:GetService("Players")
@@ -9,10 +9,10 @@ local UserInputService = game:GetService("UserInputService")
 local KEY = "kuma1501"
 local SCRIPT_URL = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/main/herb.lua"
 
-if CoreGui:FindFirstChild("KumaXianxiaV9") then CoreGui.KumaXianxiaV9:Destroy() end
+if CoreGui:FindFirstChild("KumaXianxiaV10") then CoreGui.KumaXianxiaV10:Destroy() end
 
 local gui = Instance.new("ScreenGui")
-gui.Name = "KumaXianxiaV9"
+gui.Name = "KumaXianxiaV10"
 gui.Parent = CoreGui
 gui.IgnoreGuiInset = true
 
@@ -33,47 +33,47 @@ local function MakeDraggable(Frame, DragPart)
     end)
 end
 
--- Khung chính (Ancient Scroll Style)
+-- Khung chính (Kích thước mở rộng 500x350)
 local Main = Instance.new("Frame")
 Main.Name = "Main"
 Main.Parent = gui
 Main.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
 Main.AnchorPoint = Vector2.new(0.5, 0.5)
 Main.Position = UDim2.new(0.5, 0, 0.5, 0)
-Main.Size = UDim2.new(0, 420, 0, 310)
+Main.Size = UDim2.new(0, 500, 0, 350) -- Tăng kích thước cực rộng
 Main.ClipsDescendants = true
 Main.ZIndex = 1
 
 local MainCorner = Instance.new("UICorner", Main)
-MainCorner.CornerRadius = UDim.new(0, 20)
+MainCorner.CornerRadius = UDim.new(0, 25)
 
--- Viền phát sáng rực rỡ (Aura)
+-- Viền Neon "Ma Quang" (Chế độ Border để không đè chữ)
 local Stroke = Instance.new("UIStroke", Main)
-Stroke.Thickness = 3
+Stroke.Thickness = 3.5
 Stroke.Color = Color3.fromRGB(255, 0, 0)
-Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border -- Viền tỏa ra ngoài
 
--- Hiệu ứng Nền Ma Đạo (Demonic Essence)
+-- Nền Gradient xoay cực nhanh (Ma Khí Bạo Phát)
 local BGGradient = Instance.new("UIGradient", Main)
 BGGradient.Color = ColorSequence.new({
     ColorSequenceKeypoint.new(0, Color3.fromRGB(10, 0, 0)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(150, 0, 0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(180, 0, 0)),
     ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 0, 0))
 })
 task.spawn(function()
     while Main and Main.Parent do
-        BGGradient.Rotation = BGGradient.Rotation + 1.5
+        BGGradient.Rotation = BGGradient.Rotation + 2
         task.wait(0.02)
     end
 end)
 
--- Banner Cảnh Báo Tuyệt Mật
+-- Banner Cảnh Báo (Thiết kế lại rộng hơn)
 local Banner = Instance.new("Frame", Main)
-Banner.Size = UDim2.new(1, -40, 0, 32)
-Banner.Position = UDim2.new(0, 20, 0, 15)
-Banner.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+Banner.Size = UDim2.new(1, -60, 0, 35)
+Banner.Position = UDim2.new(0, 30, 0, 20)
+Banner.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
 Banner.ZIndex = 5
-Instance.new("UICorner", Banner).CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", Banner).CornerRadius = UDim.new(0, 12)
 
 local WarningText = Instance.new("TextLabel", Banner)
 WarningText.Size = UDim2.new(1, 0, 1, 0)
@@ -81,89 +81,90 @@ WarningText.BackgroundTransparency = 1
 WarningText.Text = "࿇ TUYỆT ĐỐI KHÔNG PUBLIC CÔNG PHÁP NÀY ࿇"
 WarningText.TextColor3 = Color3.new(1, 1, 1)
 WarningText.Font = Enum.Font.Antique
-WarningText.TextSize = 13
+WarningText.TextSize = 15
 WarningText.ZIndex = 6
 
--- Tiêu đề tự động chuyển đổi (Morphing Title)
+-- Tiêu đề Morphing (Tăng size và khoảng cách)
 local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 60)
-Title.Position = UDim2.new(0, 0, 0, 65)
+Title.Size = UDim2.new(1, 0, 0, 80)
+Title.Position = UDim2.new(0, 0, 0, 70)
 Title.BackgroundTransparency = 1
 Title.Text = "KUMA HUB"
-Title.TextColor3 = Color3.fromRGB(255, 215, 0) -- Vàng Kim
+Title.TextColor3 = Color3.fromRGB(255, 215, 0)
 Title.Font = Enum.Font.Garamond
-Title.TextSize = 48
+Title.TextSize = 55 -- Chữ to hơn
 Title.ZIndex = 10
 
 local Titles = {"KUMA HUB", "CỔ MA THẦN LỤC", "NGHỊCH THIÊN CẢI MỆNH"}
 task.spawn(function()
     local i = 1
     while Main and Main.Parent do
-        task.wait(3)
-        TweenService:Create(Title, TweenInfo.new(1), {TextTransparency = 1}):Play()
-        task.wait(1)
+        task.wait(3.5)
+        TweenService:Create(Title, TweenInfo.new(1.2), {TextTransparency = 1, TextSize = 40}):Play()
+        task.wait(1.2)
         i = (i % #Titles) + 1
         Title.Text = Titles[i]
-        TweenService:Create(Title, TweenInfo.new(1), {TextTransparency = 0}):Play()
+        TweenService:Create(Title, TweenInfo.new(1.2), {TextTransparency = 0, TextSize = 55}):Play()
     end
 end)
 
--- Linh Khí bay lơ lửng
-local function CreateEssence()
+-- Đốm sáng linh khí rực rỡ hơn
+local function CreateSoul()
     local p = Instance.new("Frame", Main)
-    p.Size = UDim2.new(0, 3, 0, 3)
-    p.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
-    p.BackgroundTransparency = 0.3
-    p.Position = UDim2.new(math.random(), 0, 1, 0)
+    p.Size = UDim2.new(0, 5, 0, 5)
+    p.BackgroundColor3 = Color3.fromRGB(255, 230, 100)
+    p.BackgroundTransparency = 0.2
+    p.Position = UDim2.new(math.random(), 0, 1.1, 0)
     p.ZIndex = 2
     Instance.new("UICorner", p).CornerRadius = UDim.new(1, 0)
-    local speed = math.random(4, 8)
-    TweenService:Create(p, TweenInfo.new(speed, Enum.EasingStyle.Linear), {
-        Position = UDim2.new(math.random(), 0, -0.1, 0),
+    local speed = math.random(3, 6)
+    TweenService:Create(p, TweenInfo.new(speed, Enum.EasingStyle.Sine), {
+        Position = UDim2.new(math.random(), 0, -0.2, 0),
         BackgroundTransparency = 1
     }):Play()
     game:GetService("Debris"):AddItem(p, speed)
 end
-task.spawn(function() while Main and Main.Parent do CreateEssence(); task.wait(0.3) end end)
+task.spawn(function() while Main and Main.Parent do CreateSoul(); task.wait(0.2) end end)
 
--- Khung nhập Linh Ấn
+-- Khung nhập Linh Ấn (Rộng rãi)
 local InputFrame = Instance.new("Frame", Main)
-InputFrame.Size = UDim2.new(0, 340, 0, 45)
-InputFrame.Position = UDim2.new(0.5, -170, 0.55, 0)
+InputFrame.Size = UDim2.new(0, 400, 0, 50) -- Rộng hơn
+InputFrame.Position = UDim2.new(0.5, -200, 0.58, 0)
 InputFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 InputFrame.ZIndex = 10
-Instance.new("UICorner", InputFrame).CornerRadius = UDim.new(0, 12)
+Instance.new("UICorner", InputFrame).CornerRadius = UDim.new(0, 15)
 local InpStroke = Instance.new("UIStroke", InputFrame)
-InpStroke.Color = Color3.fromRGB(200, 0, 0)
+InpStroke.Color = Color3.fromRGB(255, 0, 0)
+InpStroke.Thickness = 2
 
 local Box = Instance.new("TextBox", InputFrame)
-Box.Size = UDim2.new(1, -20, 1, 0)
-Box.Position = UDim2.new(0, 10, 0, 0)
+Box.Size = UDim2.new(1, -30, 1, 0)
+Box.Position = UDim2.new(0, 15, 0, 0)
 Box.BackgroundTransparency = 1
 Box.PlaceholderText = "Dán Linh Ấn (Key) để đột phá..."
 Box.Text = ""
 Box.TextColor3 = Color3.fromRGB(255, 215, 0)
 Box.Font = Enum.Font.Garamond
-Box.TextSize = 18
+Box.TextSize = 20
 Box.ZIndex = 11
 
--- Nút Bấm Khai Mở
+-- Nút Bấm Khai Mở (Rực cháy)
 local Btn = Instance.new("TextButton", Main)
-Btn.Size = UDim2.new(0, 340, 0, 50)
-Btn.Position = UDim2.new(0.5, -170, 0.78, 0)
+Btn.Size = UDim2.new(0, 400, 0, 55)
+Btn.Position = UDim2.new(0.5, -200, 0.78, 0)
 Btn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 Btn.Text = "ĐỘT PHÁ XIỀNG XÍCH"
 Btn.Font = Enum.Font.Antique
-Btn.TextSize = 24
+Btn.TextSize = 26
 Btn.TextColor3 = Color3.new(1, 1, 1)
 Btn.ZIndex = 10
 Btn.AutoButtonColor = false
-Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 12)
+Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 15)
 
--- Thanh Chu Thiên Loading
+-- Thanh Loading Chu Thiên
 local LFrame = Instance.new("Frame", Main)
-LFrame.Size = UDim2.new(0, 340, 0, 4)
-LFrame.Position = UDim2.new(0.5, -170, 0.94, 0)
+LFrame.Size = UDim2.new(0, 400, 0, 5)
+LFrame.Position = UDim2.new(0.5, -200, 0.95, 0)
 LFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 LFrame.Visible = false
 LFrame.ZIndex = 10
@@ -173,27 +174,27 @@ LBar.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
 Instance.new("UICorner", LBar)
 
 local Status = Instance.new("TextLabel", Main)
-Status.Size = UDim2.new(1, 0, 0, 20)
-Status.Position = UDim2.new(0, 0, 0.89, 0)
+Status.Size = UDim2.new(1, 0, 0, 25)
+Status.Position = UDim2.new(0, 0, 0.88, 0)
 Status.BackgroundTransparency = 1
 Status.TextColor3 = Color3.fromRGB(255, 215, 0)
 Status.Font = Enum.Font.Antique
-Status.TextSize = 14
+Status.TextSize = 16
 Status.Text = ""
 Status.ZIndex = 10
 
 -- Kéo UI
 MakeDraggable(Main, Title)
 
--- Hiệu ứng Pulse (Nhịp đập ma đạo)
+-- Hiệu ứng Pulse (Nhịp đập của UI)
 task.spawn(function()
     while Main and Main.Parent do
-        TweenService:Create(Stroke, TweenInfo.new(1.5), {Thickness = 5, Transparency = 0.1}):Play()
-        TweenService:Create(Btn, TweenInfo.new(1.5), {BackgroundColor3 = Color3.fromRGB(200, 0, 0)}):Play()
-        task.wait(1.5)
-        TweenService:Create(Stroke, TweenInfo.new(1.5), {Thickness = 2, Transparency = 0.5}):Play()
-        TweenService:Create(Btn, TweenInfo.new(1.5), {BackgroundColor3 = Color3.fromRGB(120, 0, 0)}):Play()
-        task.wait(1.5)
+        TweenService:Create(Stroke, TweenInfo.new(1.2), {Thickness = 6, Transparency = 0.2}):Play()
+        TweenService:Create(Btn, TweenInfo.new(1.2), {BackgroundColor3 = Color3.fromRGB(220, 0, 0)}):Play()
+        task.wait(1.2)
+        TweenService:Create(Stroke, TweenInfo.new(1.2), {Thickness = 2, Transparency = 0.6}):Play()
+        TweenService:Create(Btn, TweenInfo.new(1.2), {BackgroundColor3 = Color3.fromRGB(150, 0, 0)}):Play()
+        task.wait(1.2)
     end
 end)
 
@@ -214,8 +215,8 @@ Btn.MouseButton1Click:Connect(function()
         
         for _, s in ipairs(stages) do
             Status.Text = s.txt
-            LBar:TweenSize(UDim2.new(s.p, 0, 1, 0), "Out", "Quad", 0.8)
-            task.wait(1)
+            LBar:TweenSize(UDim2.new(s.p, 0, 1, 0), "Out", "Quad", 1)
+            task.wait(1.2)
         end
         
         gui:Destroy()
@@ -224,9 +225,15 @@ Btn.MouseButton1Click:Connect(function()
         Box.Text = ""
         Btn.Text = "LINH ẤN SAI LẦM!"
         Btn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        local orig = Main.Position
+        for _ = 1, 8 do
+            Main.Position = orig + UDim2.new(0, math.random(-8, 8), 0, math.random(-8, 8))
+            task.wait(0.02)
+        end
+        Main.Position = orig
         task.wait(1)
         Btn.Text = "ĐỘT PHÁ XIỀNG XÍCH"
     end
 end)
 
-print("Kuma Demonic Scripture Loaded!")
+print("Kuma Demonic Immortal Loader Ready!")
