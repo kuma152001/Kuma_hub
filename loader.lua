@@ -95,7 +95,7 @@ Title.Font = Enum.Font.Garamond
 Title.TextSize = 55 -- Chữ to hơn
 Title.ZIndex = 10
 
-local Titles = {"KUMA HUB", "CỔ MA THẦN LỤC", "NGHỊCH THIÊN CẢI MỆNH"}
+local Titles = {"KUMA HUB", "HỆ THỐNG NGHỊCH THIÊN"}
 task.spawn(function()
     local i = 1
     while Main and Main.Parent do
@@ -208,8 +208,8 @@ Btn.MouseButton1Click:Connect(function()
         
         local stages = {
             {txt = "Đang tụ linh khí...", p = 0.25},
-            {txt = "Vận chuyển Tiểu Chu Thiên...", p = 0.5},
-            {txt = "Vận chuyển Đại Chu Thiên...", p = 0.8},
+            {txt = "Đang khởi động hệ thống", p = 0.5},
+            {txt = "Chào mừng túc chủ", p = 0.8},
             {txt = "Đang Độ Kiếp...", p = 1.0}
         }
         
