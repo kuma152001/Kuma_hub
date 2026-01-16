@@ -1,239 +1,291 @@
--- [[ 📜 CỔ MA ĐẾ TÔN - KUMA HUB V10 (CINEMATIC WIDE) 📜 ]] --
--- [[ CẢNH BÁO: TUYỆT ĐỐI KHÔNG PUBLIC CÔNG PHÁP MA ĐẠO NÀY ]] --
+-- [[ ⛩️ KUMA HUB - GATEKEEPER SYSTEM (V2.2 STYLE) ⛩️ ]] --
+-- [[ Đồng bộ giao diện + Lưu Key 24h ]] --
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
 
-local KEY = "kuma1501"
+-- ==============================================================================
+-- 0. CẤU HÌNH & LOGIC LƯU KEY
+-- ==============================================================================
+local CORRECT_KEY = "kuma1501" -- Key của bạn
 local SCRIPT_URL = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/main/herb.lua"
+local KEY_FILE = "KumaHub_License_V2.json"
+local ONE_DAY_SECONDS = 86400 -- 24 giờ
 
-if CoreGui:FindFirstChild("KumaXianxiaV10") then CoreGui.KumaXianxiaV10:Destroy() end
-
-local gui = Instance.new("ScreenGui")
-gui.Name = "KumaXianxiaV10"
-gui.Parent = CoreGui
-gui.IgnoreGuiInset = true
-
--- Hàm kéo UI
-local function MakeDraggable(Frame, DragPart)
-    local dragging, dragInput, dragStart, startPos
-    DragPart.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = input.Position; startPos = Frame.Position
-            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
+-- Hàm load Hub chính
+local function LoadMainHub()
+    loadstring(game:HttpGet(SCRIPT_URL .. "?t=" .. tostring(os.time())))()
 end
 
--- Khung chính (Kích thước mở rộng 500x350)
+-- Kiểm tra xem Key cũ còn hạn không
+local function CheckSavedKey()
+    if isfile(KEY_FILE) then
+        local success, result = pcall(function()
+            return HttpService:JSONDecode(readfile(KEY_FILE))
+        end)
+        
+        if success and result then
+            local savedKey = result.Key
+            local savedTime = result.Time
+            local currentTime = os.time()
+            
+            -- Nếu Key đúng VÀ chưa quá 24h
+            if savedKey == CORRECT_KEY and (currentTime - savedTime) < ONE_DAY_SECONDS then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Lưu Key mới vào file
+local function SaveKeyData()
+    local data = {
+        Key = CORRECT_KEY,
+        Time = os.time()
+    }
+    writefile(KEY_FILE, HttpService:JSONEncode(data))
+end
+
+-- ==============================================================================
+-- 1. KIỂM TRA TỰ ĐỘNG (AUTO LOGIN)
+-- ==============================================================================
+if CheckSavedKey() then
+    -- Tạo một thông báo nhỏ trước khi vào thẳng
+    local StarterGui = game:GetService("StarterGui")
+    StarterGui:SetCore("SendNotification", {
+        Title = "Kuma Hub Security",
+        Text = "Linh Ấn cũ vẫn còn hiệu lực. Đang vào...",
+        Duration = 3
+    })
+    LoadMainHub()
+    return -- Dừng script Key System tại đây, không hiện GUI
+end
+
+-- ==============================================================================
+-- 2. GIAO DIỆN NHẬP KEY (NẾU CHƯA CÓ KEY)
+-- ==============================================================================
+
+-- Xóa GUI cũ
+if CoreGui:FindFirstChild("KumaGatekeeper") then CoreGui.KumaGatekeeper:Destroy() end
+
+local Screen = Instance.new("ScreenGui")
+Screen.Name = "KumaGatekeeper"
+Screen.Parent = CoreGui
+Screen.IgnoreGuiInset = true
+Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Nhận diện Mobile để chỉnh size
+local IsMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+local Scale = IsMobile and 1.0 or 1.2
+
+-- Khung Chính (Main Frame)
 local Main = Instance.new("Frame")
-Main.Name = "Main"
-Main.Parent = gui
-Main.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
-Main.AnchorPoint = Vector2.new(0.5, 0.5)
+Main.Name = "MainFrame"
+Main.Size = UDim2.new(0, 450 * Scale, 0, 300 * Scale)
 Main.Position = UDim2.new(0.5, 0, 0.5, 0)
-Main.Size = UDim2.new(0, 500, 0, 350) -- Tăng kích thước cực rộng
+Main.AnchorPoint = Vector2.new(0.5, 0.5)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25) -- Màu nền tối giống Hub chính
+Main.BorderSizePixel = 0
 Main.ClipsDescendants = true
-Main.ZIndex = 1
+Main.Parent = Screen
 
 local MainCorner = Instance.new("UICorner", Main)
-MainCorner.CornerRadius = UDim.new(0, 25)
+MainCorner.CornerRadius = UDim.new(0, 10)
 
--- Viền Neon "Ma Quang" (Chế độ Border để không đè chữ)
-local Stroke = Instance.new("UIStroke", Main)
-Stroke.Thickness = 3.5
-Stroke.Color = Color3.fromRGB(255, 0, 0)
-Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border -- Viền tỏa ra ngoài
+local MainStroke = Instance.new("UIStroke", Main)
+MainStroke.Color = Color3.fromRGB(255, 140, 0) -- Màu Cam đặc trưng
+MainStroke.Thickness = 2
+MainStroke.Transparency = 0.5
 
--- Nền Gradient xoay cực nhanh (Ma Khí Bạo Phát)
-local BGGradient = Instance.new("UIGradient", Main)
-BGGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(10, 0, 0)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(180, 0, 0)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 0, 0))
-})
-task.spawn(function()
-    while Main and Main.Parent do
-        BGGradient.Rotation = BGGradient.Rotation + 2
-        task.wait(0.02)
-    end
-end)
+-- [[ VISUAL: HIỆU ỨNG TRẬN PHÁP NỀN ]] --
+local MagicCircle = Instance.new("ImageLabel")
+MagicCircle.Name = "BgCircle"
+MagicCircle.Parent = Main
+MagicCircle.BackgroundTransparency = 1
+MagicCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+MagicCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+MagicCircle.Size = UDim2.new(1.2, 0, 1.8, 0) -- To hơn khung
+MagicCircle.Image = "rbxassetid://18274441091" -- ID Trận pháp giống Hub chính
+MagicCircle.ImageColor3 = Color3.fromRGB(255, 100, 0)
+MagicCircle.ImageTransparency = 0.85
+MagicCircle.ScaleType = Enum.ScaleType.Fit
 
--- Banner Cảnh Báo (Thiết kế lại rộng hơn)
-local Banner = Instance.new("Frame", Main)
-Banner.Size = UDim2.new(1, -60, 0, 35)
-Banner.Position = UDim2.new(0, 30, 0, 20)
-Banner.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-Banner.ZIndex = 5
-Instance.new("UICorner", Banner).CornerRadius = UDim.new(0, 12)
+-- Xoay trận pháp
+local TweenRot = TweenService:Create(MagicCircle, TweenInfo.new(25, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation = 360})
+TweenRot:Play()
 
-local WarningText = Instance.new("TextLabel", Banner)
-WarningText.Size = UDim2.new(1, 0, 1, 0)
-WarningText.BackgroundTransparency = 1
-WarningText.Text = "࿇ TUYỆT ĐỐI KHÔNG PUBLIC CÔNG PHÁP NÀY ࿇"
-WarningText.TextColor3 = Color3.new(1, 1, 1)
-WarningText.Font = Enum.Font.Antique
-WarningText.TextSize = 15
-WarningText.ZIndex = 6
-
--- Tiêu đề Morphing (Tăng size và khoảng cách)
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 80)
-Title.Position = UDim2.new(0, 0, 0, 70)
+-- Tiêu đề
+local Title = Instance.new("TextLabel")
+Title.Parent = Main
+Title.Text = "HỘ PHÁP TRẬN"
+Title.Size = UDim2.new(1, 0, 0, 50 * Scale)
+Title.Position = UDim2.new(0, 0, 0.1, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "KUMA HUB"
-Title.TextColor3 = Color3.fromRGB(255, 215, 0)
-Title.Font = Enum.Font.Garamond
-Title.TextSize = 55 -- Chữ to hơn
-Title.ZIndex = 10
+Title.TextColor3 = Color3.fromRGB(255, 160, 0)
+Title.Font = Enum.Font.FredokaOne
+Title.TextSize = 26 * Scale
+Title.TextStrokeTransparency = 0.8
 
-local Titles = {"KUMA HUB", "HỆ THỐNG NGHỊCH THIÊN"}
+local SubTitle = Instance.new("TextLabel")
+SubTitle.Parent = Main
+SubTitle.Text = "Vui lòng nhập Linh Ấn để đột phá"
+SubTitle.Size = UDim2.new(1, 0, 0, 20 * Scale)
+SubTitle.Position = UDim2.new(0, 0, 0.25, 0)
+SubTitle.BackgroundTransparency = 1
+SubTitle.TextColor3 = Color3.fromRGB(150, 150, 150)
+SubTitle.Font = Enum.Font.Gotham
+SubTitle.TextSize = 14 * Scale
+
+-- Khung chứa Input
+local InputContainer = Instance.new("Frame")
+InputContainer.Size = UDim2.new(0.8, 0, 0, 45 * Scale)
+InputContainer.Position = UDim2.new(0.5, 0, 0.45, 0)
+InputContainer.AnchorPoint = Vector2.new(0.5, 0.5)
+InputContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+InputContainer.Parent = Main
+Instance.new("UICorner", InputContainer).CornerRadius = UDim.new(0, 6)
+local InputStroke = Instance.new("UIStroke", InputContainer)
+InputStroke.Color = Color3.fromRGB(60, 60, 60)
+InputStroke.Thickness = 1
+
+local KeyBox = Instance.new("TextBox")
+KeyBox.Parent = InputContainer
+KeyBox.Size = UDim2.new(1, -20, 1, 0)
+KeyBox.Position = UDim2.new(0, 10, 0, 0)
+KeyBox.BackgroundTransparency = 1
+KeyBox.PlaceholderText = "Nhập Key tại đây..."
+KeyBox.Text = ""
+KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyBox.PlaceholderColor3 = Color3.fromRGB(100, 100, 100)
+KeyBox.Font = Enum.Font.GothamBold
+KeyBox.TextSize = 14 * Scale
+KeyBox.TextXAlignment = Enum.TextXAlignment.Center
+
+-- Nút Xác Nhận
+local EnterBtn = Instance.new("TextButton")
+EnterBtn.Parent = Main
+EnterBtn.Text = "KHAI MỞ (ENTER)"
+EnterBtn.Size = UDim2.new(0.6, 0, 0, 45 * Scale)
+EnterBtn.Position = UDim2.new(0.5, 0, 0.75, 0)
+EnterBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+EnterBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+EnterBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+EnterBtn.Font = Enum.Font.FredokaOne
+EnterBtn.TextSize = 18 * Scale
+EnterBtn.AutoButtonColor = true
+Instance.new("UICorner", EnterBtn).CornerRadius = UDim.new(0, 8)
+
+-- Hiệu ứng Glow cho nút
+local BtnGlow = Instance.new("UIStroke", EnterBtn)
+BtnGlow.Color = Color3.fromRGB(255, 160, 50)
+BtnGlow.Thickness = 2
+BtnGlow.Transparency = 0.5
 task.spawn(function()
-    local i = 1
-    while Main and Main.Parent do
-        task.wait(3.5)
-        TweenService:Create(Title, TweenInfo.new(1.2), {TextTransparency = 1, TextSize = 40}):Play()
-        task.wait(1.2)
-        i = (i % #Titles) + 1
-        Title.Text = Titles[i]
-        TweenService:Create(Title, TweenInfo.new(1.2), {TextTransparency = 0, TextSize = 55}):Play()
-    end
-end)
-
--- Đốm sáng linh khí rực rỡ hơn
-local function CreateSoul()
-    local p = Instance.new("Frame", Main)
-    p.Size = UDim2.new(0, 5, 0, 5)
-    p.BackgroundColor3 = Color3.fromRGB(255, 230, 100)
-    p.BackgroundTransparency = 0.2
-    p.Position = UDim2.new(math.random(), 0, 1.1, 0)
-    p.ZIndex = 2
-    Instance.new("UICorner", p).CornerRadius = UDim.new(1, 0)
-    local speed = math.random(3, 6)
-    TweenService:Create(p, TweenInfo.new(speed, Enum.EasingStyle.Sine), {
-        Position = UDim2.new(math.random(), 0, -0.2, 0),
-        BackgroundTransparency = 1
-    }):Play()
-    game:GetService("Debris"):AddItem(p, speed)
-end
-task.spawn(function() while Main and Main.Parent do CreateSoul(); task.wait(0.2) end end)
-
--- Khung nhập Linh Ấn (Rộng rãi)
-local InputFrame = Instance.new("Frame", Main)
-InputFrame.Size = UDim2.new(0, 400, 0, 50) -- Rộng hơn
-InputFrame.Position = UDim2.new(0.5, -200, 0.58, 0)
-InputFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-InputFrame.ZIndex = 10
-Instance.new("UICorner", InputFrame).CornerRadius = UDim.new(0, 15)
-local InpStroke = Instance.new("UIStroke", InputFrame)
-InpStroke.Color = Color3.fromRGB(255, 0, 0)
-InpStroke.Thickness = 2
-
-local Box = Instance.new("TextBox", InputFrame)
-Box.Size = UDim2.new(1, -30, 1, 0)
-Box.Position = UDim2.new(0, 15, 0, 0)
-Box.BackgroundTransparency = 1
-Box.PlaceholderText = "Dán Linh Ấn (Key) để đột phá..."
-Box.Text = ""
-Box.TextColor3 = Color3.fromRGB(255, 215, 0)
-Box.Font = Enum.Font.Garamond
-Box.TextSize = 20
-Box.ZIndex = 11
-
--- Nút Bấm Khai Mở (Rực cháy)
-local Btn = Instance.new("TextButton", Main)
-Btn.Size = UDim2.new(0, 400, 0, 55)
-Btn.Position = UDim2.new(0.5, -200, 0.78, 0)
-Btn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-Btn.Text = "ĐỘT PHÁ XIỀNG XÍCH"
-Btn.Font = Enum.Font.Antique
-Btn.TextSize = 26
-Btn.TextColor3 = Color3.new(1, 1, 1)
-Btn.ZIndex = 10
-Btn.AutoButtonColor = false
-Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 15)
-
--- Thanh Loading Chu Thiên
-local LFrame = Instance.new("Frame", Main)
-LFrame.Size = UDim2.new(0, 400, 0, 5)
-LFrame.Position = UDim2.new(0.5, -200, 0.95, 0)
-LFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-LFrame.Visible = false
-LFrame.ZIndex = 10
-local LBar = Instance.new("Frame", LFrame)
-LBar.Size = UDim2.new(0, 0, 1, 0)
-LBar.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-Instance.new("UICorner", LBar)
-
-local Status = Instance.new("TextLabel", Main)
-Status.Size = UDim2.new(1, 0, 0, 25)
-Status.Position = UDim2.new(0, 0, 0.88, 0)
-Status.BackgroundTransparency = 1
-Status.TextColor3 = Color3.fromRGB(255, 215, 0)
-Status.Font = Enum.Font.Antique
-Status.TextSize = 16
-Status.Text = ""
-Status.ZIndex = 10
-
--- Kéo UI
-MakeDraggable(Main, Title)
-
--- Hiệu ứng Pulse (Nhịp đập của UI)
-task.spawn(function()
-    while Main and Main.Parent do
-        TweenService:Create(Stroke, TweenInfo.new(1.2), {Thickness = 6, Transparency = 0.2}):Play()
-        TweenService:Create(Btn, TweenInfo.new(1.2), {BackgroundColor3 = Color3.fromRGB(220, 0, 0)}):Play()
-        task.wait(1.2)
-        TweenService:Create(Stroke, TweenInfo.new(1.2), {Thickness = 2, Transparency = 0.6}):Play()
-        TweenService:Create(Btn, TweenInfo.new(1.2), {BackgroundColor3 = Color3.fromRGB(150, 0, 0)}):Play()
-        task.wait(1.2)
-    end
-end)
-
--- Logic
-Btn.MouseButton1Click:Connect(function()
-    if Box.Text == KEY then
-        Btn.Visible = false
-        InputFrame.Visible = false
-        Title.Text = "NGHỊCH THIÊN THÀNH CÔNG"
-        LFrame.Visible = true
-        
-        local stages = {
-            {txt = "Đang tụ linh khí...", p = 0.25},
-            {txt = "Đang khởi động hệ thống", p = 0.5},
-            {txt = "Chào mừng túc chủ", p = 0.8},
-            {txt = "Đang Độ Kiếp...", p = 1.0}
-        }
-        
-        for _, s in ipairs(stages) do
-            Status.Text = s.txt
-            LBar:TweenSize(UDim2.new(s.p, 0, 1, 0), "Out", "Quad", 1)
-            task.wait(1.2)
-        end
-        
-        gui:Destroy()
-        loadstring(game:HttpGet(SCRIPT_URL .. "?t=" .. tick()))()
-    else
-        Box.Text = ""
-        Btn.Text = "LINH ẤN SAI LẦM!"
-        Btn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-        local orig = Main.Position
-        for _ = 1, 8 do
-            Main.Position = orig + UDim2.new(0, math.random(-8, 8), 0, math.random(-8, 8))
-            task.wait(0.02)
-        end
-        Main.Position = orig
+    while EnterBtn and EnterBtn.Parent do
+        TweenService:Create(BtnGlow, TweenInfo.new(1), {Transparency = 0}):Play()
         task.wait(1)
-        Btn.Text = "ĐỘT PHÁ XIỀNG XÍCH"
+        TweenService:Create(BtnGlow, TweenInfo.new(1), {Transparency = 0.8}):Play()
+        task.wait(1)
     end
 end)
 
-print("Kuma Demonic Immortal Loader Ready!")
+-- Nút lấy Key (Link)
+local GetKeyBtn = Instance.new("TextButton")
+GetKeyBtn.Parent = Main
+GetKeyBtn.Text = "Chưa có Linh Ấn? Bấm để lấy"
+GetKeyBtn.Size = UDim2.new(1, 0, 0, 20 * Scale)
+GetKeyBtn.Position = UDim2.new(0, 0, 0.9, 0)
+GetKeyBtn.BackgroundTransparency = 1
+GetKeyBtn.TextColor3 = Color3.fromRGB(100, 100, 100)
+GetKeyBtn.Font = Enum.Font.Gotham
+GetKeyBtn.TextSize = 12 * Scale
+
+-- LOGIC XỬ LÝ
+local Processing = false
+
+local function ShakeUI()
+    local origin = Main.Position
+    for i = 1, 10 do
+        Main.Position = origin + UDim2.new(0, math.random(-5, 5), 0, math.random(-5, 5))
+        task.wait(0.03)
+    end
+    Main.Position = origin
+end
+
+local function OnSubmit()
+    if Processing then return end
+    Processing = true
+    
+    local input = KeyBox.Text
+    -- Xóa khoảng trắng thừa
+    input = input:gsub("^%s*(.-)%s*$", "%1")
+    
+    if input == CORRECT_KEY then
+        -- HIỆU ỨNG THÀNH CÔNG
+        EnterBtn.Text = "ĐỘT PHÁ THÀNH CÔNG!"
+        EnterBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+        TweenService:Create(MainStroke, TweenInfo.new(0.5), {Color = Color3.fromRGB(0, 255, 100)}):Play()
+        
+        -- Lưu Key
+        SaveKeyData()
+        
+        task.wait(1)
+        
+        -- Biến mất UI
+        TweenService:Create(Main, TweenInfo.new(0.5), {Size = UDim2.new(0,0,0,0), BackgroundTransparency = 1}):Play()
+        task.wait(0.5)
+        Screen:Destroy()
+        
+        -- Load Hub
+        LoadMainHub()
+    else
+        -- HIỆU ỨNG THẤT BẠI
+        EnterBtn.Text = "LINH ẤN SAI LẦM!"
+        EnterBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        ShakeUI()
+        task.wait(1)
+        EnterBtn.Text = "KHAI MỞ (ENTER)"
+        EnterBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
+        Processing = false
+    end
+end
+
+EnterBtn.MouseButton1Click:Connect(OnSubmit)
+GetKeyBtn.MouseButton1Click:Connect(function()
+    setclipboard("https://discord.gg/kuma1501") -- Link Discord ví dụ
+    GetKeyBtn.Text = "Đã copy Link Discord!"
+    task.wait(2)
+    GetKeyBtn.Text = "Chưa có Linh Ấn? Bấm để lấy"
+end)
+
+-- Hiệu ứng kéo thả UI (Draggable)
+local dragging, dragInput, dragStart, startPos
+Main.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = Main.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+Main.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
