@@ -135,7 +135,7 @@ function KumaLibrary:CreateWindow(Settings)
     
     -- Auto detect device for initial scale
     if UIS.TouchEnabled and not UIS.MouseEnabled then
-        MainScale.Scale = 1.0 -- Mobile nhỏ hơn chút mặc định
+        MainScale.Scale = 0.8-- Mobile nhỏ hơn chút mặc định
     end
 
     -- Toggle Key Logic (Updated)
@@ -1053,7 +1053,7 @@ local function CreateMobileButton()
     ToggleBtn.BorderSizePixel = 0
     ToggleBtn.Position = UDim2.new(0.85, 0, 0.4, 0)
     ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
-    ToggleBtn.Text = ""
+    ToggleBtn.Text = "🐻"
     ToggleBtn.AutoButtonColor = true
     
     local Corner = Instance.new("UICorner", ToggleBtn)
