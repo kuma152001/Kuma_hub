@@ -1,9 +1,7 @@
---- START OF FILE Paste January 16, 2026 - 1:24PM ---
-
 --[[
     🐻 KUMA HUB - ULTIMATE SOURCE EDITION 🐻
     ===============================================================
-    Phiên bản: V3.1 (Fixed Mobile Button)
+    Phiên bản: V3.2 (Mobile UI Improved)
     
     [CHANGELOG UI]:
     - Added: Auto Scale System
@@ -11,6 +9,7 @@
     - Added: Custom Menu Toggle Keybind
     - Fixed: Mobile Button Layout
     - FIXED: Mobile Button Logic (Direct Toggle)
+    - UPDATED: Center UI & Bigger Mobile Button
     
     [LOGIC BẢO TOÀN 100%]:
     - Auto Farm, Auto Craft, ESP, Config System...
@@ -138,7 +137,7 @@ function KumaLibrary:CreateWindow(Settings)
     
     -- Auto detect device for initial scale
     if UIS.TouchEnabled and not UIS.MouseEnabled then
-        MainScale.Scale = 0.8-- Mobile nhỏ hơn chút mặc định
+        MainScale.Scale = 0.8 -- Mobile nhỏ hơn chút mặc định
     end
 
     -- Toggle Key Logic (Updated)
@@ -153,7 +152,10 @@ function KumaLibrary:CreateWindow(Settings)
     Main.Name = "Main"
     Main.Parent = ScreenGui
     Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-    Main.Position = UDim2.new(0.5, -300, 0.5, -200)
+    
+    -- [UPDATED] Center Logic for Mobile/PC
+    Main.AnchorPoint = Vector2.new(0.5, 0.5) -- Neo vào giữa tâm
+    Main.Position = UDim2.new(0.5, 0, 0.5, 0) -- Vị trí chính giữa màn hình
     Main.Size = UDim2.new(0, 600, 0, 420)
     Main.ClipsDescendants = true
     
@@ -1055,7 +1057,8 @@ local function CreateMobileButton()
     ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     ToggleBtn.BorderSizePixel = 0
     ToggleBtn.Position = UDim2.new(0.85, 0, 0.4, 0)
-    ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+    -- [UPDATED] Nút to hơn (70x70)
+    ToggleBtn.Size = UDim2.new(0, 70, 0, 70)
     ToggleBtn.Text = "🐻"
     ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     ToggleBtn.TextSize = 25.000
