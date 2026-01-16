@@ -1,13 +1,16 @@
+--- START OF FILE Paste January 16, 2026 - 1:24PM ---
+
 --[[
     🐻 KUMA HUB - ULTIMATE SOURCE EDITION 🐻
     ===============================================================
-    Phiên bản: V3.1 (Remastered UI + Full Source)
+    Phiên bản: V3.1 (Fixed Mobile Button)
     
     [CHANGELOG UI]:
     - Added: Auto Scale System
     - Added: Tab Icons
     - Added: Custom Menu Toggle Keybind
     - Fixed: Mobile Button Layout
+    - FIXED: Mobile Button Logic (Direct Toggle)
     
     [LOGIC BẢO TOÀN 100%]:
     - Auto Farm, Auto Craft, ESP, Config System...
@@ -1086,10 +1089,17 @@ local function CreateMobileButton()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
                     if (input.Position - dragStart).Magnitude < 10 then
-                        -- Toggle UI Logic
-                        VIM:SendKeyEvent(true, GlobalToggleKey, false, game)
-                        task.wait(0.05)
-                        VIM:SendKeyEvent(false, GlobalToggleKey, false, game)
+                        -- [FIXED LOGIC] Toggle UI trực tiếp thay vì giả lập phím
+                        -- Tìm UI trong CoreGui và đảo trạng thái Enabled
+                        local MainGui = game:GetService("CoreGui"):FindFirstChild("KumaHub_Ultimate")
+                        if MainGui then
+                            MainGui.Enabled = not MainGui.Enabled
+                        else
+                             -- Fallback (Dự phòng)
+                            VIM:SendKeyEvent(true, GlobalToggleKey, false, game)
+                            task.wait(0.05)
+                            VIM:SendKeyEvent(false, GlobalToggleKey, false, game)
+                        end
                     end
                 end
             end)
