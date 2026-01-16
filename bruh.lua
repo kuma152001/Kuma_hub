@@ -1057,6 +1057,8 @@ local function CreateMobileButton()
     ToggleBtn.Position = UDim2.new(0.85, 0, 0.4, 0)
     ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
     ToggleBtn.Text = "🐻"
+    ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleBtn.TextSize = 25.000
     ToggleBtn.AutoButtonColor = true
     
     local Corner = Instance.new("UICorner", ToggleBtn)
