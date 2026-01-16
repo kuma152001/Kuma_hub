@@ -1,26 +1,33 @@
+--- START OF FILE Paste January 16, 2026 - 11:15AM ---
+
 --[[ 
-    🐻 KUMA HUB - MOBILE NATIVE VERSION 🐻
+    🐻 KUMA HUB - CULTIVATION EDITION (FIXED) 🐻
     ---------------------------------------------------
-    Phiên bản: V2.1.5 (Logic gốc V2.1.1 + UI Updated Centered + Responsive)
+    Phiên bản: V2.2.1 (Fix Scroll + Auto Mobile Button)
     Changelogs:
-    - Căn giữa tiêu đề GUI.
-    - GUI tự động co giãn theo kích thước màn hình (Responsive).
-    - Đảo ngược danh sách năm chế thuốc (1 Year -> 100k Year).
-    - Tối ưu logic xóa tiến trình cũ khi Execute lại.
+    - FIX: Danh sách cuộn (ScrollingFrame) giờ đây có khoảng đệm phía dưới, không bị che mất nút cuối.
+    - FIX: Tự động hiện nút Mobile nếu phát hiện đang chơi trên điện thoại.
+    - VISUAL: Giữ nguyên hiệu ứng trận pháp xoay và tự động chỉnh cỡ chữ PC/Mobile.
 ]]
 
 -- ==============================================================================
--- 0. HỆ THỐNG DỌN DẸP & CHỐNG TRÙNG LẶP (LOGIC MỚI)
+-- 0. HỆ THỐNG DỌN DẸP & CHỐNG TRÙNG LẶP
 -- ==============================================================================
 local ScriptID = tick()
 _G.KumaInstanceID = ScriptID
 
--- Hàm kiểm tra xem script này còn là script mới nhất không
+local UIS = game:GetService("UserInputService")
+local TS = game:GetService("TweenService")
+-- Nhận diện thiết bị
+local IsMobile = UIS.TouchEnabled and not UIS.MouseEnabled
+-- [SCALE] PC chữ to (1.2), Mobile giữ nguyên (1.0)
+local SizeScale = IsMobile and 1.0 or 1.25 
+
 local function IsAlive() 
     return _G.KumaInstanceID == ScriptID 
 end
 
--- Xóa GUI cũ và các đối tượng liên quan ngay lập tức
+-- Xóa GUI cũ
 pcall(function()
     local CoreGui = game:GetService("CoreGui")
     for _, v in pairs(CoreGui:GetChildren()) do
@@ -36,38 +43,61 @@ task.spawn(function()
     repeat task.wait() until game:IsLoaded()
 
     -- ==============================================================================
-    -- 1. BỘ THƯ VIỆN GUI MOBILE (MODIFIED: CENTER TITLE + RESPONSIVE)
+    -- 1. BỘ THƯ VIỆN GUI (MODIFIED: SCROLL FIX + AUTO MOBILE BUTTON)
     -- ==============================================================================
     local KumaUI = {}
     local KumaMainFrame = nil 
+    local CurrentToggleKey = Enum.KeyCode.RightControl -- Phím tắt mặc định PC
 
     function KumaUI:CreateWindow(Settings)
         local CoreGui = game:GetService("CoreGui")
         
         local Screen = Instance.new("ScreenGui")
-        Screen.Name = "KumaHub_Native"
+        Screen.Name = "KumaHub_Cultivation_Fix"
         Screen.Parent = CoreGui
         Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         
+        -- Xử lý ẩn hiện bằng phím (PC)
+        UIS.InputBegan:Connect(function(input, gpe)
+            if not gpe and input.KeyCode == CurrentToggleKey then
+                if KumaMainFrame then KumaMainFrame.Visible = not KumaMainFrame.Visible end
+            end
+        end)
+
         local Main = Instance.new("Frame")
         Main.Name = "MainFrame"
-        -- [MOD] Chuyển từ Offset sang Scale để tự đổi to nhỏ theo màn hình
-        -- 0.6 = 60% chiều rộng màn hình, 0.55 = 55% chiều cao màn hình
         Main.Size = UDim2.new(0.6, 0, 0.55, 0) 
         Main.Position = UDim2.new(0.5, 0, 0.5, 0)
         Main.AnchorPoint = Vector2.new(0.5, 0.5)
-        Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+        Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25) 
         Main.BorderSizePixel = 0
         Main.Active = true
         Main.Draggable = true 
         Main.Parent = Screen
-        
-        -- [MOD] Thêm giới hạn kích thước để không bị bé quá trên đt nhỏ
+        Main.ClipsDescendants = true 
+
         local SizeConstraint = Instance.new("UISizeConstraint")
-        SizeConstraint.MinSize = Vector2.new(400, 280) -- Không nhỏ hơn mức này
+        SizeConstraint.MinSize = IsMobile and Vector2.new(400, 280) or Vector2.new(550, 350)
         SizeConstraint.Parent = Main
 
         KumaMainFrame = Main 
+
+        -- [VISUAL] Hiệu ứng nền Trận Pháp
+        local MagicCircle = Instance.new("ImageLabel")
+        MagicCircle.Name = "CultivationBg"
+        MagicCircle.Parent = Main
+        MagicCircle.BackgroundTransparency = 1
+        MagicCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+        MagicCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+        MagicCircle.Size = UDim2.new(0.8, 0, 1.4, 0) 
+        MagicCircle.Image = "rbxassetid://18274441091" 
+        MagicCircle.ImageColor3 = Color3.fromRGB(255, 140, 0)
+        MagicCircle.ImageTransparency = 0.92 
+        MagicCircle.ScaleType = Enum.ScaleType.Fit
+        
+        local TweenInfoRot = TweenInfo.new(20, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1)
+        local TweenRot = TS:Create(MagicCircle, TweenInfoRot, {Rotation = 360})
+        TweenRot:Play()
 
         local Stroke = Instance.new("UIStroke")
         Stroke.Parent = Main
@@ -78,25 +108,23 @@ task.spawn(function()
         Corner.CornerRadius = UDim.new(0, 8)
         Corner.Parent = Main
 
-        -- [MOD] Căn giữa tiêu đề
         local Title = Instance.new("TextLabel")
         Title.Text = Settings.Name or "Kuma Hub"
-        Title.Size = UDim2.new(1, 0, 0, 35) -- Full width
+        Title.Size = UDim2.new(1, 0, 0, 35 * SizeScale)
         Title.Position = UDim2.new(0, 0, 0, 5)
         Title.BackgroundTransparency = 1
         Title.TextColor3 = Color3.fromRGB(255, 140, 0)
         Title.Font = Enum.Font.FredokaOne
-        Title.TextSize = 24 -- To hơn chút
-        Title.TextXAlignment = Enum.TextXAlignment.Center -- Căn giữa
+        Title.TextSize = 24 * SizeScale
+        Title.TextXAlignment = Enum.TextXAlignment.Center 
         Title.Parent = Main
 
         local TabContainer = Instance.new("ScrollingFrame")
         TabContainer.Name = "TabContainer"
-        TabContainer.Size = UDim2.new(1, -20, 0, 35)
-        TabContainer.Position = UDim2.new(0, 10, 0, 45)
+        TabContainer.Size = UDim2.new(1, -20, 0, 35 * SizeScale)
+        TabContainer.Position = UDim2.new(0, 10, 0, 45 * SizeScale)
         TabContainer.BackgroundTransparency = 1
         TabContainer.ScrollBarThickness = 0
-        -- Canvas tự mở rộng khi thêm tab
         TabContainer.AutomaticCanvasSize = Enum.AutomaticSize.X 
         TabContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
         TabContainer.Parent = Main
@@ -109,9 +137,11 @@ task.spawn(function()
 
         local ContentContainer = Instance.new("Frame")
         ContentContainer.Name = "Content"
-        ContentContainer.Size = UDim2.new(1, -20, 1, -90)
-        ContentContainer.Position = UDim2.new(0, 10, 0, 85)
+        -- Tự động tính chiều cao để không bị tràn
+        ContentContainer.Size = UDim2.new(1, -20, 1, -(55 * SizeScale)) 
+        ContentContainer.Position = UDim2.new(0, 10, 0, 85 * SizeScale)
         ContentContainer.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        ContentContainer.BackgroundTransparency = 0.6 
         ContentContainer.Parent = Main
         Instance.new("UICorner", ContentContainer).CornerRadius = UDim.new(0, 6)
 
@@ -121,13 +151,11 @@ task.spawn(function()
         function WindowFunctions:CreateTab(Name, Icon)
             local TabBtn = Instance.new("TextButton")
             TabBtn.Text = Name
-            -- [NOTE] Giữ kích thước nút Tab cố định (100px) để dễ bấm trên mobile
-            -- Nếu để Scale thì khi nhiều tab quá chữ sẽ bị co lại không đọc được
-            TabBtn.Size = UDim2.new(0, 100, 1, 0) 
+            TabBtn.Size = UDim2.new(0, 100 * SizeScale, 1, 0) 
             TabBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
             TabBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
             TabBtn.Font = Enum.Font.GothamBold
-            TabBtn.TextSize = 14
+            TabBtn.TextSize = 14 * SizeScale
             TabBtn.Parent = TabContainer
             Instance.new("UICorner", TabBtn).CornerRadius = UDim.new(0, 6)
 
@@ -146,8 +174,9 @@ task.spawn(function()
             PageLayout.SortOrder = Enum.SortOrder.LayoutOrder
             PageLayout.Padding = UDim.new(0, 5)
             
+            -- [FIX SCROLL] Thêm Padding lớn (+50) vào CanvasSize để không bị che nút cuối
             PageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-                Page.CanvasSize = UDim2.new(0, 0, 0, PageLayout.AbsoluteContentSize.Y + 10)
+                Page.CanvasSize = UDim2.new(0, 0, 0, PageLayout.AbsoluteContentSize.Y + 50)
             end)
 
             if FirstTab then
@@ -163,26 +192,27 @@ task.spawn(function()
             end)
 
             local TabFunctions = {}
-            
+            local ItemHeight = 35 * SizeScale
+
             function TabFunctions:CreateSection(Text)
                 local Lbl = Instance.new("TextLabel")
                 Lbl.Text = "--- " .. Text .. " ---"
-                Lbl.Size = UDim2.new(1, 0, 0, 25)
+                Lbl.Size = UDim2.new(1, 0, 0, 25 * SizeScale)
                 Lbl.BackgroundTransparency = 1
                 Lbl.TextColor3 = Color3.fromRGB(255, 140, 0)
                 Lbl.Font = Enum.Font.SourceSansBold
-                Lbl.TextSize = 16
+                Lbl.TextSize = 16 * SizeScale
                 Lbl.Parent = Page
             end
 
             function TabFunctions:CreateLabel(Text)
                 local Lbl = Instance.new("TextLabel")
                 Lbl.Text = Text
-                Lbl.Size = UDim2.new(1, 0, 0, 20)
+                Lbl.Size = UDim2.new(1, 0, 0, 20 * SizeScale)
                 Lbl.BackgroundTransparency = 1
                 Lbl.TextColor3 = Color3.fromRGB(180, 180, 180)
                 Lbl.Font = Enum.Font.SourceSansItalic
-                Lbl.TextSize = 14
+                Lbl.TextSize = 14 * SizeScale
                 Lbl.TextXAlignment = Enum.TextXAlignment.Left 
                 local Pad = Instance.new("UIPadding") 
                 Pad.PaddingLeft = UDim.new(0, 10)
@@ -195,8 +225,9 @@ task.spawn(function()
 
             function TabFunctions:CreateToggle(Info) 
                 local Btn = Instance.new("TextButton")
-                Btn.Size = UDim2.new(1, 0, 0, 35)
+                Btn.Size = UDim2.new(1, 0, 0, ItemHeight)
                 Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                Btn.BackgroundTransparency = 0.5
                 Btn.Text = ""
                 Btn.Parent = Page
                 Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
@@ -209,7 +240,7 @@ task.spawn(function()
                 Title.TextColor3 = Color3.fromRGB(240, 240, 240)
                 Title.TextXAlignment = Enum.TextXAlignment.Left 
                 Title.Font = Enum.Font.GothamMedium
-                Title.TextSize = 13
+                Title.TextSize = 13 * SizeScale
                 
                 local Pad = Instance.new("UIPadding") 
                 Pad.PaddingLeft = UDim.new(0, 10)
@@ -217,8 +248,8 @@ task.spawn(function()
                 Title.Parent = Btn
 
                 local Status = Instance.new("Frame")
-                Status.Size = UDim2.new(0, 20, 0, 20)
-                Status.Position = UDim2.new(1, -30, 0.5, -10)
+                Status.Size = UDim2.new(0, 20 * SizeScale, 0, 20 * SizeScale)
+                Status.Position = UDim2.new(1, -(30 * SizeScale), 0.5, -(10 * SizeScale))
                 Status.Parent = Btn
                 Instance.new("UICorner", Status).CornerRadius = UDim.new(0, 4)
 
@@ -238,11 +269,12 @@ task.spawn(function()
             function TabFunctions:CreateButton(Info)
                 local Btn = Instance.new("TextButton")
                 Btn.Text = Info.Name
-                Btn.Size = UDim2.new(1, 0, 0, 35)
+                Btn.Size = UDim2.new(1, 0, 0, ItemHeight)
                 Btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                Btn.BackgroundTransparency = 0.5
                 Btn.TextColor3 = Color3.fromRGB(240, 240, 240)
                 Btn.Font = Enum.Font.GothamMedium
-                Btn.TextSize = 13
+                Btn.TextSize = 13 * SizeScale
                 Btn.TextXAlignment = Enum.TextXAlignment.Left 
                 
                 local Pad = Instance.new("UIPadding") 
@@ -258,11 +290,12 @@ task.spawn(function()
                 local Box = Instance.new("TextBox")
                 Box.PlaceholderText = Info.Name .. " (" .. (Info.PlaceholderText or "") .. ")"
                 Box.Text = ""
-                Box.Size = UDim2.new(1, 0, 0, 35)
+                Box.Size = UDim2.new(1, 0, 0, ItemHeight)
                 Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                Box.BackgroundTransparency = 0.5
                 Box.TextColor3 = Color3.fromRGB(255, 140, 0)
                 Box.Font = Enum.Font.Gotham
-                Box.TextSize = 13
+                Box.TextSize = 13 * SizeScale
                 Box.TextXAlignment = Enum.TextXAlignment.Left 
                 
                 local Pad = Instance.new("UIPadding") 
@@ -274,10 +307,68 @@ task.spawn(function()
                 Box.FocusLost:Connect(function() pcall(Info.Callback, Box.Text) end)
             end
 
+            function TabFunctions:CreateKeybind(Info)
+                local Btn = Instance.new("TextButton")
+                Btn.Size = UDim2.new(1, 0, 0, ItemHeight)
+                Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                Btn.BackgroundTransparency = 0.5
+                Btn.Text = ""
+                Btn.Parent = Page
+                Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
+                
+                local Title = Instance.new("TextLabel")
+                Title.Text = Info.Name
+                Title.Size = UDim2.new(0.6, 0, 1, 0)
+                Title.BackgroundTransparency = 1
+                Title.TextColor3 = Color3.fromRGB(240, 240, 240)
+                Title.TextXAlignment = Enum.TextXAlignment.Left 
+                Title.Font = Enum.Font.GothamMedium
+                Title.TextSize = 13 * SizeScale
+                
+                local Pad = Instance.new("UIPadding") 
+                Pad.PaddingLeft = UDim.new(0, 10)
+                Pad.Parent = Title
+                Title.Parent = Btn
+                
+                local KeyDisplay = Instance.new("TextLabel")
+                KeyDisplay.Size = UDim2.new(0, 80 * SizeScale, 0, 25 * SizeScale)
+                KeyDisplay.Position = UDim2.new(1, -(90 * SizeScale), 0.5, -(12.5 * SizeScale))
+                KeyDisplay.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                KeyDisplay.TextColor3 = Color3.fromRGB(255, 170, 0)
+                KeyDisplay.Text = Info.CurrentKey.Name
+                KeyDisplay.Font = Enum.Font.GothamBold
+                KeyDisplay.TextSize = 12 * SizeScale
+                KeyDisplay.Parent = Btn
+                Instance.new("UICorner", KeyDisplay).CornerRadius = UDim.new(0, 4)
+                
+                local Listening = false
+                Btn.MouseButton1Click:Connect(function()
+                    if Listening then return end
+                    Listening = true
+                    KeyDisplay.Text = "..."
+                    KeyDisplay.TextColor3 = Color3.fromRGB(255, 0, 0)
+                    
+                    local con
+                    con = UIS.InputBegan:Connect(function(input)
+                        if input.UserInputType == Enum.UserInputType.Keyboard then
+                            if input.KeyCode ~= Enum.KeyCode.Unknown then
+                                Info.CurrentKey = input.KeyCode
+                                KeyDisplay.Text = input.KeyCode.Name
+                                KeyDisplay.TextColor3 = Color3.fromRGB(255, 170, 0)
+                                pcall(Info.Callback, input.KeyCode)
+                                Listening = false
+                                con:Disconnect()
+                            end
+                        end
+                    end)
+                end)
+            end
+
             function TabFunctions:CreateDropdown(Info) 
                 local Btn = Instance.new("TextButton")
-                Btn.Size = UDim2.new(1, 0, 0, 35)
+                Btn.Size = UDim2.new(1, 0, 0, ItemHeight)
                 Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                Btn.BackgroundTransparency = 0.5
                 Btn.Text = ""
                 Btn.Parent = Page
                 Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
@@ -290,7 +381,7 @@ task.spawn(function()
                 Title.TextColor3 = Color3.fromRGB(240, 240, 240)
                 Title.TextXAlignment = Enum.TextXAlignment.Left 
                 Title.Font = Enum.Font.GothamMedium
-                Title.TextSize = 13
+                Title.TextSize = 13 * SizeScale
                 
                 local Pad = Instance.new("UIPadding") 
                 Pad.PaddingLeft = UDim.new(0, 10)
@@ -319,17 +410,17 @@ task.spawn(function()
             
             function TabFunctions:CreateSlider(Info) 
                 local F = Instance.new("Frame")
-                F.Size = UDim2.new(1,0,0,40)
+                F.Size = UDim2.new(1,0,0,40 * SizeScale)
                 F.BackgroundTransparency = 1
                 F.Parent = Page
                 
                 local L = Instance.new("TextLabel")
                 L.Text = Info.Name .. ": " .. Info.CurrentValue
-                L.Size = UDim2.new(1,0,0,20)
+                L.Size = UDim2.new(1,0,0,20 * SizeScale)
                 L.BackgroundTransparency=1
                 L.TextColor3=Color3.fromRGB(200,200,200)
                 L.Font=Enum.Font.Gotham
-                L.TextSize=12
+                L.TextSize=12 * SizeScale
                 L.TextXAlignment = Enum.TextXAlignment.Left 
                 local Pad = Instance.new("UIPadding")
                 Pad.PaddingLeft = UDim.new(0, 10)
@@ -337,9 +428,10 @@ task.spawn(function()
                 L.Parent=F
                 
                 local B = Instance.new("TextButton")
-                B.Size=UDim2.new(1,0,0,20)
-                B.Position=UDim2.new(0,0,0,20)
+                B.Size=UDim2.new(1,0,0,20 * SizeScale)
+                B.Position=UDim2.new(0,0,0,20 * SizeScale)
                 B.BackgroundColor3=Color3.fromRGB(40,40,40)
+                B.BackgroundTransparency = 0.5
                 B.Text="Thay đổi (Bấm)"
                 B.TextColor3=Color3.fromRGB(150,150,150)
                 B.Parent=F
@@ -375,7 +467,6 @@ task.spawn(function()
     local LGT = game:GetService("Lighting")
     local RE = game:GetService("ReplicatedStorage")
     local VU = game:GetService("VirtualUser")
-    local UIS = game:GetService("UserInputService")
 
     local CollectRemote = RE:FindFirstChild("CollectHerb", true)
     local ConfigFolder = "KumaHub_Profiles"
@@ -422,7 +513,7 @@ task.spawn(function()
     local InputProfileName = ""
 
     -- ==============================================================================
-    -- 3. CÁC HÀM HỖ TRỢ (UTILITY FUNCTIONS)
+    -- 3. CÁC HÀM HỖ TRỢ
     -- ==============================================================================
 
     local function GetPosition(obj)
@@ -564,19 +655,24 @@ task.spawn(function()
     -- 4. GIAO DIỆN CHÍNH
     -- ==============================================================================
     local Window = Rayfield:CreateWindow({
-       Name = "🐻 KUMA HUB ULTIMATE 🐻",
+       Name = "🐻 KUMA HUB ULT (Cultivation) 🐻",
        LoadingTitle = "Đang tải...",
-       LoadingSubtitle = "V2.1.5 Mobile VN",
+       LoadingSubtitle = "V2.2.1 Fix",
        ConfigurationSaving = { Enabled = false }, 
        KeySystem = false,
     })
 
-    -- Button di động (Logic kéo thả giữ nguyên)
-    task.spawn(function()
+    -- [FIX] Logic Nút Mobile: Luôn hiện nếu là Mobile, hoặc User bật trên PC
+    local ShowMobileButton = IsMobile -- Mặc định True nếu là Mobile
+    local MobileBtnInstance = nil
+
+    local function CreateMobileButton()
+        if MobileBtnInstance then MobileBtnInstance:Destroy() end
         local MobileScreen = Instance.new("ScreenGui")
         MobileScreen.Name = "KumaMobileButton"
         MobileScreen.Parent = game:GetService("CoreGui")
         MobileScreen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        MobileBtnInstance = MobileScreen
 
         local ToggleBtn = Instance.new("TextButton")
         ToggleBtn.Parent = MobileScreen
@@ -636,7 +732,12 @@ task.spawn(function()
                 update(input)
             end
         end)
-    end)
+    end
+
+    -- [FIX] Chạy ngay lập tức nếu là Mobile
+    if ShowMobileButton then
+        task.spawn(CreateMobileButton)
+    end
 
     -- =============================================================
     -- TAB 1: FARM
@@ -1052,7 +1153,7 @@ task.spawn(function()
     })
 
     -- =============================================================
-    -- TAB 4: CRAFT (ĐÃ ĐẢO NGƯỢC LIST NĂM)
+    -- TAB 4: CRAFT
     -- =============================================================
     local TabCraft = Window:CreateTab("⚗ Chế Thuốc", 4483362458)
     local CraftRecipes = {
@@ -1071,11 +1172,10 @@ task.spawn(function()
     local YearToGrade = { ["100000 Year"] = 6, ["10000 Year"] = 5, ["1000 Year"] = 4, ["100 Year"] = 3, ["1000 Year"] = 2, ["1 Year"] = 1 }
 
     TabCraft:CreateDropdown({ Name = "Công thức", Options = RecipeNames, CurrentOption = RecipeNames[1], Callback = function(O) _G.Config.CraftRecipe = O[1] end})
-    -- [MOD] Đảo ngược danh sách năm từ 1 -> 100000
     TabCraft:CreateDropdown({ 
         Name = "Niên đại (Năm)", 
         Options = {"1 Year", "10 Year", "100 Year", "1000 Year", "10000 Year", "100000 Year"}, 
-        CurrentOption = "100000 Year", 
+        CurrentOption = "1 Year", 
         Callback = function(O) _G.Config.CraftYear = O[1] end
     })
     TabCraft:CreateInput({ Name = "Cấp lò luyện", PlaceholderText = "10", Callback = function(Text) _G.Config.CraftLevel = tonumber(Text) or 10 end})
@@ -1126,27 +1226,49 @@ task.spawn(function()
     -- TAB 5: CÀI ĐẶT
     -- =============================================================
     local TabSettings = Window:CreateTab("⚙ Cài đặt", 4483362458)
+    
+    TabSettings:CreateSection("Thiết lập PC/Mobile")
+    
+    TabSettings:CreateKeybind({
+        Name = "Phím Bật/Tắt GUI (PC)",
+        CurrentKey = CurrentToggleKey,
+        Callback = function(Key) 
+            CurrentToggleKey = Key 
+        end
+    })
+
+    TabSettings:CreateToggle({ 
+        Name = "Hiện nút Mobile (Góc trái)", 
+        CurrentValue = ShowMobileButton, 
+        Callback = function(V) 
+            if V then 
+                CreateMobileButton()
+            else
+                if MobileBtnInstance then MobileBtnInstance:Destroy() end
+            end
+        end
+    })
 
     TabSettings:CreateSection("Tốc độ & Độ trễ")
     TabSettings:CreateSlider({ 
         Name = "Độ trễ Tele Farm (Chống Kick)", 
-        Range = {0.5, 2}, 
-        Increment = 0.1, 
-        CurrentValue = 0.8, 
+        Range = {0.5, 5}, 
+        Increment = 0.5, 
+        CurrentValue = 2.5, 
         Callback = function(V) _G.Config.SyncDelay = V end
     })
     TabSettings:CreateSlider({ 
         Name = "Chờ giữa các điểm tele Loop", 
         Range = {0, 60}, 
         Increment = 0.5, 
-        CurrentValue = 2.0, 
+        CurrentValue = 2.5, 
         Callback = function(V) _G.Config.WaypointDelay = V end
     })
     TabSettings:CreateSlider({ 
         Name = "Thời gian giữ phím (E)", 
-        Range = {0, 4}, 
-        Increment = 0.1, 
-        CurrentValue = 0.2, 
+        Range = {0, 5}, 
+        Increment = 0., 
+        CurrentValue = 3.0, 
         Callback = function(V) _G.Config.HoldDelay = V end
     })
 
