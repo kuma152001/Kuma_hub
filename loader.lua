@@ -23,7 +23,7 @@ local UNIVERSAL_SCRIPT = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/
 local GameDatabase = {
     -- Ví dụ: Blox Fruits (Sea 1, 2, 3)
     [118964786752768] = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/main/herb.lua",
-    [92814019058536] = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/bruh.lua",
+    [92814019058536] = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/plant_brainrot_simulator.lua",
     [7449423635] = "LINK_SCRIPT_BLOX_FRUITS_HERE",
     
     -- Ví dụ: Pet Simulator 99
