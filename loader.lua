@@ -1,5 +1,5 @@
--- [[ 🌟 KUMA HUB - GOLDEN FINGER (BẢN HOÀN CHỈNH) 🌟 ]] --
--- [[ FIX: Đã có lại Vòng Hào Quang + Ô nhập Key rõ ràng ]] --
+-- [[ 🌟 KUMA HUB - GOLDEN FINGER (AUTO GAME DETECT) 🌟 ]] --
+-- [[ FIX: Tự động chọn Script theo Game + Vòng Hào Quang + Key System ]] --
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -9,16 +9,56 @@ local HttpService = game:GetService("HttpService")
 local Debris = game:GetService("Debris")
 
 -- ==============================================================================
--- 0. CẤU HÌNH KEY
+-- 1. CẤU HÌNH GAME (QUAN TRỌNG: CHỈNH SỬA Ở ĐÂY)
 -- ==============================================================================
 local CORRECT_KEY = "kuma1501" 
-local SCRIPT_URL = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/main/herb.lua"
 local KEY_FILE = "KumaHub_Golden_License.json"
 local ONE_DAY_SECONDS = 86400 
 
+-- [SCRIPT MẶC ĐỊNH]: Chạy khi game không có trong danh sách bên dưới
+local UNIVERSAL_SCRIPT = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/main/herb.lua"
+
+-- [DANH SÁCH GAME]: [PlaceId] = "Link Raw Script"
+-- Bạn lấy PlaceId bằng cách vào game -> Gõ vào console: print(game.PlaceId)
+local GameDatabase = {
+    -- Ví dụ: Blox Fruits (Sea 1, 2, 3)
+    [118964786752768] = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/main/herb.lua",
+    [92814019058536] = "LINK_SCRIPT_BLOX_FRUITS_HERE",
+    [7449423635] = "LINK_SCRIPT_BLOX_FRUITS_HERE",
+    
+    -- Ví dụ: Pet Simulator 99
+    [8737877270] = "LINK_SCRIPT_PET_SIM_99_HERE",
+    
+    -- Ví dụ: King Legacy
+    [2753915549] = "LINK_SCRIPT_KING_LEGACY_HERE",
+    
+    -- THÊM GAME KHÁC VÀO ĐÂY THEO CẤU TRÚC: [ID] = "LINK",
+}
+
+-- ==============================================================================
+-- 2. HỆ THỐNG LOAD SCRIPT THÔNG MINH
+-- ==============================================================================
 local function LoadMainHub()
+    local placeId = game.PlaceId
+    local scriptToLoad = UNIVERSAL_SCRIPT
+    local gameName = "Universal (Mặc định)"
+
+    -- Kiểm tra xem ID game hiện tại có trong danh sách không
+    if GameDatabase[placeId] then
+        scriptToLoad = GameDatabase[placeId]
+        gameName = "Game ID: " .. tostring(placeId)
+    end
+
+    -- Thông báo script đang load
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "Kuma Hub System",
+        Text = "Đang load Script cho: " .. gameName,
+        Duration = 5,
+    })
+
+    -- Chạy Script
     pcall(function()
-        loadstring(game:HttpGet(SCRIPT_URL .. "?t=" .. tostring(os.time())))()
+        loadstring(game:HttpGet(scriptToLoad .. "?t=" .. tostring(os.time())))()
     end)
 end
 
@@ -50,7 +90,7 @@ if CheckSavedKey() then
 end
 
 -- ==============================================================================
--- 1. GIAO DIỆN (UI SETUP)
+-- 3. GIAO DIỆN (UI SETUP - GIỮ NGUYÊN NHƯ CŨ)
 -- ==============================================================================
 if CoreGui:FindFirstChild("KumaGoldenGate") then CoreGui.KumaGoldenGate:Destroy() end
 
@@ -58,7 +98,7 @@ local Screen = Instance.new("ScreenGui")
 Screen.Name = "KumaGoldenGate"
 Screen.Parent = CoreGui
 Screen.IgnoreGuiInset = true
-Screen.ZIndexBehavior = Enum.ZIndexBehavior.Global -- Quan trọng để xếp lớp
+Screen.ZIndexBehavior = Enum.ZIndexBehavior.Global
 
 local IsMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
 local Scale = IsMobile and 1.1 or 1.3
@@ -69,7 +109,7 @@ Main.Name = "MainFrame"
 Main.Size = UDim2.new(0, 520 * Scale, 0, 340 * Scale)
 Main.Position = UDim2.new(0.5, 0, 0.5, 0)
 Main.AnchorPoint = Vector2.new(0.5, 0.5)
-Main.BackgroundColor3 = Color3.fromRGB(15, 15, 20) -- Màu nền tối
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 Main.BorderSizePixel = 0
 Main.ClipsDescendants = true
 Main.Parent = Screen
@@ -80,11 +120,7 @@ MainStroke.Color = Color3.fromRGB(255, 200, 0)
 MainStroke.Thickness = 3
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 15)
 
--- ==============================================================================
--- 2. HIỆU ỨNG (HẠT + VÒNG TRÒN)
--- ==============================================================================
-
--- [Lớp 1] Hạt Linh Khí Bay Lên
+-- HẠT & HIỆU ỨNG
 local ParticleContainer = Instance.new("Frame", Main)
 ParticleContainer.Size = UDim2.new(1, 0, 1, 0)
 ParticleContainer.BackgroundTransparency = 1
@@ -111,22 +147,20 @@ local function SpawnParticle()
 end
 task.spawn(function() while Main.Parent do SpawnParticle() task.wait(0.1) end end)
 
--- [Lớp 2] VÒNG HÀO QUANG XOAY (Đã thêm lại phần này)
+-- VÒNG HÀO QUANG XOAY
 local AuraCircle = Instance.new("Frame", Main)
 AuraCircle.Size = UDim2.new(0, 260 * Scale, 0, 260 * Scale)
-AuraCircle.Position = UDim2.new(0.5, 0, 0.5, 0) -- Giữa khung
+AuraCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
 AuraCircle.AnchorPoint = Vector2.new(0.5, 0.5)
 AuraCircle.BackgroundTransparency = 1
-AuraCircle.ZIndex = 2 -- Nằm trên hạt, dưới chữ
+AuraCircle.ZIndex = 2 
 
 local AuraStroke = Instance.new("UIStroke", AuraCircle)
-AuraStroke.Color = Color3.fromRGB(255, 215, 0) -- Vàng
+AuraStroke.Color = Color3.fromRGB(255, 215, 0)
 AuraStroke.Thickness = 2
-AuraStroke.Transparency = 0.7 -- Hơi mờ để không che chữ
+AuraStroke.Transparency = 0.7 
+Instance.new("UICorner", AuraCircle).CornerRadius = UDim.new(1, 0) 
 
-Instance.new("UICorner", AuraCircle).CornerRadius = UDim.new(1, 0) -- Bo tròn 100%
-
--- Code xoay vòng tròn
 task.spawn(function()
     local rot = 0
     while Main and Main.Parent do
@@ -136,11 +170,7 @@ task.spawn(function()
     end
 end)
 
--- ==============================================================================
--- 3. NỘI DUNG (CHỮ & Ô NHẬP) - ZIndex cao để nổi lên trên
--- ==============================================================================
-
--- Tiêu đề
+-- NỘI DUNG
 local Title = Instance.new("TextLabel", Main)
 Title.Text = "HỆ THỐNG BÀN TAY VÀNG"
 Title.Size = UDim2.new(1, 0, 0, 55 * Scale)
@@ -152,7 +182,7 @@ Title.TextSize = 28 * Scale
 Title.ZIndex = 10
 
 local SubTitle = Instance.new("TextLabel", Main)
-SubTitle.Text = "Chào Mừng Túc Chủ"
+SubTitle.Text = "Chào Mừng Túc Chủ - Hệ Thống Auto Detect"
 SubTitle.Size = UDim2.new(1, 0, 0, 20 * Scale)
 SubTitle.Position = UDim2.new(0, 0, 0.22, 0)
 SubTitle.BackgroundTransparency = 1
@@ -161,13 +191,13 @@ SubTitle.Font = Enum.Font.Gotham
 SubTitle.TextSize = 14 * Scale
 SubTitle.ZIndex = 10
 
--- KHUNG CHỨA Ô NHẬP (NỀN XÁM ĐẬM)
+-- KHUNG INPUT
 local InputFrame = Instance.new("Frame", Main)
 InputFrame.Size = UDim2.new(0.8, 0, 0, 55 * Scale)
 InputFrame.Position = UDim2.new(0.5, 0, 0.48, 0)
 InputFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-InputFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45) -- Màu nền giúp dễ nhìn
-InputFrame.ZIndex = 20 -- Cao hơn vòng hào quang (ZIndex 2)
+InputFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+InputFrame.ZIndex = 20
 Instance.new("UICorner", InputFrame).CornerRadius = UDim.new(0, 12)
 
 local InputStroke = Instance.new("UIStroke", InputFrame)
@@ -175,7 +205,6 @@ InputStroke.Color = Color3.fromRGB(255, 215, 0)
 InputStroke.Thickness = 2
 InputStroke.Transparency = 0.5
 
--- Ô NHẬP LIỆU (TextBox)
 local KeyInput = Instance.new("TextBox", InputFrame)
 KeyInput.Size = UDim2.new(1, -20, 1, 0)
 KeyInput.Position = UDim2.new(0, 10, 0, 0)
@@ -201,7 +230,7 @@ ActivateBtn.TextSize = 22 * Scale
 ActivateBtn.ZIndex = 20
 Instance.new("UICorner", ActivateBtn).CornerRadius = UDim.new(0, 12)
 
--- Nút lấy Key
+-- LINK BUTTON
 local LinkBtn = Instance.new("TextButton", Main)
 LinkBtn.Text = "Chưa có Key? Bấm để copy Link"
 LinkBtn.Size = UDim2.new(1, 0, 0, 30 * Scale)
@@ -212,41 +241,57 @@ LinkBtn.Font = Enum.Font.GothamMedium
 LinkBtn.TextSize = 14 * Scale
 LinkBtn.ZIndex = 20
 LinkBtn.MouseButton1Click:Connect(function()
-    setclipboard("https://discord.gg/có_cái_nịt")
-    LinkBtn.Text = "Có Cái Nịt!"
+    setclipboard("https://discord.gg/link_cua_ban")
+    LinkBtn.Text = "Đã Copy Link Discord!"
     LinkBtn.TextColor3 = Color3.fromRGB(0, 255, 100)
     task.wait(2)
     LinkBtn.Text = "Chưa có Key? Bấm để copy Link"
     LinkBtn.TextColor3 = Color3.fromRGB(150, 150, 150)
 end)
 
--- LOGIC CHECK KEY
+-- LOGIC CHECK KEY & UI ANIMATION
 local Processing = false
 ActivateBtn.MouseButton1Click:Connect(function()
     if Processing then return end
     Processing = true
     
-    local input = KeyInput.Text:gsub("^%s*(.-)%s*$", "%1") -- Xóa khoảng trắng
+    local input = KeyInput.Text:gsub("^%s*(.-)%s*$", "%1")
     if input == CORRECT_KEY then
         ActivateBtn.Text = "THÀNH CÔNG!"
         ActivateBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
         SaveKeyData()
         task.wait(1)
+        
+        -- Hiệu ứng đóng UI đẹp mắt
         TweenService:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0,0,0,0)}):Play()
         task.wait(0.5)
         Screen:Destroy()
+        
+        -- LOAD SCRIPT TỰ ĐỘNG THEO GAME
         LoadMainHub()
     else
         ActivateBtn.Text = "SAI KEY!"
         ActivateBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-        task.wait(1)
+        
+        -- Rung nhẹ khi sai
+        local x = Main.Position.X.Scale
+        local y = Main.Position.Y.Scale
+        for i = 1, 5 do
+            Main.Position = UDim2.new(x + 0.01, 0, y, 0)
+            task.wait(0.05)
+            Main.Position = UDim2.new(x - 0.01, 0, y, 0)
+            task.wait(0.05)
+        end
+        Main.Position = UDim2.new(x, 0, y, 0)
+
+        task.wait(0.5)
         ActivateBtn.Text = "KHAI MỞ"
         ActivateBtn.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
         Processing = false
     end
 end)
 
--- KÉO THẢ UI
+-- DRAGGING
 local dragging, dragInput, dragStart, startPos
 Main.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
