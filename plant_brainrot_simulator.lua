@@ -1,7 +1,8 @@
--- // Kuma Hub V65: STRONG RECONNECT & AUTO EXECUTE FIX //
+-- // Kuma Hub V66: AUTO LOAD CONFIG + STRONG RECONNECT //
 -- Update: Auto Reconnect V2 (Spam kết nối lại cho đến khi được).
 -- Update: Fix lỗi không Rejoin khi mất mạng (Connection Lost).
--- Update: Fix lỗi Auto Execute không nhận link hoặc không chạy.
+-- Update: Fix lỗi Auto Execute.
+-- Update: Thêm Auto Load Config (Tự động nạp cài đặt khi vào game).
 
 -- ====================================================
 -- [1. VARIABLES & STORAGE]
@@ -33,7 +34,7 @@ getgenv().Config = {
     AutoSpin = false,
     AutoReconnect = false,
     AutoExecute = false,
-    ScriptURL = "" -- Link script sẽ được lưu ở đây
+    ScriptURL = ""
 }
 getgenv().BuyQueue = {} 
 
@@ -74,16 +75,14 @@ end
 local function QueueAutoExecute()
     if getgenv().Config.AutoExecute and queue_on_teleport then
         local url = getgenv().Config.ScriptURL
-        -- Nếu người dùng chưa nhập URL, dùng link mặc định (bạn có thể thay link mặc định ở đây)
         if not url or url == "" then
             url = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/plant_brainrot_simulator.lua"
         end
 
         if url and string.find(url, "http") then
-            -- Sử dụng string block để tạo script chạy ở server mới an toàn hơn
             local scriptToRun = [[
                 repeat task.wait() until game:IsLoaded()
-                task.wait(3) -- Đợi 3 giây cho game ổn định
+                task.wait(3) 
                 pcall(function()
                     loadstring(game:HttpGet("]] .. url .. [["))()
                 end)
@@ -205,32 +204,19 @@ task.spawn(function()
     end
 end)
 
--- 5. STRONG AUTO RECONNECT (FIXED + AUTO EXECUTE)
+-- 5. STRONG AUTO RECONNECT
 task.spawn(function()
     local function PerformRejoin()
-        -- KÍCH HOẠT AUTO EXECUTE TRƯỚC KHI TELEPORT
         QueueAutoExecute()
-        
-        -- Thử Rejoin liên tục
         while true do
             if not getgenv().Config.AutoReconnect then break end
-            
-            -- Thử cách 1: Vào lại server cũ
-            pcall(function()
-                TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Players.LocalPlayer)
-            end)
+            pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Players.LocalPlayer) end)
             task.wait(2)
-            
-            -- Thử cách 2: Vào server mới bất kỳ (nếu server cũ đóng)
-            pcall(function()
-                TeleportService:Teleport(game.PlaceId)
-            end)
-            
+            pcall(function() TeleportService:Teleport(game.PlaceId) end)
             task.wait(5) 
         end
     end
 
-    -- Bắt sự kiện Error Prompt (Kick, Ban, Disconnect)
     CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
         if getgenv().Config.AutoReconnect then
             if child.Name == 'ErrorPrompt' and child:FindFirstChild('MessageArea') and child.MessageArea:FindFirstChild("ErrorFrame") then
@@ -239,10 +225,8 @@ task.spawn(function()
         end
     end)
     
-    -- Bắt sự kiện Connection Lost của GuiService
     GuiService.ErrorMessageChanged:Connect(function()
         if getgenv().Config.AutoReconnect then
-            -- Đợi 1 chút để đảm bảo executor kịp xử lý
             task.wait(0.5)
             PerformRejoin()
         end
@@ -267,9 +251,9 @@ end)
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Kuma Hub | V65",
+   Name = "Kuma Hub | V66",
    LoadingTitle = "Kuma Hub",
-   LoadingSubtitle = "Fix Auto Execute & Reconnect",
+   LoadingSubtitle = "Auto Load Config & Reconnect",
    Theme = "AmberGlow",
    DisableRayfieldPrompts = true,
    ConfigurationSaving = { Enabled = false },
@@ -424,7 +408,7 @@ UI_Storage.Inputs["ScriptURL"] = MiscTab:CreateInput({
 MiscTab:CreateButton({
     Name = "📉 Hop Server Ít Người (Low)",
     Callback = function()
-        QueueAutoExecute() -- Xếp hàng execute trước khi nhảy
+        QueueAutoExecute()
         Rayfield:Notify({Title = "Hop Low", Content = "Đang tìm server...", Duration = 3})
         local PlaceID = game.PlaceId
         local foundAnything = ""
@@ -450,7 +434,7 @@ MiscTab:CreateButton({
 MiscTab:CreateButton({
     Name = "🎲 Hop Server Ngẫu Nhiên (Random)",
     Callback = function()
-        QueueAutoExecute() -- Xếp hàng execute trước khi nhảy
+        QueueAutoExecute()
         Rayfield:Notify({Title = "Hop Random", Content = "Đang tìm server...", Duration = 3})
         local PlaceID = game.PlaceId
         local function Hop()
@@ -470,14 +454,16 @@ MiscTab:CreateButton({
 })
 
 -- ====================================================
--- [ HỆ THỐNG CONFIG TÙY CHỈNH ]
+-- [ HỆ THỐNG CONFIG & AUTO LOAD ]
 -- ====================================================
-MiscTab:CreateSection("📁 QUẢN LÝ CONFIG (MANUAL SAVE)")
+MiscTab:CreateSection("📁 QUẢN LÝ CONFIG (AUTO LOAD)")
 
 local ProfileFileName = "KumaHub_V65_Profiles.json"
+local AutoLoadFileName = "KumaHub_AutoLoad.json" -- File lưu tên profile cần auto load
 local Profiles = {}
 local ProfileNames = {}
 
+-- Đọc dữ liệu Config
 local function ReadProfiles()
     if isfile(ProfileFileName) then
         local success, result = pcall(function() return HttpService:JSONDecode(readfile(ProfileFileName)) end)
@@ -494,31 +480,68 @@ end
 
 ReadProfiles()
 
+-- Hàm áp dụng config (Được tách riêng để Auto Load có thể gọi)
+local function LoadProfileData(profileName)
+    if not Profiles[profileName] then return false end
+    local data = Profiles[profileName]
+
+    if data.Config then
+        if data.Config.ActivePlots then
+            for i = 1, 6 do
+                local val = data.Config.ActivePlots[i]
+                if UI_Storage.Toggles["Plot_"..i] then 
+                    UI_Storage.Toggles["Plot_"..i]:Set(val)
+                end
+            end
+        end
+
+        local simpleToggles = {"AutoHarvest", "AutoPlant", "AutoBoss", "ClaimGift", "ClaimEvent", "ClaimEgg", "AutoSpin", "SmartBuy", "AutoReconnect", "AutoExecute"}
+        for _, key in pairs(simpleToggles) do
+            if data.Config[key] ~= nil and UI_Storage.Toggles[key] then
+                UI_Storage.Toggles[key]:Set(data.Config[key])
+            end
+        end
+
+        if data.Config.ScriptURL and UI_Storage.Inputs["ScriptURL"] then
+            getgenv().Config.ScriptURL = data.Config.ScriptURL
+        end
+
+        if data.Config.DelayTime and UI_Storage.Sliders["DelayTime"] then
+            UI_Storage.Sliders["DelayTime"]:Set(data.Config.DelayTime)
+        end
+    end
+
+    if data.BuyQueue then
+        for name, info in pairs(data.BuyQueue) do
+            local tglKey = "Shop_" .. name
+            if UI_Storage.Toggles[tglKey] and info.Active ~= nil then
+                UI_Storage.Toggles[tglKey]:Set(info.Active)
+            end
+        end
+    end
+    return true
+end
+
 local InputProfileName = ""
 local SelectedProfileToLoad = ProfileNames[1] or "Chưa có Profile"
 local ProfileDropdown 
 
 MiscTab:CreateInput({
     Name = "Tên Profile Mới",
-    PlaceholderText = "VD: FarmDem, AutoBoss...",
+    PlaceholderText = "VD: FarmDem",
     NumbersOnly = false,
     OnEnter = true, 
     Callback = function(Text) InputProfileName = Text end,
 })
 
 MiscTab:CreateButton({
-    Name = "💾 LƯU CONFIG (Bấm để Lưu)",
+    Name = "💾 LƯU CONFIG",
     Callback = function()
         if InputProfileName == "" then 
             Rayfield:Notify({Title = "Lỗi", Content = "Chưa nhập tên Profile!", Duration = 2})
             return 
         end
-        
-        Profiles[InputProfileName] = {
-            Config = getgenv().Config,
-            BuyQueue = getgenv().BuyQueue
-        }
-        
+        Profiles[InputProfileName] = {Config = getgenv().Config, BuyQueue = getgenv().BuyQueue}
         writefile(ProfileFileName, HttpService:JSONEncode(Profiles))
         ReadProfiles()
         if ProfileDropdown then ProfileDropdown:Refresh(ProfileNames) end
@@ -535,49 +558,38 @@ ProfileDropdown = MiscTab:CreateDropdown({
 })
 
 MiscTab:CreateButton({
-    Name = "📂 LOAD CONFIG (Tự bật chức năng)",
+    Name = "📂 LOAD CONFIG (Thủ công)",
     Callback = function()
-        if not Profiles[SelectedProfileToLoad] then return end
-        local data = Profiles[SelectedProfileToLoad]
-        
         Rayfield:Notify({Title = "Loading...", Content = "Đang áp dụng cài đặt...", Duration = 2})
-
-        if data.Config then
-            if data.Config.ActivePlots then
-                for i = 1, 6 do
-                    local val = data.Config.ActivePlots[i]
-                    if UI_Storage.Toggles["Plot_"..i] then 
-                        UI_Storage.Toggles["Plot_"..i]:Set(val)
-                    end
-                end
-            end
-
-            local simpleToggles = {"AutoHarvest", "AutoPlant", "AutoBoss", "ClaimGift", "ClaimEvent", "ClaimEgg", "AutoSpin", "SmartBuy", "AutoReconnect", "AutoExecute"}
-            for _, key in pairs(simpleToggles) do
-                if data.Config[key] ~= nil and UI_Storage.Toggles[key] then
-                    UI_Storage.Toggles[key]:Set(data.Config[key])
-                end
-            end
-
-            if data.Config.ScriptURL and UI_Storage.Inputs["ScriptURL"] then
-                getgenv().Config.ScriptURL = data.Config.ScriptURL
-            end
-
-            if data.Config.DelayTime and UI_Storage.Sliders["DelayTime"] then
-                UI_Storage.Sliders["DelayTime"]:Set(data.Config.DelayTime)
-            end
+        if LoadProfileData(SelectedProfileToLoad) then
+            Rayfield:Notify({Title = "Thành Công", Content = "Đã load xong!", Duration = 3})
+        else
+            Rayfield:Notify({Title = "Lỗi", Content = "Không tìm thấy dữ liệu!", Duration = 3})
         end
+    end,
+})
 
-        if data.BuyQueue then
-            for name, info in pairs(data.BuyQueue) do
-                local tglKey = "Shop_" .. name
-                if UI_Storage.Toggles[tglKey] and info.Active ~= nil then
-                    UI_Storage.Toggles[tglKey]:Set(info.Active)
-                end
-            end
+-- NÚT SET AUTO LOAD
+MiscTab:CreateButton({
+    Name = "⚙️ SET AUTO LOAD (Tự chạy Config này khi vào game)",
+    Callback = function()
+        if Profiles[SelectedProfileToLoad] then
+            local autoData = { Profile = SelectedProfileToLoad }
+            writefile(AutoLoadFileName, HttpService:JSONEncode(autoData))
+            Rayfield:Notify({Title = "Auto Load", Content = "Đã đặt Auto Load: " .. SelectedProfileToLoad, Duration = 3})
+        else
+            Rayfield:Notify({Title = "Lỗi", Content = "Profile không tồn tại!", Duration = 2})
         end
+    end,
+})
 
-        Rayfield:Notify({Title = "Thành Công", Content = "Đã load và bật lại các chức năng!", Duration = 3})
+MiscTab:CreateButton({
+    Name = "❌ TẮT AUTO LOAD",
+    Callback = function()
+        if isfile(AutoLoadFileName) then
+            delfile(AutoLoadFileName)
+            Rayfield:Notify({Title = "Auto Load", Content = "Đã tắt Auto Load!", Duration = 3})
+        end
     end,
 })
 
@@ -593,3 +605,16 @@ MiscTab:CreateButton({
         end
     end
 })
+
+-- CHECK AUTO LOAD STARTUP
+task.spawn(function()
+    task.wait(1) -- Đợi UI load xong chút
+    if isfile(AutoLoadFileName) then
+        local success, result = pcall(function() return HttpService:JSONDecode(readfile(AutoLoadFileName)) end)
+        if success and result.Profile then
+            if LoadProfileData(result.Profile) then
+                Rayfield:Notify({Title = "Auto Load", Content = "Đã tự động load: " .. result.Profile, Duration = 5})
+            end
+        end
+    end
+end)
