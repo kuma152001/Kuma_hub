@@ -1,7 +1,7 @@
--- // Kuma Hub V62: STABLE AUTO CODE //
--- Update: Fix lỗi Crash khi nhập Code (Tăng delay & thêm bảo vệ luồng).
--- Update: Giữ nguyên tính năng lưu Config thủ công.
--- Update: Giữ nguyên tính năng thử cả chữ Hoa và Thường.
+-- // Kuma Hub V63: RECONNECT & HOP //
+-- Update: Thêm Auto Reconnect (Tự vào lại khi bị Kick).
+-- Update: Thêm Server Hop (Random & Low Player).
+-- Update: Giữ Fix Auto Code & Manual Config.
 
 -- ====================================================
 -- [1. VARIABLES & STORAGE]
@@ -30,7 +30,8 @@ getgenv().Config = {
     ClaimGift = false,
     ClaimEvent = false,
     ClaimEgg = false,
-    AutoSpin = false
+    AutoSpin = false,
+    AutoReconnect = false -- [NEW]
 }
 getgenv().BuyQueue = {} 
 
@@ -48,6 +49,7 @@ local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
+local CoreGui = game:GetService("CoreGui")
 
 if game.CoreGui:FindFirstChild("Rayfield") then
     game.CoreGui:FindFirstChild("Rayfield"):Destroy()
@@ -176,6 +178,17 @@ task.spawn(function()
     end
 end)
 
+-- 5. Auto Reconnect (NEW)
+task.spawn(function()
+    CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
+        if getgenv().Config.AutoReconnect then
+            if child.Name == 'ErrorPrompt' and child:FindFirstChild('MessageArea') and child.MessageArea:FindFirstChild("ErrorFrame") then
+                TeleportService:Teleport(game.PlaceId)
+            end
+        end
+    end)
+end)
+
 -- Anti-AFK
 task.spawn(function()
     while true do
@@ -194,9 +207,9 @@ end)
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Kuma Hub | V62",
+   Name = "Kuma Hub | V63",
    LoadingTitle = "Kuma Hub",
-   LoadingSubtitle = "Stable & Optimized",
+   LoadingSubtitle = "Reconnect & Hop Added",
    Theme = "AmberGlow",
    DisableRayfieldPrompts = true,
    ConfigurationSaving = { Enabled = false },
@@ -261,7 +274,7 @@ FarmTab:CreateButton({
 local EventTab = Window:CreateTab("Events🎁", nil)
 EventTab:CreateSection("Boss & Chiến Đấu")
 UI_Storage.Toggles["AutoBoss"] = EventTab:CreateToggle({
-    Name = "🔥 Auto Boss (FIXED)", 
+    Name = "🔥 Auto Boss", 
     CurrentValue = false, 
     Callback = function(V) getgenv().Config.AutoBoss = V end
 })
@@ -323,9 +336,9 @@ for _, name in ipairs(OrderedFruits) do if getgenv().ShopIDs[name] then CreateBu
 -- TAB 4: MISC & CONFIG
 local MiscTab = Window:CreateTab("Misc/Config🚀", nil)
 
-MiscTab:CreateSection("Gift Code (Smart & Safe)")
+MiscTab:CreateSection("Gift Code")
 MiscTab:CreateButton({
-    Name = "🎁 Redeem All Codes (Chạy Chậm - Chống Crash)", 
+    Name = "🎁 Redeem All Codes (Safe Mode)", 
     Callback = function()
         local rawCodes = {
             "RELEASE1", "RELEASE2", "RELEASE3", "1KLIKE", "5KLIKE", 
@@ -335,42 +348,41 @@ MiscTab:CreateButton({
             "VIP888", "Grow888", "New666", "CRYSTAL1", "CRYSTAL2", 
             "ITEMS100", "8KDC", "9KDC1", "FIXED001"
         }
-        
-        Rayfield:Notify({Title = "Code", Content = "Bắt đầu nhập... (Vui lòng đợi)", Duration = 3})
-        
+        Rayfield:Notify({Title = "Code", Content = "Đang chạy...", Duration = 3})
         task.spawn(function()
             for i, code in ipairs(rawCodes) do 
-                -- Sử dụng pcall để nếu có lỗi cũng không dừng toàn bộ script
-                pcall(function()
-                    -- Thử chữ Hoa
-                    FireRemote("GetCode", string.upper(code))
-                end)
-                task.wait(0.5) -- Tăng delay lên 0.5s để server kịp xử lý và không bị lỗi UI
-
-                pcall(function()
-                    -- Thử chữ Thường
-                    FireRemote("GetCode", string.lower(code))
-                end)
-                task.wait(0.5) -- Delay an toàn
+                pcall(function() FireRemote("GetCode", string.upper(code)) end)
+                task.wait(0.5)
+                pcall(function() FireRemote("GetCode", string.lower(code)) end)
+                task.wait(0.5)
             end
-            Rayfield:Notify({Title = "Code", Content = "✅ Đã chạy xong danh sách!", Duration = 5})
+            Rayfield:Notify({Title = "Code", Content = "Đã xong!", Duration = 5})
         end)
     end
 })
 
-MiscTab:CreateSection("Server Tools")
+MiscTab:CreateSection("Server & Reconnect")
+
+-- Nút Auto Reconnect
+UI_Storage.Toggles["AutoReconnect"] = MiscTab:CreateToggle({
+    Name = "🔄 Auto Reconnect (Tự vào lại khi Kick)",
+    CurrentValue = false,
+    Callback = function(V) getgenv().Config.AutoReconnect = V end,
+})
+
+-- Nút Hop Low
 MiscTab:CreateButton({
-    Name = "🌏 Server Hop (Tìm Server Thấp)",
+    Name = "📉 Hop Server Ít Người (Low)",
     Callback = function()
-        Rayfield:Notify({Title = "Server Hop", Content = "Đang tìm server...", Duration = 3})
+        Rayfield:Notify({Title = "Hop Low", Content = "Đang tìm server vắng...", Duration = 3})
         local PlaceID = game.PlaceId
         local foundAnything = ""
         local function TPReturner()
             local Site;
             if foundAnything == "" then
-                Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
+                Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
             else
-                Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+                Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
             end
             if Site.nextPageCursor and Site.nextPageCursor ~= "null" then foundAnything = Site.nextPageCursor end
             for i,v in pairs(Site.data) do
@@ -384,12 +396,34 @@ MiscTab:CreateButton({
     end
 })
 
+-- Nút Hop Random
+MiscTab:CreateButton({
+    Name = "🎲 Hop Server Ngẫu Nhiên (Random)",
+    Callback = function()
+        Rayfield:Notify({Title = "Hop Random", Content = "Đang tìm server khác...", Duration = 3})
+        local PlaceID = game.PlaceId
+        local function Hop()
+            local Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
+            local servers = {}
+            for i,v in pairs(Site.data) do
+                if v.playing < v.maxPlayers and v.id ~= game.JobId then
+                    table.insert(servers, v.id)
+                end
+            end
+            if #servers > 0 then
+                TeleportService:TeleportToPlaceInstance(PlaceID, servers[math.random(1, #servers)], game.Players.LocalPlayer)
+            end
+        end
+        pcall(Hop)
+    end
+})
+
 -- ====================================================
 -- [ HỆ THỐNG CONFIG TÙY CHỈNH ]
 -- ====================================================
 MiscTab:CreateSection("📁 QUẢN LÝ CONFIG (MANUAL SAVE)")
 
-local ProfileFileName = "KumaHub_V62_Profiles.json"
+local ProfileFileName = "KumaHub_V63_Profiles.json"
 local Profiles = {}
 local ProfileNames = {}
 
@@ -467,7 +501,7 @@ MiscTab:CreateButton({
                 end
             end
 
-            local simpleToggles = {"AutoHarvest", "AutoPlant", "AutoBoss", "ClaimGift", "ClaimEvent", "ClaimEgg", "AutoSpin", "SmartBuy"}
+            local simpleToggles = {"AutoHarvest", "AutoPlant", "AutoBoss", "ClaimGift", "ClaimEvent", "ClaimEgg", "AutoSpin", "SmartBuy", "AutoReconnect"}
             for _, key in pairs(simpleToggles) do
                 if data.Config[key] ~= nil and UI_Storage.Toggles[key] then
                     UI_Storage.Toggles[key]:Set(data.Config[key])
