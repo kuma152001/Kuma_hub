@@ -2,6 +2,7 @@
 -- Update: Đổi tên thành Kuma Hub.
 -- Update: Xóa Blue Bucket.
 -- Update: Auto Boss chuyển sang Tab Event.
+-- Update New: Thêm hệ thống lưu Profile đa người dùng.
 
 -- ====================================================
 -- [1. CẤU HÌNH DATA & ID]
@@ -75,6 +76,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remote = ReplicatedStorage:WaitForChild("RemoteEvent"):WaitForChild("ServerRemoteEvent")
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local HttpService = game:GetService("HttpService") -- Thêm HttpService để xử lý JSON
 
 -- Reset UI
 if game.CoreGui:FindFirstChild("Rayfield") then
@@ -353,7 +355,7 @@ for _, name in ipairs(OrderedFruits) do
     if getgenv().ShopIDs[name] then CreateBuyBtn(name, CATEGORY_GEAR_V29, getgenv().ShopIDs[name]) end 
 end
 
--- TAB 4: MISC & PS
+-- TAB 4: MISC & PS & PROFILE SYSTEM
 local MiscTab = Window:CreateTab("Misc/PS🚀", nil)
 MiscTab:CreateButton({Name = "Redeem All Codes", Callback = function()
     local codes = {"UPDATE1", "UPDATE2", "UPDATE3", "UPDATE4", "kgfruit", "CRYSTAL500", "Fuse777", "Best999", "Redress", "VIP888", "Grow888", "New666", "CRYSTAL1", "CRYSTAL2", "ITEMS100"}
@@ -393,4 +395,137 @@ MiscTab:CreateButton({
             Rayfield:Notify({Title = "Lỗi", Content = "Chưa điền Code vào Script!", Duration = 3})
         end
     end
+})
+
+-- ====================================================
+-- [ HỆ THỐNG LƯU PROFILE (MỚI THÊM) ]
+-- ====================================================
+MiscTab:CreateSection("📁 QUẢN LÝ HỒ SƠ (PROFILES)")
+
+local ProfileFileName = "KumaHub_Profiles_V62.json"
+local Profiles = {}
+local ProfileNames = {}
+
+-- Hàm Load File
+local function LoadProfilesFromFile()
+    if isfile(ProfileFileName) then
+        local success, result = pcall(function() return HttpService:JSONDecode(readfile(ProfileFileName)) end)
+        if success and result then
+            Profiles = result
+        else
+            Profiles = {}
+        end
+    else
+        Profiles = {}
+    end
+    -- Cập nhật danh sách tên
+    ProfileNames = {}
+    for name, _ in pairs(Profiles) do
+        table.insert(ProfileNames, name)
+    end
+    if #ProfileNames == 0 then table.insert(ProfileNames, "Chưa có Profile") end
+end
+
+-- Hàm Save File
+local function SaveProfilesToFile()
+    writefile(ProfileFileName, HttpService:JSONEncode(Profiles))
+end
+
+-- Khởi động lần đầu
+LoadProfilesFromFile()
+
+local InputProfileName = ""
+local SelectedProfileToLoad = ProfileNames[1] or "Chưa có Profile"
+
+MiscTab:CreateInput({
+    Name = "Nhập Tên Profile Mới",
+    PlaceholderText = "VD: Farm_Dem, Auto_Boss...",
+    NumbersOnly = false,
+    OnEnter = true, 
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        InputProfileName = Text
+    end,
+})
+
+local ProfileDropdown -- Khai báo trước để dùng bên dưới
+
+MiscTab:CreateButton({
+    Name = "💾 Lưu Cấu Hình Hiện Tại (Tạo Mới/Ghi Đè)",
+    Callback = function()
+        if InputProfileName == "" then 
+            Rayfield:Notify({Title = "Lỗi", Content = "Vui lòng nhập tên Profile!", Duration = 2})
+            return 
+        end
+        
+        -- Lưu cấu hình hiện tại vào bảng
+        Profiles[InputProfileName] = {
+            Config = getgenv().Config,
+            BuyQueue = getgenv().BuyQueue
+        }
+        
+        SaveProfilesToFile()
+        LoadProfilesFromFile() -- Reload lại danh sách
+        Rayfield:Notify({Title = "Thành Công", Content = "Đã lưu Profile: " .. InputProfileName, Duration = 2})
+        
+        -- Refresh Dropdown
+        if ProfileDropdown then
+            ProfileDropdown:Refresh(ProfileNames)
+        end
+    end,
+})
+
+ProfileDropdown = MiscTab:CreateDropdown({
+    Name = "Chọn Profile Đã Lưu",
+    Options = ProfileNames,
+    CurrentOption = ProfileNames[1] or "",
+    MultipleOptions = false,
+    Callback = function(Option)
+        SelectedProfileToLoad = Option[1]
+    end,
+})
+
+MiscTab:CreateButton({
+    Name = "📂 Load Profile Đã Chọn",
+    Callback = function()
+        if not Profiles[SelectedProfileToLoad] then
+            Rayfield:Notify({Title = "Lỗi", Content = "Không tìm thấy dữ liệu Profile này!", Duration = 2})
+            return
+        end
+        
+        local data = Profiles[SelectedProfileToLoad]
+        
+        -- Nạp dữ liệu vào getgenv
+        if data.Config then
+            for k, v in pairs(data.Config) do
+                getgenv().Config[k] = v
+            end
+        end
+        
+        if data.BuyQueue then
+            -- Reset BuyQueue cũ và nạp mới
+            getgenv().BuyQueue = data.BuyQueue
+        end
+        
+        Rayfield:Notify({Title = "Đã Load", Content = "Cấu hình: " .. SelectedProfileToLoad .. "\n(Lưu ý: Bật tắt lại UI để hiển thị đúng)", Duration = 3})
+    end,
+})
+
+MiscTab:CreateButton({
+    Name = "🗑️ Xóa Profile Đã Chọn",
+    Callback = function()
+        if Profiles[SelectedProfileToLoad] then
+            Profiles[SelectedProfileToLoad] = nil
+            SaveProfilesToFile()
+            LoadProfilesFromFile()
+            Rayfield:Notify({Title = "Đã Xóa", Content = "Đã xóa Profile: " .. SelectedProfileToLoad, Duration = 2})
+            
+            -- Refresh Dropdown
+            if ProfileDropdown then
+                ProfileDropdown:Refresh(ProfileNames)
+            end
+        else
+            Rayfield:Notify({Title = "Lỗi", Content = "Không tồn tại Profile này!", Duration = 2})
+        end
+    end,
 })
