@@ -1,8 +1,24 @@
--- // Kuma Hub V66: AUTO LOAD CONFIG + STRONG RECONNECT //
--- Update: Auto Reconnect V2 (Spam kết nối lại cho đến khi được).
--- Update: Fix lỗi không Rejoin khi mất mạng (Connection Lost).
--- Update: Fix lỗi Auto Execute.
--- Update: Thêm Auto Load Config (Tự động nạp cài đặt khi vào game).
+-- // Kuma Hub V67: ANTI-CRASH & SAFE STARTUP //
+-- Update: Thêm thời gian chờ (Safe Wait) để tránh đơ máy khi Reconnect.
+-- Update: Tối ưu hóa bộ nhớ trước khi load UI.
+-- Update: Fix lỗi treo màn hình đen Rayfield.
+
+repeat task.wait() until game:IsLoaded()
+-- Đợi thêm để chắc chắn game đã ổn định (Fix lỗi đơ màn hình)
+task.wait(2)
+
+-- ====================================================
+-- [OPTIMIZATION & SAFETY]
+-- ====================================================
+pcall(function()
+    setfpscap(60) -- Giới hạn FPS tạm thời để giảm tải CPU khi load
+    game:GetService("RunService"):Set3dRenderingEnabled(true)
+end)
+
+-- Xóa UI cũ nếu bị kẹt
+if game.CoreGui:FindFirstChild("Rayfield") then
+    game.CoreGui:FindFirstChild("Rayfield"):Destroy()
+end
 
 -- ====================================================
 -- [1. VARIABLES & STORAGE]
@@ -56,10 +72,6 @@ local CoreGui = game:GetService("CoreGui")
 local GuiService = game:GetService("GuiService")
 local queue_on_teleport = queue_on_teleport or syn and syn.queue_on_teleport or fluxus and fluxus.queue_on_teleport
 
-if game.CoreGui:FindFirstChild("Rayfield") then
-    game.CoreGui:FindFirstChild("Rayfield"):Destroy()
-end
-
 local function FireRemote(...)
     local args = {...}
     if Remote then 
@@ -71,7 +83,7 @@ local function GetPlotTiles(PlotNum)
     return (PlotNum - 1) * 9 + 1, PlotNum * 9
 end
 
--- [FIXED AUTO EXECUTE FUNCTION]
+-- [FIXED SAFE AUTO EXECUTE]
 local function QueueAutoExecute()
     if getgenv().Config.AutoExecute and queue_on_teleport then
         local url = getgenv().Config.ScriptURL
@@ -80,9 +92,11 @@ local function QueueAutoExecute()
         end
 
         if url and string.find(url, "http") then
+            -- Đoạn script này sẽ chạy ở server mới
             local scriptToRun = [[
                 repeat task.wait() until game:IsLoaded()
-                task.wait(3) 
+                -- CHỜ THÊM 6 GIÂY ĐỂ MÁY KHÔNG BỊ TREO KHI TẢI MAP
+                task.wait(6) 
                 pcall(function()
                     loadstring(game:HttpGet("]] .. url .. [["))()
                 end)
@@ -96,7 +110,6 @@ end
 -- [CORE LOOPS]
 -- ====================================================
 
--- 1. Auto Buy
 task.spawn(function()
     local BuyIndex = 1
     while true do
@@ -121,7 +134,6 @@ task.spawn(function()
     end
 end)
 
--- 2. Farming
 task.spawn(function()
     while true do
         local Delay = getgenv().Config.DelayTime
@@ -168,7 +180,6 @@ task.spawn(function()
     end
 end)
 
--- 3. Events
 task.spawn(function()
     local GiftIndex, EventIndex, TimeCounter = 1, 1, 0
     while true do
@@ -190,7 +201,6 @@ task.spawn(function()
     end
 end)
 
--- 4. Auto Boss
 task.spawn(function()
     while true do
         if getgenv().Config.AutoBoss then
@@ -204,7 +214,7 @@ task.spawn(function()
     end
 end)
 
--- 5. STRONG AUTO RECONNECT
+-- [RECONNECT LOGIC]
 task.spawn(function()
     local function PerformRejoin()
         QueueAutoExecute()
@@ -233,7 +243,6 @@ task.spawn(function()
     end)
 end)
 
--- Anti-AFK
 task.spawn(function()
     while true do
         task.wait(120)
@@ -246,14 +255,14 @@ task.spawn(function()
 end)
 
 -- ====================================================
--- [UI RAYFIELD]
+-- [UI RAYFIELD LOAD]
 -- ====================================================
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Kuma Hub | V66",
-   LoadingTitle = "Kuma Hub",
-   LoadingSubtitle = "Auto Load Config & Reconnect",
+   Name = "Kuma Hub | V67 (Anti-Lag)",
+   LoadingTitle = "Đang tải an toàn...",
+   LoadingSubtitle = "Vui lòng đợi giảm lag",
    Theme = "AmberGlow",
    DisableRayfieldPrompts = true,
    ConfigurationSaving = { Enabled = false },
@@ -459,11 +468,10 @@ MiscTab:CreateButton({
 MiscTab:CreateSection("📁 QUẢN LÝ CONFIG (AUTO LOAD)")
 
 local ProfileFileName = "KumaHub_V65_Profiles.json"
-local AutoLoadFileName = "KumaHub_AutoLoad.json" -- File lưu tên profile cần auto load
+local AutoLoadFileName = "KumaHub_AutoLoad.json"
 local Profiles = {}
 local ProfileNames = {}
 
--- Đọc dữ liệu Config
 local function ReadProfiles()
     if isfile(ProfileFileName) then
         local success, result = pcall(function() return HttpService:JSONDecode(readfile(ProfileFileName)) end)
@@ -480,7 +488,6 @@ end
 
 ReadProfiles()
 
--- Hàm áp dụng config (Được tách riêng để Auto Load có thể gọi)
 local function LoadProfileData(profileName)
     if not Profiles[profileName] then return false end
     local data = Profiles[profileName]
@@ -569,7 +576,6 @@ MiscTab:CreateButton({
     end,
 })
 
--- NÚT SET AUTO LOAD
 MiscTab:CreateButton({
     Name = "⚙️ SET AUTO LOAD (Tự chạy Config này khi vào game)",
     Callback = function()
@@ -608,7 +614,7 @@ MiscTab:CreateButton({
 
 -- CHECK AUTO LOAD STARTUP
 task.spawn(function()
-    task.wait(1) -- Đợi UI load xong chút
+    task.wait(2) -- Delay thêm chút cho UI load hẳn
     if isfile(AutoLoadFileName) then
         local success, result = pcall(function() return HttpService:JSONDecode(readfile(AutoLoadFileName)) end)
         if success and result.Profile then
