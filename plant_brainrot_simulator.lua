@@ -341,12 +341,17 @@ MiscTab:CreateButton({
     Name = "🎁 Redeem All Codes (Safe Mode)", 
     Callback = function()
         local rawCodes = {
-            "RELEASE1", "RELEASE2", "RELEASE3", "1KLIKE", "5KLIKE", 
-            "NEWFRRUIT1", "NEWFRRUIT2", "UPDATE1", "UPDATE2", "SINP5", 
-            "christmas1", "christmas2", "christmas3", "UPDATE3", "UPDATE4", 
-            "kgfruit", "CRYSTAL5000", "Fuse777", "Best999", "Redress", 
-            "VIP888", "Grow888", "New666", "CRYSTAL1", "CRYSTAL2", 
-            "ITEMS100", "8KDC", "9KDC1", "FIXED001"
+           "RELEASE1", "RELEASE2", "RELEASE3", "1KLIKE", "5KLIKE", 
+"NEWFRRUIT1", "NEWFRRUIT2", "UPDATE1", "UPDATE2", "SINP5", 
+"CHRISTMAS1", "CHRISTMAS2", "CHRISTMAS3", "UPDATE3", "UPDATE4", 
+"KGFRUIT", "CRYSTAL5000", "FUSE777", "BEST999", "REDRESS", 
+"VIP888", "GROW888", "NEW666", "CRYSTAL1", "CRYSTAL2", 
+"ITEMS100", "8KDC", "9KDC1", "FIXED001", "release1", "release2", "release3", "1klike", "5klike", 
+"newfrruit1", "newfrruit2", "update1", "update2", "sinp5", 
+"christmas1", "christmas2", "christmas3", "update3", "update4", 
+"kgfruit", "crystal5000", "fuse777", "best999", "redress", 
+"vip888", "grow888", "new666", "crystal1", "crystal2", 
+"items100", "8kdc", "9kdc1", "fixed001"
         }
         Rayfield:Notify({Title = "Code", Content = "Đang chạy...", Duration = 3})
         task.spawn(function()
