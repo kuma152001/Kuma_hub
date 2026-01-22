@@ -1,7 +1,7 @@
--- // Kuma Hub V65: STRONG RECONNECT //
+-- // Kuma Hub V65: STRONG RECONNECT & AUTO EXECUTE FIX //
 -- Update: Auto Reconnect V2 (Spam kết nối lại cho đến khi được).
 -- Update: Fix lỗi không Rejoin khi mất mạng (Connection Lost).
--- Update: Giữ Auto Execute & Server Hop.
+-- Update: Fix lỗi Auto Execute không nhận link hoặc không chạy.
 
 -- ====================================================
 -- [1. VARIABLES & STORAGE]
@@ -33,7 +33,7 @@ getgenv().Config = {
     AutoSpin = false,
     AutoReconnect = false,
     AutoExecute = false,
-    ScriptURL = ""
+    ScriptURL = "" -- Link script sẽ được lưu ở đây
 }
 getgenv().BuyQueue = {} 
 
@@ -70,12 +70,25 @@ local function GetPlotTiles(PlotNum)
     return (PlotNum - 1) * 9 + 1, PlotNum * 9
 end
 
--- Hàm xử lý Auto Execute
+-- [FIXED AUTO EXECUTE FUNCTION]
 local function QueueAutoExecute()
     if getgenv().Config.AutoExecute and queue_on_teleport then
         local url = getgenv().Config.ScriptURL
-        if url and url ~= "" and string.find(url, "http") then
-            queue_on_teleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/plant_brainrot_simulator.lua"))()')
+        -- Nếu người dùng chưa nhập URL, dùng link mặc định (bạn có thể thay link mặc định ở đây)
+        if not url or url == "" then
+            url = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/plant_brainrot_simulator.lua"
+        end
+
+        if url and string.find(url, "http") then
+            -- Sử dụng string block để tạo script chạy ở server mới an toàn hơn
+            local scriptToRun = [[
+                repeat task.wait() until game:IsLoaded()
+                task.wait(3) -- Đợi 3 giây cho game ổn định
+                pcall(function()
+                    loadstring(game:HttpGet("]] .. url .. [["))()
+                end)
+            ]]
+            queue_on_teleport(scriptToRun)
         end
     end
 end
@@ -192,13 +205,13 @@ task.spawn(function()
     end
 end)
 
--- 5. STRONG AUTO RECONNECT (FIXED)
+-- 5. STRONG AUTO RECONNECT (FIXED + AUTO EXECUTE)
 task.spawn(function()
     local function PerformRejoin()
-        -- Kích hoạt Auto Execute cho lần vào sau
+        -- KÍCH HOẠT AUTO EXECUTE TRƯỚC KHI TELEPORT
         QueueAutoExecute()
         
-        -- Thử Rejoin liên tục mỗi 5s
+        -- Thử Rejoin liên tục
         while true do
             if not getgenv().Config.AutoReconnect then break end
             
@@ -208,16 +221,16 @@ task.spawn(function()
             end)
             task.wait(2)
             
-            -- Thử cách 2: Vào server mới bất kỳ
+            -- Thử cách 2: Vào server mới bất kỳ (nếu server cũ đóng)
             pcall(function()
                 TeleportService:Teleport(game.PlaceId)
             end)
             
-            task.wait(5) -- Chờ mạng ổn định rồi thử lại
+            task.wait(5) 
         end
     end
 
-    -- Cách 1: Bắt sự kiện Error Prompt (Kick, Ban, Disconnect)
+    -- Bắt sự kiện Error Prompt (Kick, Ban, Disconnect)
     CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
         if getgenv().Config.AutoReconnect then
             if child.Name == 'ErrorPrompt' and child:FindFirstChild('MessageArea') and child.MessageArea:FindFirstChild("ErrorFrame") then
@@ -226,11 +239,11 @@ task.spawn(function()
         end
     end)
     
-    -- Cách 2: Bắt sự kiện Connection Lost của GuiService (Khi rớt mạng)
+    -- Bắt sự kiện Connection Lost của GuiService
     GuiService.ErrorMessageChanged:Connect(function()
         if getgenv().Config.AutoReconnect then
-            -- Nếu có lỗi kết nối
-            task.wait(1)
+            -- Đợi 1 chút để đảm bảo executor kịp xử lý
+            task.wait(0.5)
             PerformRejoin()
         end
     end)
@@ -256,7 +269,7 @@ local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Siri
 local Window = Rayfield:CreateWindow({
    Name = "Kuma Hub | V65",
    LoadingTitle = "Kuma Hub",
-   LoadingSubtitle = "Fix Reconnect Lost Connection",
+   LoadingSubtitle = "Fix Auto Execute & Reconnect",
    Theme = "AmberGlow",
    DisableRayfieldPrompts = true,
    ConfigurationSaving = { Enabled = false },
@@ -383,53 +396,23 @@ for _, name in ipairs(OrderedFruits) do if getgenv().ShopIDs[name] then CreateBu
 -- TAB 4: MISC & CONFIG
 local MiscTab = Window:CreateTab("Misc/Config🚀", nil)
 
-MiscTab:CreateSection("Gift Code")
-MiscTab:CreateButton({
-    Name = "🎁 Redeem All Codes (Safe)", 
-    Callback = function()
-        local rawCodes = {
-             "RELEASE1", "RELEASE2", "RELEASE3", "1KLIKE", "5KLIKE", 
-"NEWFRRUIT1", "NEWFRRUIT2", "UPDATE1", "UPDATE2", "SINP5", 
-"CHRISTMAS1", "CHRISTMAS2", "CHRISTMAS3", "UPDATE3", "UPDATE4", 
-"KGFRUIT", "CRYSTAL5000", "FUSE777", "BEST999", "REDRESS", 
-"VIP888", "GROW888", "NEW666", "CRYSTAL1", "CRYSTAL2", 
-"ITEMS100", "8KDC", "9KDC1", "FIXED001", "release1", "release2", "release3", "1klike", "5klike", 
-"newfrruit1", "newfrruit2", "update1", "update2", "sinp5", 
-"christmas1", "christmas2", "christmas3", "update3", "update4", 
-"kgfruit", "crystal5000", "fuse777", "best999", "redress", 
-"vip888", "grow888", "new666", "crystal1", "crystal2", 
-"items100", "8kdc", "9kdc1", "fixed001"
-        }
-        Rayfield:Notify({Title = "Code", Content = "Đang chạy...", Duration = 3})
-        task.spawn(function()
-            for i, code in ipairs(rawCodes) do 
-                pcall(function() FireRemote("GetCode", string.upper(code)) end)
-                task.wait(0.5)
-                pcall(function() FireRemote("GetCode", string.lower(code)) end)
-                task.wait(0.5)
-            end
-            Rayfield:Notify({Title = "Code", Content = "Đã xong!", Duration = 5})
-        end)
-    end
-})
-
 MiscTab:CreateSection("Server & Auto Execute")
 
 UI_Storage.Toggles["AutoReconnect"] = MiscTab:CreateToggle({
-    Name = "🔄 Auto Reconnect (Tự spam vào lại)",
+    Name = "🔄 Auto Reconnect (Spam khi mất mạng)",
     CurrentValue = false,
     Callback = function(V) getgenv().Config.AutoReconnect = V end,
 })
 
 UI_Storage.Toggles["AutoExecute"] = MiscTab:CreateToggle({
-    Name = "⚡ Auto Execute (Chạy lại sau Rejoin)",
+    Name = "⚡ Auto Execute (Tự chạy Script)",
     CurrentValue = false,
     Callback = function(V) getgenv().Config.AutoExecute = V end,
 })
 
 UI_Storage.Inputs["ScriptURL"] = MiscTab:CreateInput({
-    Name = "🔗 Script URL (Dán link script vào đây)",
-    PlaceholderText = "loadstring(game:HttpGet('...'))()",
+    Name = "🔗 Script URL (Để trống sẽ lấy link mặc định)",
+    PlaceholderText = "loadstring...",
     NumbersOnly = false,
     OnEnter = true, 
     RemoveTextAfterFocusLost = false,
@@ -441,7 +424,7 @@ UI_Storage.Inputs["ScriptURL"] = MiscTab:CreateInput({
 MiscTab:CreateButton({
     Name = "📉 Hop Server Ít Người (Low)",
     Callback = function()
-        QueueAutoExecute()
+        QueueAutoExecute() -- Xếp hàng execute trước khi nhảy
         Rayfield:Notify({Title = "Hop Low", Content = "Đang tìm server...", Duration = 3})
         local PlaceID = game.PlaceId
         local foundAnything = ""
@@ -467,7 +450,7 @@ MiscTab:CreateButton({
 MiscTab:CreateButton({
     Name = "🎲 Hop Server Ngẫu Nhiên (Random)",
     Callback = function()
-        QueueAutoExecute()
+        QueueAutoExecute() -- Xếp hàng execute trước khi nhảy
         Rayfield:Notify({Title = "Hop Random", Content = "Đang tìm server...", Duration = 3})
         local PlaceID = game.PlaceId
         local function Hop()
@@ -513,7 +496,7 @@ ReadProfiles()
 
 local InputProfileName = ""
 local SelectedProfileToLoad = ProfileNames[1] or "Chưa có Profile"
-local ProfileDropdown -- Khai báo trước
+local ProfileDropdown 
 
 MiscTab:CreateInput({
     Name = "Tên Profile Mới",
@@ -576,7 +559,6 @@ MiscTab:CreateButton({
                 end
             end
 
-            -- Load ScriptURL
             if data.Config.ScriptURL and UI_Storage.Inputs["ScriptURL"] then
                 getgenv().Config.ScriptURL = data.Config.ScriptURL
             end
