@@ -358,7 +358,7 @@ end
 -- TAB 4: MISC & PS & PROFILE SYSTEM
 local MiscTab = Window:CreateTab("Misc/PS🚀", nil)
 MiscTab:CreateButton({Name = "Redeem All Codes", Callback = function()
-    local codes = {"UPDATE1", "UPDATE2", "UPDATE3", "UPDATE4", "kgfruit", "CRYSTAL500", "Fuse777", "Best999", "Redress", "VIP888", "Grow888", "New666", "CRYSTAL1", "CRYSTAL2", "ITEMS100"}
+    local codes = {"RELEASE1", "RELEASE2", "RELEASE3", "1KLIKE", "5KLIKE", "NEWFRRUIT1", "NEWFRRUIT2", "UPDATE1", "UPDATE2", "SINP5", "christmas1", "christmas2", "christmas3", "UPDATE3", "UPDATE4", "kgfruit", "CRYSTAL5000", "Fuse777", "Best999", "Redress", "VIP888", "Grow888", "New666", "CRYSTAL1", "CRYSTAL2", "ITEMS100", "8KDC", "9KDC1", "FIXED001"}
     for _, code in ipairs(codes) do FireRemote("GetCode", code) task.wait(0.2) end
 end})
 MiscTab:CreateButton({Name = "🥔 FPS Boost", Callback = function()
