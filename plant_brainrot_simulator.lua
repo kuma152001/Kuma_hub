@@ -75,7 +75,7 @@ local function QueueAutoExecute()
     if getgenv().Config.AutoExecute and queue_on_teleport then
         local url = getgenv().Config.ScriptURL
         if url and url ~= "" and string.find(url, "http") then
-            queue_on_teleport('loadstring(game:HttpGet("'..url..'"))()')
+            queue_on_teleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/plant_brainrot_simulator.lua"))()')
         end
     end
 end
