@@ -1,7 +1,7 @@
--- // Kuma Hub V63: RECONNECT & HOP //
--- Update: Thêm Auto Reconnect (Tự vào lại khi bị Kick).
--- Update: Thêm Server Hop (Random & Low Player).
--- Update: Giữ Fix Auto Code & Manual Config.
+-- // Kuma Hub V64: AUTO EXECUTE & HOP //
+-- Update: Thêm Auto Execute (Chạy lại script sau khi Hop).
+-- Update: Lưu Script URL vào Config.
+-- Update: Giữ Fix Auto Code, Reconnect, Manual Config.
 
 -- ====================================================
 -- [1. VARIABLES & STORAGE]
@@ -18,7 +18,7 @@ getgenv().ShopIDs = {
     ["Venom Fruit"] = 5, ["Flame Fruit"] = 4, ["Bomb Fruit"] = 7
 }
 
-local UI_Storage = { Toggles = {}, Sliders = {}, Dropdowns = {} }
+local UI_Storage = { Toggles = {}, Sliders = {}, Dropdowns = {}, Inputs = {} }
 
 getgenv().Config = {
     SmartBuy = false, 
@@ -31,7 +31,9 @@ getgenv().Config = {
     ClaimEvent = false,
     ClaimEgg = false,
     AutoSpin = false,
-    AutoReconnect = false -- [NEW]
+    AutoReconnect = false,
+    AutoExecute = false, -- [NEW]
+    ScriptURL = ""       -- [NEW]
 }
 getgenv().BuyQueue = {} 
 
@@ -50,6 +52,7 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local CoreGui = game:GetService("CoreGui")
+local queue_on_teleport = queue_on_teleport or syn and syn.queue_on_teleport or fluxus and fluxus.queue_on_teleport
 
 if game.CoreGui:FindFirstChild("Rayfield") then
     game.CoreGui:FindFirstChild("Rayfield"):Destroy()
@@ -65,6 +68,24 @@ end
 local function GetPlotTiles(PlotNum)
     return (PlotNum - 1) * 9 + 1, PlotNum * 9
 end
+
+-- Hàm xử lý Auto Execute
+local function QueueAutoExecute()
+    if getgenv().Config.AutoExecute and queue_on_teleport then
+        local url = getgenv().Config.ScriptURL
+        if url and url ~= "" and url ~= "Nhập Link Script Raw vào đây..." then
+            queue_on_teleport('loadstring(game:HttpGet("https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/loader.lua"))()')
+        else
+            -- Nếu không có URL, thử dùng loadfile (Chỉ hoạt động nếu bạn đã lưu script vào file workspace)
+            -- queue_on_teleport('loadfile("KumaHub_V64_Saved.lua")()')
+        end
+    end
+end
+
+-- Hook vào TeleportService
+TeleportService.LocalPlayerArrivedFromTeleport:Connect(function()
+    -- Logic chạy khi vừa vào server mới (nếu cần)
+end)
 
 -- ====================================================
 -- [CORE LOOPS]
@@ -178,11 +199,12 @@ task.spawn(function()
     end
 end)
 
--- 5. Auto Reconnect (NEW)
+-- 5. Auto Reconnect & Queue Execution
 task.spawn(function()
     CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
         if getgenv().Config.AutoReconnect then
             if child.Name == 'ErrorPrompt' and child:FindFirstChild('MessageArea') and child.MessageArea:FindFirstChild("ErrorFrame") then
+                QueueAutoExecute()
                 TeleportService:Teleport(game.PlaceId)
             end
         end
@@ -207,9 +229,9 @@ end)
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Kuma Hub | V63",
+   Name = "Kuma Hub | V64",
    LoadingTitle = "Kuma Hub",
-   LoadingSubtitle = "Reconnect & Hop Added",
+   LoadingSubtitle = "Auto Execute & Hop",
    Theme = "AmberGlow",
    DisableRayfieldPrompts = true,
    ConfigurationSaving = { Enabled = false },
@@ -338,7 +360,7 @@ local MiscTab = Window:CreateTab("Misc/Config🚀", nil)
 
 MiscTab:CreateSection("Gift Code")
 MiscTab:CreateButton({
-    Name = "🎁 Redeem All Codes (Safe Mode)", 
+    Name = "🎁 Redeem All Codes (Safe)", 
     Callback = function()
         local rawCodes = {
            "RELEASE1", "RELEASE2", "RELEASE3", "1KLIKE", "5KLIKE", 
@@ -366,20 +388,38 @@ MiscTab:CreateButton({
     end
 })
 
-MiscTab:CreateSection("Server & Reconnect")
+MiscTab:CreateSection("Server & Auto Execute")
 
--- Nút Auto Reconnect
 UI_Storage.Toggles["AutoReconnect"] = MiscTab:CreateToggle({
     Name = "🔄 Auto Reconnect (Tự vào lại khi Kick)",
     CurrentValue = false,
     Callback = function(V) getgenv().Config.AutoReconnect = V end,
 })
 
--- Nút Hop Low
+UI_Storage.Toggles["AutoExecute"] = MiscTab:CreateToggle({
+    Name = "⚡ Auto Execute (Chạy lại sau khi Hop)",
+    CurrentValue = false,
+    Callback = function(V) getgenv().Config.AutoExecute = V end,
+})
+
+UI_Storage.Inputs["ScriptURL"] = MiscTab:CreateInput({
+    Name = "🔗 Script URL (Dán link script vào đây)",
+    PlaceholderText = "loadstring(game:HttpGet('...'))()",
+    NumbersOnly = false,
+    OnEnter = true, 
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        getgenv().Config.ScriptURL = Text
+    end,
+})
+
+MiscTab:CreateLabel("Lưu ý: Bạn phải dán link (loadstring) vào ô trên thì Auto Execute mới hoạt động chuẩn xác.")
+
 MiscTab:CreateButton({
     Name = "📉 Hop Server Ít Người (Low)",
     Callback = function()
-        Rayfield:Notify({Title = "Hop Low", Content = "Đang tìm server vắng...", Duration = 3})
+        QueueAutoExecute() -- Xếp hàng lệnh chạy lại trước khi hop
+        Rayfield:Notify({Title = "Hop Low", Content = "Đang tìm server...", Duration = 3})
         local PlaceID = game.PlaceId
         local foundAnything = ""
         local function TPReturner()
@@ -401,11 +441,11 @@ MiscTab:CreateButton({
     end
 })
 
--- Nút Hop Random
 MiscTab:CreateButton({
     Name = "🎲 Hop Server Ngẫu Nhiên (Random)",
     Callback = function()
-        Rayfield:Notify({Title = "Hop Random", Content = "Đang tìm server khác...", Duration = 3})
+        QueueAutoExecute() -- Xếp hàng lệnh chạy lại
+        Rayfield:Notify({Title = "Hop Random", Content = "Đang tìm server...", Duration = 3})
         local PlaceID = game.PlaceId
         local function Hop()
             local Site = HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
@@ -428,7 +468,7 @@ MiscTab:CreateButton({
 -- ====================================================
 MiscTab:CreateSection("📁 QUẢN LÝ CONFIG (MANUAL SAVE)")
 
-local ProfileFileName = "KumaHub_V63_Profiles.json"
+local ProfileFileName = "KumaHub_V64_Profiles.json"
 local Profiles = {}
 local ProfileNames = {}
 
@@ -506,11 +546,18 @@ MiscTab:CreateButton({
                 end
             end
 
-            local simpleToggles = {"AutoHarvest", "AutoPlant", "AutoBoss", "ClaimGift", "ClaimEvent", "ClaimEgg", "AutoSpin", "SmartBuy", "AutoReconnect"}
+            local simpleToggles = {"AutoHarvest", "AutoPlant", "AutoBoss", "ClaimGift", "ClaimEvent", "ClaimEgg", "AutoSpin", "SmartBuy", "AutoReconnect", "AutoExecute"}
             for _, key in pairs(simpleToggles) do
                 if data.Config[key] ~= nil and UI_Storage.Toggles[key] then
                     UI_Storage.Toggles[key]:Set(data.Config[key])
                 end
+            end
+
+            -- Load ScriptURL vào ô Input
+            if data.Config.ScriptURL and UI_Storage.Inputs["ScriptURL"] then
+                -- Rayfield Input không có hàm :Set() trực tiếp dễ dàng để update visual, nhưng ta update data
+                getgenv().Config.ScriptURL = data.Config.ScriptURL
+                Rayfield:Notify({Title = "URL Loaded", Content = "Đã load link script (Nhập lại nếu cần nhìn thấy)", Duration = 3})
             end
 
             if data.Config.DelayTime and UI_Storage.Sliders["DelayTime"] then
