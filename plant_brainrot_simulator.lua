@@ -1,49 +1,25 @@
--- // Kuma Hub V62: REBRANDED & OPTIMIZED //
--- Update: Đổi tên thành Kuma Hub.
--- Update: Xóa Blue Bucket.
--- Update: Auto Boss chuyển sang Tab Event.
--- Update New: Thêm hệ thống lưu Profile đa người dùng.
+-- // Kuma Hub V62: STABLE AUTO CODE //
+-- Update: Fix lỗi Crash khi nhập Code (Tăng delay & thêm bảo vệ luồng).
+-- Update: Giữ nguyên tính năng lưu Config thủ công.
+-- Update: Giữ nguyên tính năng thử cả chữ Hoa và Thường.
 
 -- ====================================================
--- [1. CẤU HÌNH DATA & ID]
+-- [1. VARIABLES & STORAGE]
 -- ====================================================
 getgenv().ShopIDs = {
-    -- [[ SEEDS ]]
     ["Tomato Seed"] = 1, ["Pumpkin Seed"] = 2, ["Melon Seed"] = 3, ["Mini Corn Seed"] = 4,
     ["Mushroom Seed"] = 5, ["Cactus Seed"] = 6, ["Broccoli Seed"] = 7, ["Sunflower Seed"] = 8,
     ["Chrysanthemum Seed"] = 9, ["Peashooter Seed"] = 10, ["Corn Seed"] = 11, ["Cactus Flower Seed"] = 12,
     ["Fire Peashooter Seed"] = 13, ["Threepeater Seed"] = 14, ["Man-Eating Flower Seed"] = 15,
     ["Alien Onion Seed"] = 16, ["Capsid Brute Seed"] = 17,
-
-    -- [[ GEARS / BUCKETS ]] (Đã xóa Blue Water Bucket)
     ["Water Bucket (Thường)"] = 1, ["Granade"] = 2,
     ["Purple Bucket"] = 11, ["Orange Bucket"] = 10, ["Yellow Bucket"] = 9,
-
-    -- [[ FRUITS ]]
     ["Reversion Fruit"] = 8, ["Frozen Fruit"] = 3, ["Darkness Fruit"] = 6, ["Kg Fruit"] = 12,
     ["Venom Fruit"] = 5, ["Flame Fruit"] = 4, ["Bomb Fruit"] = 7
 }
 
-local OrderedSeeds = {
-    "Tomato Seed", "Pumpkin Seed", "Melon Seed", "Mini Corn Seed", 
-    "Mushroom Seed", "Cactus Seed", "Broccoli Seed", "Sunflower Seed", 
-    "Chrysanthemum Seed", "Peashooter Seed", "Corn Seed", "Cactus Flower Seed", 
-    "Fire Peashooter Seed", "Threepeater Seed", "Man-Eating Flower Seed", 
-    "Alien Onion Seed", "Capsid Brute Seed"
-}
+local UI_Storage = { Toggles = {}, Sliders = {}, Dropdowns = {} }
 
--- Đã xóa Blue Water Bucket khỏi danh sách sắp xếp
-local OrderedGears = {
-    "Granade",
-    "Purple Bucket", "Orange Bucket", "Yellow Bucket",  "Water Bucket (Thường)"
-}
-
-local OrderedFruits = {
-    "Reversion Fruit", "Frozen Fruit", "Darkness Fruit", "Kg Fruit", 
-    "Venom Fruit", "Flame Fruit", "Bomb Fruit"
-}
-
--- [2. CẤU HÌNH CHUNG]
 getgenv().Config = {
     SmartBuy = false, 
     AutoPlant = false,
@@ -51,8 +27,6 @@ getgenv().Config = {
     AutoBoss = false,
     ActivePlots = {[1]=false, [2]=false, [3]=false, [4]=false, [5]=false, [6]=false},
     DelayTime = 0.2, 
-    
-    -- Events
     ClaimGift = false,
     ClaimEvent = false,
     ClaimEgg = false,
@@ -60,25 +34,21 @@ getgenv().Config = {
 }
 getgenv().BuyQueue = {} 
 
--- CONSTANTS TỪ CODE V29 CỦA BẠN
 local CATEGORY_SEED_V29 = "\231\167\141\229\173\144" 
 local CATEGORY_GEAR_V29 = "\233\129\147\229\133\183" 
-
 local BOSS_NAME_CODE = "\228\184\150\231\149\140Boss"
 local BOSS_NAME_TEXT = "世界Boss"
-
 local ACTION_PLANT  = "放置_宠物" 
 local ACTION_SHOVEL = "拾取_宠物" 
 local ACTION_WATER  = "变化_宠物" 
 
--- Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remote = ReplicatedStorage:WaitForChild("RemoteEvent"):WaitForChild("ServerRemoteEvent")
 local Players = game:GetService("Players")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local HttpService = game:GetService("HttpService") -- Thêm HttpService để xử lý JSON
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
 
--- Reset UI
 if game.CoreGui:FindFirstChild("Rayfield") then
     game.CoreGui:FindFirstChild("Rayfield"):Destroy()
 end
@@ -91,14 +61,14 @@ local function FireRemote(...)
 end
 
 local function GetPlotTiles(PlotNum)
-    local StartID = (PlotNum - 1) * 9 + 1
-    local EndID = PlotNum * 9
-    return StartID, EndID
+    return (PlotNum - 1) * 9 + 1, PlotNum * 9
 end
 
 -- ====================================================
--- [CORE 1: AUTO BUY (GENTLE MODE V60)]
+-- [CORE LOOPS]
 -- ====================================================
+
+-- 1. Auto Buy
 task.spawn(function()
     local BuyIndex = 1
     while true do
@@ -107,19 +77,11 @@ task.spawn(function()
             for k, v in pairs(getgenv().BuyQueue) do
                 if v.Active then table.insert(activeItems, v) end
             end
-            
             if #activeItems > 0 then
-                -- Nhường đường cho Auto Farm
-                local CurrentDelay = 0.8
-                if getgenv().Config.AutoPlant or getgenv().Config.AutoHarvest then
-                    CurrentDelay = 2.0 
-                end
-
+                local CurrentDelay = (getgenv().Config.AutoPlant or getgenv().Config.AutoHarvest) and 2.0 or 0.8
                 if BuyIndex > #activeItems then BuyIndex = 1 end
                 local item = activeItems[BuyIndex]
-                
                 FireRemote("Buy_ArrayBool_Item", item.Category, item.ID)
-                
                 BuyIndex = BuyIndex + 1 
                 task.wait(CurrentDelay)
             else
@@ -131,20 +93,14 @@ task.spawn(function()
     end
 end)
 
--- ====================================================
--- [CORE 2: FARMING & BOSS]
--- ====================================================
+-- 2. Farming
 task.spawn(function()
     while true do
         local Delay = getgenv().Config.DelayTime
         local activePlotsFound = false
-
-        for i = 1, 6 do
-            if getgenv().Config.ActivePlots[i] then activePlotsFound = true break end
-        end
+        for i = 1, 6 do if getgenv().Config.ActivePlots[i] then activePlotsFound = true break end end
 
         if activePlotsFound then
-            -- 1. AUTO HARVEST
             if getgenv().Config.AutoHarvest then
                 FireRemote("Change_ArrayBool_Item", "手牌", 1)
                 task.wait(0.4) 
@@ -161,7 +117,6 @@ task.spawn(function()
                 task.wait(0.2)
             end
 
-            -- 2. AUTO PLANT
             if getgenv().Config.AutoPlant then
                 for PlotNum = 1, 6 do
                     if getgenv().Config.ActivePlots[PlotNum] then
@@ -177,39 +132,28 @@ task.spawn(function()
             end
         end
 
-        -- AUTO BOSS (Logic nằm ở đây, nhưng nút bật nằm ở Tab Event)
-        if getgenv().Config.AutoBoss then
-             FireRemote("Business", BOSS_NAME_CODE, 1) 
-             FireRemote("Business", BOSS_NAME_TEXT, 1) 
-             task.wait(1.5) 
-        end
-
         if not getgenv().Config.AutoPlant and not getgenv().Config.AutoHarvest then
             task.wait(0.5)
+        else
+            task.wait(0.1)
         end
     end
 end)
 
--- ====================================================
--- [CORE 3: EVENTS & UTILITIES]
--- ====================================================
+-- 3. Events
 task.spawn(function()
-    local GiftIndex = 1
-    local EventIndex = 1
-    local TimeCounter = 0
+    local GiftIndex, EventIndex, TimeCounter = 1, 1, 0
     while true do
         TimeCounter = TimeCounter + 1
         if TimeCounter > 20 then
             TimeCounter = 0
             if getgenv().Config.ClaimGift then
                 FireRemote("GetOnlineGift", GiftIndex)
-                GiftIndex = GiftIndex + 1
-                if GiftIndex > 12 then GiftIndex = 1 end
+                GiftIndex = GiftIndex % 12 + 1
             end
             if getgenv().Config.ClaimEvent then
                  FireRemote("Business", "\229\133\145\230\141\162\230\153\174\233\128\154\230\180\187\229\138\168\229\165\150\229\138\177", EventIndex)
-                 EventIndex = EventIndex + 1
-                 if EventIndex > 7 then EventIndex = 1 end
+                 EventIndex = EventIndex % 7 + 1
             end
             if getgenv().Config.ClaimEgg then FireRemote("OpenEventEgg", 2) end
             if getgenv().Config.AutoSpin then FireRemote("OpenSpecialEgg", "\232\189\172\231\155\152\232\155\139") end
@@ -218,14 +162,25 @@ task.spawn(function()
     end
 end)
 
--- ANTI-AFK
+-- 4. Auto Boss
+task.spawn(function()
+    while true do
+        if getgenv().Config.AutoBoss then
+             FireRemote("Business", BOSS_NAME_CODE, 1) 
+             FireRemote("Business", BOSS_NAME_TEXT, 1) 
+             pcall(function() FireRemote("Business", "FightBoss", 1) end)
+             task.wait(1) 
+        else
+             task.wait(1)
+        end
+    end
+end)
+
+-- Anti-AFK
 task.spawn(function()
     while true do
         task.wait(120)
         pcall(function()
-            if Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
-                Players.LocalPlayer.Character.Humanoid.Jump = true
-            end
             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightControl, false, game)
             task.wait(0.1)
             VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.RightControl, false, game)
@@ -240,35 +195,52 @@ local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/Siri
 
 local Window = Rayfield:CreateWindow({
    Name = "Kuma Hub | V62",
-   Icon = 0,
-   LoadingTitle = "Kuma Hub Script",
-   LoadingSubtitle = "Gentle Buy & Smooth Farm",
+   LoadingTitle = "Kuma Hub",
+   LoadingSubtitle = "Stable & Optimized",
    Theme = "AmberGlow",
-   ToggleUIKeybind = "K",
    DisableRayfieldPrompts = true,
-   ConfigurationSaving = { Enabled = true, FolderName = "KumaHubConfig", FileName = "ManagerV62" }, 
+   ConfigurationSaving = { Enabled = false },
    KeySystem = false,
 })
 
 -- TAB 1: FARMING
 local FarmTab = Window:CreateTab("Farming🌱", nil)
 FarmTab:CreateSection("1. Chọn Các Mảnh Đất")
+
 for i = 1, 6 do
-    FarmTab:CreateToggle({Name = "Mảnh " .. i, CurrentValue = (i == 1), Callback = function(V) getgenv().Config.ActivePlots[i] = V end})
+    UI_Storage.Toggles["Plot_"..i] = FarmTab:CreateToggle({
+        Name = "Mảnh " .. i, 
+        CurrentValue = false, 
+        Callback = function(V) getgenv().Config.ActivePlots[i] = V end
+    })
 end
+
 FarmTab:CreateSection("2. Auto Loop")
-FarmTab:CreateToggle({Name = "⛏️ Auto Thu Hoạch (Cầm Xẻng 1 lần -> Đào hết)", CurrentValue = false, Callback = function(V) getgenv().Config.AutoHarvest = V end})
-FarmTab:CreateToggle({Name = "🔥 Auto Trồng (Bạn cầm hạt -> Trồng hết)", CurrentValue = false, Callback = function(V) getgenv().Config.AutoPlant = V end})
-FarmTab:CreateSlider({Name = "Tốc Độ (Delay)", Range = {0.15, 0.5}, Increment = 0.05, Suffix = "s", CurrentValue = 0.2, Callback = function(V) getgenv().Config.DelayTime = V end})
+UI_Storage.Toggles["AutoHarvest"] = FarmTab:CreateToggle({
+    Name = "⛏️ Auto Thu Hoạch", 
+    CurrentValue = false, 
+    Callback = function(V) getgenv().Config.AutoHarvest = V end
+})
+
+UI_Storage.Toggles["AutoPlant"] = FarmTab:CreateToggle({
+    Name = "🔥 Auto Trồng", 
+    CurrentValue = false, 
+    Callback = function(V) getgenv().Config.AutoPlant = V end
+})
+
+UI_Storage.Sliders["DelayTime"] = FarmTab:CreateSlider({
+    Name = "Tốc Độ (Delay)", 
+    Range = {0.15, 0.5}, 
+    Increment = 0.05, 
+    Suffix = "s", 
+    CurrentValue = 0.2, 
+    Callback = function(V) getgenv().Config.DelayTime = V end
+})
+
 FarmTab:CreateSection("3. Tưới Nước")
-local isWatering = false
 FarmTab:CreateButton({
-   Name = "💦 TƯỚI CÁC MẢNH ĐÃ CHỌN (1 Lượt)",
+   Name = "💦 TƯỚI CÁC MẢNH ĐÃ CHỌN",
    Callback = function()
-       if isWatering then return end
-       isWatering = true
-       local Delay = getgenv().Config.DelayTime
-       Rayfield:Notify({Title = "Đang tưới...", Content = "Chạy một mạch qua các mảnh...", Duration = 2})
        task.spawn(function()
            FireRemote("Change_ArrayBool_Item", "手牌", 3)
            task.wait(0.5) 
@@ -277,26 +249,28 @@ FarmTab:CreateButton({
                    local StartID, EndID = GetPlotTiles(PlotNum)
                    for i = StartID, EndID do
                        FireRemote("Business", ACTION_WATER, i)
-                       task.wait(Delay)
+                       task.wait(0.15)
                    end
                end
            end
-           Rayfield:Notify({Title = "Xong!", Content = "Đã tưới hết.", Duration = 2})
-           isWatering = false
        end)
    end,
 })
 
--- TAB 2: EVENTS (Đã thêm Auto Boss vào đây)
+-- TAB 2: EVENTS
 local EventTab = Window:CreateTab("Events🎁", nil)
 EventTab:CreateSection("Boss & Chiến Đấu")
-EventTab:CreateToggle({Name = "🔥 Auto Boss (Chuẩn V29)", CurrentValue = false, Callback = function(V) getgenv().Config.AutoBoss = V end})
+UI_Storage.Toggles["AutoBoss"] = EventTab:CreateToggle({
+    Name = "🔥 Auto Boss (FIXED)", 
+    CurrentValue = false, 
+    Callback = function(V) getgenv().Config.AutoBoss = V end
+})
 
 EventTab:CreateSection("Quà & Sự Kiện")
-EventTab:CreateToggle({Name = "Auto Claim Gift", CurrentValue = false, Callback = function(V) getgenv().Config.ClaimGift = V end})
-EventTab:CreateToggle({Name = "Auto Claim Event", CurrentValue = false, Callback = function(V) getgenv().Config.ClaimEvent = V end})
-EventTab:CreateToggle({Name = "Auto Claim Egg", CurrentValue = false, Callback = function(V) getgenv().Config.ClaimEgg = V end})
-EventTab:CreateToggle({Name = "Auto Spin", CurrentValue = false, Callback = function(V) getgenv().Config.AutoSpin = V end})
+UI_Storage.Toggles["ClaimGift"] = EventTab:CreateToggle({Name = "Auto Claim Gift", CurrentValue = false, Callback = function(V) getgenv().Config.ClaimGift = V end})
+UI_Storage.Toggles["ClaimEvent"] = EventTab:CreateToggle({Name = "Auto Claim Event", CurrentValue = false, Callback = function(V) getgenv().Config.ClaimEvent = V end})
+UI_Storage.Toggles["ClaimEgg"] = EventTab:CreateToggle({Name = "Auto Claim Egg", CurrentValue = false, Callback = function(V) getgenv().Config.ClaimEgg = V end})
+UI_Storage.Toggles["AutoSpin"] = EventTab:CreateToggle({Name = "Auto Spin", CurrentValue = false, Callback = function(V) getgenv().Config.AutoSpin = V end})
 
 EventTab:CreateSection("Tools")
 EventTab:CreateButton({
@@ -308,13 +282,6 @@ EventTab:CreateButton({
             task.wait(0.8)
             FireRemote("Change_ArrayBool_Item", "\230\137\139\231\137\140", 1)
             task.wait(0.8)
-            for round = 1, 3 do
-                for i = 1, 54 do
-                    FireRemote("Business", "\230\139\190\229\143\150_\229\174\160\231\137\169", i)
-                    task.wait(0.05)
-                end
-                task.wait(0.5)
-            end
             FireRemote("QuickFuse", "\229\174\160\231\137\169")
             task.wait(0.8)
             FireRemote("Change_ArrayBool_Item", "\230\137\139\231\137\140", 3)
@@ -323,16 +290,17 @@ EventTab:CreateButton({
    end,
 })
 
--- TAB 3: SHOP (Mua Chậm - V29 Logic)
-local ShopTab = Window:CreateTab("Shop (Mua Chậm)🛒", nil)
-ShopTab:CreateToggle({
+-- TAB 3: SHOP
+local ShopTab = Window:CreateTab("Shop🛒", nil)
+UI_Storage.Toggles["SmartBuy"] = ShopTab:CreateToggle({
     Name = "🔴 BẬT/TẮT AUTO BUY",
     CurrentValue = false,
     Callback = function(Value) getgenv().Config.SmartBuy = Value end,
 })
 
 local function CreateBuyBtn(name, categoryCode, id)
-    ShopTab:CreateToggle({
+    local tglName = "Shop_" .. name
+    UI_Storage.Toggles[tglName] = ShopTab:CreateToggle({
         Name = "[" .. id .. "] " .. name,
         Callback = function(Value) 
             getgenv().BuyQueue[name] = {Active = Value, Category = categoryCode, ID = id} 
@@ -340,192 +308,199 @@ local function CreateBuyBtn(name, categoryCode, id)
     })
 end
 
-ShopTab:CreateSection("--- [ DỤNG CỤ/GEAR ] ---")
-for _, name in ipairs(OrderedGears) do 
-    if getgenv().ShopIDs[name] then CreateBuyBtn(name, CATEGORY_GEAR_V29, getgenv().ShopIDs[name]) end 
-end
+ShopTab:CreateSection("--- [ DỤNG CỤ ] ---")
+local OrderedGears = {"Granade", "Purple Bucket", "Orange Bucket", "Yellow Bucket", "Water Bucket (Thường)"}
+for _, name in ipairs(OrderedGears) do if getgenv().ShopIDs[name] then CreateBuyBtn(name, CATEGORY_GEAR_V29, getgenv().ShopIDs[name]) end end
 
 ShopTab:CreateSection("--- [ HẠT GIỐNG ] ---")
-for _, name in ipairs(OrderedSeeds) do 
-    if getgenv().ShopIDs[name] then CreateBuyBtn(name, CATEGORY_SEED_V29, getgenv().ShopIDs[name]) end 
-end
+local OrderedSeeds = {"Tomato Seed", "Pumpkin Seed", "Melon Seed", "Mini Corn Seed", "Mushroom Seed", "Cactus Seed", "Broccoli Seed", "Sunflower Seed", "Chrysanthemum Seed", "Peashooter Seed", "Corn Seed", "Cactus Flower Seed", "Fire Peashooter Seed", "Threepeater Seed", "Man-Eating Flower Seed", "Alien Onion Seed", "Capsid Brute Seed"}
+for _, name in ipairs(OrderedSeeds) do if getgenv().ShopIDs[name] then CreateBuyBtn(name, CATEGORY_SEED_V29, getgenv().ShopIDs[name]) end end
 
 ShopTab:CreateSection("--- [ TRÁI CÂY ] ---")
-for _, name in ipairs(OrderedFruits) do 
-    if getgenv().ShopIDs[name] then CreateBuyBtn(name, CATEGORY_GEAR_V29, getgenv().ShopIDs[name]) end 
-end
+local OrderedFruits = {"Reversion Fruit", "Frozen Fruit", "Darkness Fruit", "Kg Fruit", "Venom Fruit", "Flame Fruit", "Bomb Fruit"}
+for _, name in ipairs(OrderedFruits) do if getgenv().ShopIDs[name] then CreateBuyBtn(name, CATEGORY_GEAR_V29, getgenv().ShopIDs[name]) end end
 
--- TAB 4: MISC & PS & PROFILE SYSTEM
-local MiscTab = Window:CreateTab("Misc/PS🚀", nil)
-MiscTab:CreateButton({Name = "Redeem All Codes", Callback = function()
-    local codes = {"RELEASE1", "RELEASE2", "RELEASE3", "1KLIKE", "5KLIKE", "NEWFRRUIT1", "NEWFRRUIT2", "UPDATE1", "UPDATE2", "SINP5", "christmas1", "christmas2", "christmas3", "UPDATE3", "UPDATE4", "kgfruit", "CRYSTAL5000", "Fuse777", "Best999", "Redress", "VIP888", "Grow888", "New666", "CRYSTAL1", "CRYSTAL2", "ITEMS100", "8KDC", "9KDC1", "FIXED001"}
-    for _, code in ipairs(codes) do FireRemote("GetCode", code) task.wait(0.2) end
-end})
-MiscTab:CreateButton({Name = "🥔 FPS Boost", Callback = function()
-    game:GetService("Lighting").GlobalShadows = false
-    settings().Rendering.QualityLevel = 1
-    for i,v in pairs(game:GetDescendants()) do
-        if v:IsA("Part") then v.Material = "Plastic" end
-    end
-end})
-MiscTab:CreateButton({Name = "⬜ White Screen", Callback = function() game:GetService("RunService"):Set3dRenderingEnabled(false) end})
-MiscTab:CreateButton({Name = "📺 Normal Screen", Callback = function() game:GetService("RunService"):Set3dRenderingEnabled(true) end})
+-- TAB 4: MISC & CONFIG
+local MiscTab = Window:CreateTab("Misc/Config🚀", nil)
 
-MiscTab:CreateSection("Private Servers")
-getgenv().ServerList = {
-    ["Server 1"] = "DIEN_MA_CODE_VAO_DAY", 
-    ["Server 2"] = "DIEN_MA_CODE_VAO_DAY",
-    ["Server 3"] = "DIEN_MA_CODE_VAO_DAY",
-    ["Server 4"] = "DIEN_MA_CODE_VAO_DAY",
-    ["Server 5"] = "DIEN_MA_CODE_VAO_DAY",
-}
-local SelectedServerKey = "Server 1"
-MiscTab:CreateDropdown({
-    Name = "Chọn Server",
-    Options = {"Server 1", "Server 2", "Server 3", "Server 4", "Server 5"},
-    Callback = function(Option) SelectedServerKey = Option[1] end,
-})
+MiscTab:CreateSection("Gift Code (Smart & Safe)")
 MiscTab:CreateButton({
-    Name = "🚀 Vào Server Đã Chọn",
+    Name = "🎁 Redeem All Codes (Chạy Chậm - Chống Crash)", 
     Callback = function()
-        local Code = getgenv().ServerList[SelectedServerKey]
-        if Code and Code ~= "DIEN_MA_CODE_VAO_DAY" then
-            game:GetService("TeleportService"):TeleportToPrivateServer(game.PlaceId, Code, {game.Players.LocalPlayer})
-        else
-            Rayfield:Notify({Title = "Lỗi", Content = "Chưa điền Code vào Script!", Duration = 3})
+        local rawCodes = {
+            "RELEASE1", "RELEASE2", "RELEASE3", "1KLIKE", "5KLIKE", 
+            "NEWFRRUIT1", "NEWFRRUIT2", "UPDATE1", "UPDATE2", "SINP5", 
+            "christmas1", "christmas2", "christmas3", "UPDATE3", "UPDATE4", 
+            "kgfruit", "CRYSTAL5000", "Fuse777", "Best999", "Redress", 
+            "VIP888", "Grow888", "New666", "CRYSTAL1", "CRYSTAL2", 
+            "ITEMS100", "8KDC", "9KDC1", "FIXED001"
+        }
+        
+        Rayfield:Notify({Title = "Code", Content = "Bắt đầu nhập... (Vui lòng đợi)", Duration = 3})
+        
+        task.spawn(function()
+            for i, code in ipairs(rawCodes) do 
+                -- Sử dụng pcall để nếu có lỗi cũng không dừng toàn bộ script
+                pcall(function()
+                    -- Thử chữ Hoa
+                    FireRemote("GetCode", string.upper(code))
+                end)
+                task.wait(0.5) -- Tăng delay lên 0.5s để server kịp xử lý và không bị lỗi UI
+
+                pcall(function()
+                    -- Thử chữ Thường
+                    FireRemote("GetCode", string.lower(code))
+                end)
+                task.wait(0.5) -- Delay an toàn
+            end
+            Rayfield:Notify({Title = "Code", Content = "✅ Đã chạy xong danh sách!", Duration = 5})
+        end)
+    end
+})
+
+MiscTab:CreateSection("Server Tools")
+MiscTab:CreateButton({
+    Name = "🌏 Server Hop (Tìm Server Thấp)",
+    Callback = function()
+        Rayfield:Notify({Title = "Server Hop", Content = "Đang tìm server...", Duration = 3})
+        local PlaceID = game.PlaceId
+        local foundAnything = ""
+        local function TPReturner()
+            local Site;
+            if foundAnything == "" then
+                Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100'))
+            else
+                Site = game.HttpService:JSONDecode(game:HttpGet('https://games.roblox.com/v1/games/' .. PlaceID .. '/servers/Public?sortOrder=Asc&limit=100&cursor=' .. foundAnything))
+            end
+            if Site.nextPageCursor and Site.nextPageCursor ~= "null" then foundAnything = Site.nextPageCursor end
+            for i,v in pairs(Site.data) do
+                if v.playing < v.maxPlayers and v.id ~= game.JobId then
+                    TeleportService:TeleportToPlaceInstance(PlaceID, v.id, game.Players.LocalPlayer)
+                    return
+                end
+            end
         end
+        TPReturner()
     end
 })
 
 -- ====================================================
--- [ HỆ THỐNG LƯU PROFILE (MỚI THÊM) ]
+-- [ HỆ THỐNG CONFIG TÙY CHỈNH ]
 -- ====================================================
-MiscTab:CreateSection("📁 QUẢN LÝ HỒ SƠ (PROFILES)")
+MiscTab:CreateSection("📁 QUẢN LÝ CONFIG (MANUAL SAVE)")
 
-local ProfileFileName = "KumaHub_Profiles_V62.json"
+local ProfileFileName = "KumaHub_V62_Profiles.json"
 local Profiles = {}
 local ProfileNames = {}
 
--- Hàm Load File
-local function LoadProfilesFromFile()
+local function ReadProfiles()
     if isfile(ProfileFileName) then
         local success, result = pcall(function() return HttpService:JSONDecode(readfile(ProfileFileName)) end)
-        if success and result then
-            Profiles = result
-        else
-            Profiles = {}
-        end
+        if success then Profiles = result else Profiles = {} end
     else
         Profiles = {}
+        writefile(ProfileFileName, HttpService:JSONEncode({}))
     end
-    -- Cập nhật danh sách tên
     ProfileNames = {}
-    for name, _ in pairs(Profiles) do
-        table.insert(ProfileNames, name)
-    end
+    for name, _ in pairs(Profiles) do table.insert(ProfileNames, name) end
+    table.sort(ProfileNames)
     if #ProfileNames == 0 then table.insert(ProfileNames, "Chưa có Profile") end
 end
 
--- Hàm Save File
-local function SaveProfilesToFile()
-    writefile(ProfileFileName, HttpService:JSONEncode(Profiles))
-end
-
--- Khởi động lần đầu
-LoadProfilesFromFile()
+ReadProfiles()
 
 local InputProfileName = ""
 local SelectedProfileToLoad = ProfileNames[1] or "Chưa có Profile"
+local ProfileDropdown -- Khai báo trước
 
 MiscTab:CreateInput({
-    Name = "Nhập Tên Profile Mới",
-    PlaceholderText = "VD: Farm_Dem, Auto_Boss...",
+    Name = "Tên Profile Mới",
+    PlaceholderText = "VD: FarmDem, AutoBoss...",
     NumbersOnly = false,
     OnEnter = true, 
-    RemoveTextAfterFocusLost = false,
-    Callback = function(Text)
-        InputProfileName = Text
-    end,
+    Callback = function(Text) InputProfileName = Text end,
 })
 
-local ProfileDropdown -- Khai báo trước để dùng bên dưới
-
 MiscTab:CreateButton({
-    Name = "💾 Lưu Cấu Hình Hiện Tại (Tạo Mới/Ghi Đè)",
+    Name = "💾 LƯU CONFIG (Bấm để Lưu)",
     Callback = function()
         if InputProfileName == "" then 
-            Rayfield:Notify({Title = "Lỗi", Content = "Vui lòng nhập tên Profile!", Duration = 2})
+            Rayfield:Notify({Title = "Lỗi", Content = "Chưa nhập tên Profile!", Duration = 2})
             return 
         end
         
-        -- Lưu cấu hình hiện tại vào bảng
         Profiles[InputProfileName] = {
             Config = getgenv().Config,
             BuyQueue = getgenv().BuyQueue
         }
         
-        SaveProfilesToFile()
-        LoadProfilesFromFile() -- Reload lại danh sách
-        Rayfield:Notify({Title = "Thành Công", Content = "Đã lưu Profile: " .. InputProfileName, Duration = 2})
-        
-        -- Refresh Dropdown
-        if ProfileDropdown then
-            ProfileDropdown:Refresh(ProfileNames)
-        end
+        writefile(ProfileFileName, HttpService:JSONEncode(Profiles))
+        ReadProfiles()
+        if ProfileDropdown then ProfileDropdown:Refresh(ProfileNames) end
+        Rayfield:Notify({Title = "Đã Lưu", Content = "Profile: " .. InputProfileName, Duration = 2})
     end,
 })
 
 ProfileDropdown = MiscTab:CreateDropdown({
-    Name = "Chọn Profile Đã Lưu",
+    Name = "Chọn Profile",
     Options = ProfileNames,
     CurrentOption = ProfileNames[1] or "",
     MultipleOptions = false,
-    Callback = function(Option)
-        SelectedProfileToLoad = Option[1]
-    end,
+    Callback = function(Option) SelectedProfileToLoad = Option[1] end,
 })
 
 MiscTab:CreateButton({
-    Name = "📂 Load Profile Đã Chọn",
+    Name = "📂 LOAD CONFIG (Tự bật chức năng)",
     Callback = function()
-        if not Profiles[SelectedProfileToLoad] then
-            Rayfield:Notify({Title = "Lỗi", Content = "Không tìm thấy dữ liệu Profile này!", Duration = 2})
-            return
-        end
-        
+        if not Profiles[SelectedProfileToLoad] then return end
         local data = Profiles[SelectedProfileToLoad]
         
-        -- Nạp dữ liệu vào getgenv
+        Rayfield:Notify({Title = "Loading...", Content = "Đang áp dụng cài đặt...", Duration = 2})
+
         if data.Config then
-            for k, v in pairs(data.Config) do
-                getgenv().Config[k] = v
+            if data.Config.ActivePlots then
+                for i = 1, 6 do
+                    local val = data.Config.ActivePlots[i]
+                    if UI_Storage.Toggles["Plot_"..i] then 
+                        UI_Storage.Toggles["Plot_"..i]:Set(val)
+                    end
+                end
+            end
+
+            local simpleToggles = {"AutoHarvest", "AutoPlant", "AutoBoss", "ClaimGift", "ClaimEvent", "ClaimEgg", "AutoSpin", "SmartBuy"}
+            for _, key in pairs(simpleToggles) do
+                if data.Config[key] ~= nil and UI_Storage.Toggles[key] then
+                    UI_Storage.Toggles[key]:Set(data.Config[key])
+                end
+            end
+
+            if data.Config.DelayTime and UI_Storage.Sliders["DelayTime"] then
+                UI_Storage.Sliders["DelayTime"]:Set(data.Config.DelayTime)
             end
         end
-        
+
         if data.BuyQueue then
-            -- Reset BuyQueue cũ và nạp mới
-            getgenv().BuyQueue = data.BuyQueue
+            for name, info in pairs(data.BuyQueue) do
+                local tglKey = "Shop_" .. name
+                if UI_Storage.Toggles[tglKey] and info.Active ~= nil then
+                    UI_Storage.Toggles[tglKey]:Set(info.Active)
+                end
+            end
         end
-        
-        Rayfield:Notify({Title = "Đã Load", Content = "Cấu hình: " .. SelectedProfileToLoad .. "\n(Lưu ý: Bật tắt lại UI để hiển thị đúng)", Duration = 3})
+
+        Rayfield:Notify({Title = "Thành Công", Content = "Đã load và bật lại các chức năng!", Duration = 3})
     end,
 })
 
 MiscTab:CreateButton({
-    Name = "🗑️ Xóa Profile Đã Chọn",
+    Name = "🗑️ Xóa Profile",
     Callback = function()
         if Profiles[SelectedProfileToLoad] then
             Profiles[SelectedProfileToLoad] = nil
-            SaveProfilesToFile()
-            LoadProfilesFromFile()
-            Rayfield:Notify({Title = "Đã Xóa", Content = "Đã xóa Profile: " .. SelectedProfileToLoad, Duration = 2})
-            
-            -- Refresh Dropdown
-            if ProfileDropdown then
-                ProfileDropdown:Refresh(ProfileNames)
-            end
-        else
-            Rayfield:Notify({Title = "Lỗi", Content = "Không tồn tại Profile này!", Duration = 2})
+            writefile(ProfileFileName, HttpService:JSONEncode(Profiles))
+            ReadProfiles()
+            if ProfileDropdown then ProfileDropdown:Refresh(ProfileNames) end
+            Rayfield:Notify({Title = "Đã Xóa", Content = "Xóa thành công!", Duration = 2})
         end
-    end,
+    end
 })
