@@ -2,6 +2,7 @@
 -- Update: Thêm thời gian chờ (Safe Wait) để tránh đơ máy khi Reconnect.
 -- Update: Tối ưu hóa bộ nhớ trước khi load UI.
 -- Update: Fix lỗi treo màn hình đen Rayfield.
+-- Update: Fix lỗi spam xẻng gây ngắt quãng (Smart Tool Logic).
 
 repeat task.wait() until game:IsLoaded()
 -- Đợi thêm để chắc chắn game đã ổn định (Fix lỗi đơ màn hình)
@@ -135,22 +136,27 @@ task.spawn(function()
 end)
 
 task.spawn(function()
+    local currentTool = nil -- Biến theo dõi công cụ đang cầm để tránh spam xẻng
     while true do
-        local Delay = getgenv().Config.DelayTime
         local activePlotsFound = false
         for i = 1, 6 do if getgenv().Config.ActivePlots[i] then activePlotsFound = true break end end
 
         if activePlotsFound then
             if getgenv().Config.AutoHarvest then
-                FireRemote("Change_ArrayBool_Item", "手牌", 1)
-                task.wait(0.4) 
+                -- FIX LOGIC: Chỉ cầm xẻng nếu chưa cầm (tránh bị reset/bỏ xẻng liên tục)
+                if currentTool ~= "Shovel" then
+                    FireRemote("Change_ArrayBool_Item", "手牌", 1)
+                    currentTool = "Shovel"
+                    task.wait(0.5) 
+                end
+                
                 for PlotNum = 1, 6 do
                     if getgenv().Config.ActivePlots[PlotNum] then
                         local StartID, EndID = GetPlotTiles(PlotNum)
                         for i = StartID, EndID do
                             if not getgenv().Config.AutoHarvest then break end
                             FireRemote("Business", ACTION_SHOVEL, i)
-                            task.wait(Delay)
+                            task.wait(getgenv().Config.DelayTime)
                         end
                     end
                 end
@@ -158,25 +164,32 @@ task.spawn(function()
             end
 
             if getgenv().Config.AutoPlant then
+                -- Nếu chuyển qua trồng, reset trạng thái xẻng để vòng sau kiểm tra lại
+                if currentTool == "Shovel" then currentTool = nil end
+
                 for PlotNum = 1, 6 do
                     if getgenv().Config.ActivePlots[PlotNum] then
                         local StartID, EndID = GetPlotTiles(PlotNum)
                         for i = StartID, EndID do
                             if not getgenv().Config.AutoPlant then break end
                             FireRemote("Business", ACTION_PLANT, i)
-                            task.wait(Delay)
+                            task.wait(getgenv().Config.DelayTime)
                         end
                     end
                 end
                 task.wait(0.2)
             end
-        end
-
-        if not getgenv().Config.AutoPlant and not getgenv().Config.AutoHarvest then
-            task.wait(0.5)
         else
-            task.wait(0.1)
+            -- Không làm gì thì reset trạng thái
+            currentTool = nil
+            if not getgenv().Config.AutoPlant and not getgenv().Config.AutoHarvest then
+                task.wait(0.5)
+            else
+                task.wait(0.1)
+            end
         end
+        -- Delay nhỏ để tránh treo luồng
+        if activePlotsFound then task.wait(0.1) end
     end
 end)
 
@@ -315,7 +328,7 @@ FarmTab:CreateButton({
                    local StartID, EndID = GetPlotTiles(PlotNum)
                    for i = StartID, EndID do
                        FireRemote("Business", ACTION_WATER, i)
-                       task.wait(0.15)
+                       task.wait(getgenv().Config.DelayTime)
                    end
                end
            end
