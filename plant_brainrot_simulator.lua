@@ -3,16 +3,22 @@
 -- Update: Tối ưu hóa bộ nhớ trước khi load UI.
 -- Update: Fix lỗi treo màn hình đen Rayfield.
 -- Update: Fix lỗi spam xẻng gây ngắt quãng (Smart Tool Logic).
+-- Update: FIX LỖI DELAY (Thêm cơ chế tự tắt script cũ khi chạy lại để tránh x2 tốc độ).
+
+-- [SYSTEM: KILL OLD LOOPS]
+-- Tạo ID ngẫu nhiên cho lần chạy này. Nếu ID thay đổi, các vòng lặp cũ sẽ tự hủy.
+local CurrentRunID = math.random(1, 1000000)
+getgenv().KumaRunID = CurrentRunID
 
 repeat task.wait() until game:IsLoaded()
--- Đợi thêm để chắc chắn game đã ổn định (Fix lỗi đơ màn hình)
+-- Đợi thêm để chắc chắn game đã ổn định
 task.wait(2)
 
 -- ====================================================
 -- [OPTIMIZATION & SAFETY]
 -- ====================================================
 pcall(function()
-    setfpscap(60) -- Giới hạn FPS tạm thời để giảm tải CPU khi load
+    setfpscap(60)
     game:GetService("RunService"):Set3dRenderingEnabled(true)
 end)
 
@@ -38,6 +44,8 @@ getgenv().ShopIDs = {
 
 local UI_Storage = { Toggles = {}, Sliders = {}, Dropdowns = {}, Inputs = {} }
 
+-- Chỉ reset Config nếu chưa có (để giữ cài đặt nếu chạy lại, hoặc reset tùy ý bạn)
+-- Ở đây tôi giữ nguyên reset theo yêu cầu ban đầu để đảm bảo sạch sẽ.
 getgenv().Config = {
     SmartBuy = false, 
     AutoPlant = false,
@@ -84,23 +92,24 @@ local function GetPlotTiles(PlotNum)
     return (PlotNum - 1) * 9 + 1, PlotNum * 9
 end
 
--- [FIXED SAFE AUTO EXECUTE]
+-- Hàm lấy Delay an toàn (tránh bị nil gây lỗi)
+local function GetSafeDelay()
+    local d = getgenv().Config.DelayTime
+    if type(d) ~= "number" or d < 0.05 then return 0.25 end
+    return d
+end
+
 local function QueueAutoExecute()
     if getgenv().Config.AutoExecute and queue_on_teleport then
         local url = getgenv().Config.ScriptURL
         if not url or url == "" then
             url = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/plant_brainrot_simulator.lua"
         end
-
         if url and string.find(url, "http") then
-            -- Đoạn script này sẽ chạy ở server mới
             local scriptToRun = [[
                 repeat task.wait() until game:IsLoaded()
-                -- CHỜ THÊM 6 GIÂY ĐỂ MÁY KHÔNG BỊ TREO KHI TẢI MAP
                 task.wait(6) 
-                pcall(function()
-                    loadstring(game:HttpGet("]] .. url .. [["))()
-                end)
+                pcall(function() loadstring(game:HttpGet("]] .. url .. [["))() end)
             ]]
             queue_on_teleport(scriptToRun)
         end
@@ -114,6 +123,7 @@ end
 task.spawn(function()
     local BuyIndex = 1
     while true do
+        if getgenv().KumaRunID ~= CurrentRunID then break end -- Tự hủy nếu có script mới
         if getgenv().Config.SmartBuy then
             local activeItems = {}
             for k, v in pairs(getgenv().BuyQueue) do
@@ -136,14 +146,15 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    local currentTool = nil -- Biến theo dõi công cụ đang cầm để tránh spam xẻng
+    local currentTool = nil 
     while true do
+        if getgenv().KumaRunID ~= CurrentRunID then break end -- Tự hủy nếu có script mới
+
         local activePlotsFound = false
         for i = 1, 6 do if getgenv().Config.ActivePlots[i] then activePlotsFound = true break end end
 
         if activePlotsFound then
             if getgenv().Config.AutoHarvest then
-                -- FIX LOGIC: Chỉ cầm xẻng nếu chưa cầm (tránh bị reset/bỏ xẻng liên tục)
                 if currentTool ~= "Shovel" then
                     FireRemote("Change_ArrayBool_Item", "手牌", 1)
                     currentTool = "Shovel"
@@ -156,7 +167,7 @@ task.spawn(function()
                         for i = StartID, EndID do
                             if not getgenv().Config.AutoHarvest then break end
                             FireRemote("Business", ACTION_SHOVEL, i)
-                            task.wait(getgenv().Config.DelayTime)
+                            task.wait(GetSafeDelay()) -- Dùng Delay an toàn
                         end
                     end
                 end
@@ -164,7 +175,6 @@ task.spawn(function()
             end
 
             if getgenv().Config.AutoPlant then
-                -- Nếu chuyển qua trồng, reset trạng thái xẻng để vòng sau kiểm tra lại
                 if currentTool == "Shovel" then currentTool = nil end
 
                 for PlotNum = 1, 6 do
@@ -173,14 +183,13 @@ task.spawn(function()
                         for i = StartID, EndID do
                             if not getgenv().Config.AutoPlant then break end
                             FireRemote("Business", ACTION_PLANT, i)
-                            task.wait(getgenv().Config.DelayTime)
+                            task.wait(GetSafeDelay()) -- Dùng Delay an toàn
                         end
                     end
                 end
                 task.wait(0.2)
             end
         else
-            -- Không làm gì thì reset trạng thái
             currentTool = nil
             if not getgenv().Config.AutoPlant and not getgenv().Config.AutoHarvest then
                 task.wait(0.5)
@@ -188,7 +197,6 @@ task.spawn(function()
                 task.wait(0.1)
             end
         end
-        -- Delay nhỏ để tránh treo luồng
         if activePlotsFound then task.wait(0.1) end
     end
 end)
@@ -196,6 +204,7 @@ end)
 task.spawn(function()
     local GiftIndex, EventIndex, TimeCounter = 1, 1, 0
     while true do
+        if getgenv().KumaRunID ~= CurrentRunID then break end -- Tự hủy
         TimeCounter = TimeCounter + 1
         if TimeCounter > 20 then
             TimeCounter = 0
@@ -216,6 +225,7 @@ end)
 
 task.spawn(function()
     while true do
+        if getgenv().KumaRunID ~= CurrentRunID then break end -- Tự hủy
         if getgenv().Config.AutoBoss then
              FireRemote("Business", BOSS_NAME_CODE, 1) 
              FireRemote("Business", BOSS_NAME_TEXT, 1) 
@@ -232,6 +242,7 @@ task.spawn(function()
     local function PerformRejoin()
         QueueAutoExecute()
         while true do
+            if getgenv().KumaRunID ~= CurrentRunID then break end -- Tự hủy
             if not getgenv().Config.AutoReconnect then break end
             pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Players.LocalPlayer) end)
             task.wait(2)
@@ -258,6 +269,7 @@ end)
 
 task.spawn(function()
     while true do
+        if getgenv().KumaRunID ~= CurrentRunID then break end -- Tự hủy
         task.wait(120)
         pcall(function()
             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightControl, false, game)
@@ -273,9 +285,9 @@ end)
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Kuma Hub | V67 (Anti-Lag)",
-   LoadingTitle = "Đang tải an toàn...",
-   LoadingSubtitle = "Vui lòng đợi giảm lag",
+   Name = "Kuma Hub | V67 (Fixed Delay)",
+   LoadingTitle = "Đang tải...",
+   LoadingSubtitle = "Anti-Multiple Execution Active",
    Theme = "AmberGlow",
    DisableRayfieldPrompts = true,
    ConfigurationSaving = { Enabled = false },
@@ -328,7 +340,7 @@ FarmTab:CreateButton({
                    local StartID, EndID = GetPlotTiles(PlotNum)
                    for i = StartID, EndID do
                        FireRemote("Business", ACTION_WATER, i)
-                       task.wait(getgenv().Config.DelayTime)
+                       task.wait(GetSafeDelay())
                    end
                end
            end
