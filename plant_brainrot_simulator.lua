@@ -1,31 +1,39 @@
 -- // Kuma Hub V67: ANTI-CRASH & SAFE STARTUP //
--- Update: Thêm thời gian chờ (Safe Wait) để tránh đơ máy khi Reconnect.
--- Update: Tối ưu hóa bộ nhớ trước khi load UI.
--- Update: Fix lỗi treo màn hình đen Rayfield.
--- Update: Fix lỗi spam xẻng gây ngắt quãng (Smart Tool Logic).
--- Update: FIX LỖI DELAY (Thêm cơ chế tự tắt script cũ khi chạy lại để tránh x2 tốc độ).
+-- [SYSTEM: FORCE KILL OLD SCRIPT & CONNECTIONS]
+-- Cơ chế: Hủy toàn bộ Loop cũ, Ngắt kết nối các Event cũ (Reconnect, UI Listeners) trước khi chạy mới.
 
--- [SYSTEM: KILL OLD LOOPS]
--- Tạo ID ngẫu nhiên cho lần chạy này. Nếu ID thay đổi, các vòng lặp cũ sẽ tự hủy.
+if not getgenv().KumaConnections then getgenv().KumaConnections = {} end
+
+-- 1. Ngắt kết nối các Event cũ (Tránh spam Reconnect hoặc lỗi chồng chéo)
+for i, connection in pairs(getgenv().KumaConnections) do
+    if connection then
+        pcall(function() connection:Disconnect() end)
+    end
+end
+getgenv().KumaConnections = {} -- Reset bảng chứa kết nối
+
+-- 2. Đổi ID chạy để dừng các vòng lặp while/repeat cũ
 local CurrentRunID = math.random(1, 1000000)
 getgenv().KumaRunID = CurrentRunID
+
+-- 3. Xóa UI cũ ngay lập tức
+if game.CoreGui:FindFirstChild("Rayfield") then
+    game.CoreGui:FindFirstChild("Rayfield"):Destroy()
+end
+
+-- ====================================================
+-- [START NEW SCRIPT]
+-- ====================================================
 
 repeat task.wait() until game:IsLoaded()
 -- Đợi thêm để chắc chắn game đã ổn định
 task.wait(2)
 
--- ====================================================
 -- [OPTIMIZATION & SAFETY]
--- ====================================================
 pcall(function()
     setfpscap(60)
     game:GetService("RunService"):Set3dRenderingEnabled(true)
 end)
-
--- Xóa UI cũ nếu bị kẹt
-if game.CoreGui:FindFirstChild("Rayfield") then
-    game.CoreGui:FindFirstChild("Rayfield"):Destroy()
-end
 
 -- ====================================================
 -- [1. VARIABLES & STORAGE]
@@ -44,8 +52,7 @@ getgenv().ShopIDs = {
 
 local UI_Storage = { Toggles = {}, Sliders = {}, Dropdowns = {}, Inputs = {} }
 
--- Chỉ reset Config nếu chưa có (để giữ cài đặt nếu chạy lại, hoặc reset tùy ý bạn)
--- Ở đây tôi giữ nguyên reset theo yêu cầu ban đầu để đảm bảo sạch sẽ.
+-- Config giữ nguyên
 getgenv().Config = {
     SmartBuy = false, 
     AutoPlant = false,
@@ -81,6 +88,13 @@ local CoreGui = game:GetService("CoreGui")
 local GuiService = game:GetService("GuiService")
 local queue_on_teleport = queue_on_teleport or syn and syn.queue_on_teleport or fluxus and fluxus.queue_on_teleport
 
+-- Hàm hỗ trợ tạo Connection an toàn (tự hủy khi chạy lại script)
+local function SafeConnect(signal, callback)
+    local conn = signal:Connect(callback)
+    table.insert(getgenv().KumaConnections, conn)
+    return conn
+end
+
 local function FireRemote(...)
     local args = {...}
     if Remote then 
@@ -92,7 +106,6 @@ local function GetPlotTiles(PlotNum)
     return (PlotNum - 1) * 9 + 1, PlotNum * 9
 end
 
--- Hàm lấy Delay an toàn (tránh bị nil gây lỗi)
 local function GetSafeDelay()
     local d = getgenv().Config.DelayTime
     if type(d) ~= "number" or d < 0.05 then return 0.25 end
@@ -123,7 +136,7 @@ end
 task.spawn(function()
     local BuyIndex = 1
     while true do
-        if getgenv().KumaRunID ~= CurrentRunID then break end -- Tự hủy nếu có script mới
+        if getgenv().KumaRunID ~= CurrentRunID then break end 
         if getgenv().Config.SmartBuy then
             local activeItems = {}
             for k, v in pairs(getgenv().BuyQueue) do
@@ -148,7 +161,7 @@ end)
 task.spawn(function()
     local currentTool = nil 
     while true do
-        if getgenv().KumaRunID ~= CurrentRunID then break end -- Tự hủy nếu có script mới
+        if getgenv().KumaRunID ~= CurrentRunID then break end 
 
         local activePlotsFound = false
         for i = 1, 6 do if getgenv().Config.ActivePlots[i] then activePlotsFound = true break end end
@@ -167,7 +180,7 @@ task.spawn(function()
                         for i = StartID, EndID do
                             if not getgenv().Config.AutoHarvest then break end
                             FireRemote("Business", ACTION_SHOVEL, i)
-                            task.wait(GetSafeDelay()) -- Dùng Delay an toàn
+                            task.wait(GetSafeDelay()) 
                         end
                     end
                 end
@@ -183,7 +196,7 @@ task.spawn(function()
                         for i = StartID, EndID do
                             if not getgenv().Config.AutoPlant then break end
                             FireRemote("Business", ACTION_PLANT, i)
-                            task.wait(GetSafeDelay()) -- Dùng Delay an toàn
+                            task.wait(GetSafeDelay()) 
                         end
                     end
                 end
@@ -204,7 +217,7 @@ end)
 task.spawn(function()
     local GiftIndex, EventIndex, TimeCounter = 1, 1, 0
     while true do
-        if getgenv().KumaRunID ~= CurrentRunID then break end -- Tự hủy
+        if getgenv().KumaRunID ~= CurrentRunID then break end 
         TimeCounter = TimeCounter + 1
         if TimeCounter > 20 then
             TimeCounter = 0
@@ -225,7 +238,7 @@ end)
 
 task.spawn(function()
     while true do
-        if getgenv().KumaRunID ~= CurrentRunID then break end -- Tự hủy
+        if getgenv().KumaRunID ~= CurrentRunID then break end 
         if getgenv().Config.AutoBoss then
              FireRemote("Business", BOSS_NAME_CODE, 1) 
              FireRemote("Business", BOSS_NAME_TEXT, 1) 
@@ -237,12 +250,12 @@ task.spawn(function()
     end
 end)
 
--- [RECONNECT LOGIC]
+-- [RECONNECT LOGIC] - Đã nâng cấp để dùng SafeConnect (Hủy kết nối cũ khi chạy lại)
 task.spawn(function()
     local function PerformRejoin()
         QueueAutoExecute()
         while true do
-            if getgenv().KumaRunID ~= CurrentRunID then break end -- Tự hủy
+            if getgenv().KumaRunID ~= CurrentRunID then break end 
             if not getgenv().Config.AutoReconnect then break end
             pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, Players.LocalPlayer) end)
             task.wait(2)
@@ -251,7 +264,8 @@ task.spawn(function()
         end
     end
 
-    CoreGui.RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
+    -- Sử dụng SafeConnect thay vì connect thường
+    SafeConnect(CoreGui.RobloxPromptGui.promptOverlay.ChildAdded, function(child)
         if getgenv().Config.AutoReconnect then
             if child.Name == 'ErrorPrompt' and child:FindFirstChild('MessageArea') and child.MessageArea:FindFirstChild("ErrorFrame") then
                 PerformRejoin()
@@ -259,7 +273,7 @@ task.spawn(function()
         end
     end)
     
-    GuiService.ErrorMessageChanged:Connect(function()
+    SafeConnect(GuiService.ErrorMessageChanged, function()
         if getgenv().Config.AutoReconnect then
             task.wait(0.5)
             PerformRejoin()
@@ -269,7 +283,7 @@ end)
 
 task.spawn(function()
     while true do
-        if getgenv().KumaRunID ~= CurrentRunID then break end -- Tự hủy
+        if getgenv().KumaRunID ~= CurrentRunID then break end 
         task.wait(120)
         pcall(function()
             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.RightControl, false, game)
@@ -285,7 +299,7 @@ end)
 local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "Kuma Hub | V67 (Fixed Delay)",
+   Name = "Kuma Hub | V67 (Safe Startup)",
    LoadingTitle = "Đang tải...",
    LoadingSubtitle = "Anti-Multiple Execution Active",
    Theme = "AmberGlow",
@@ -639,7 +653,7 @@ MiscTab:CreateButton({
 
 -- CHECK AUTO LOAD STARTUP
 task.spawn(function()
-    task.wait(2) -- Delay thêm chút cho UI load hẳn
+    task.wait(2) 
     if isfile(AutoLoadFileName) then
         local success, result = pcall(function() return HttpService:JSONDecode(readfile(AutoLoadFileName)) end)
         if success and result.Profile then
