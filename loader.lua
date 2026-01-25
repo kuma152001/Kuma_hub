@@ -16,7 +16,7 @@ local KEY_FILE = "KumaHub_Golden_License.json"
 local ONE_DAY_SECONDS = 86400 
 
 -- [SCRIPT MẶC ĐỊNH]: Chạy khi game không có trong danh sách bên dưới
-local UNIVERSAL_SCRIPT = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/main/herb.lua"
+local UNIVERSAL_SCRIPT = "..."
 
 -- [DANH SÁCH GAME]: [PlaceId] = "Link Raw Script"
 -- Bạn lấy PlaceId bằng cách vào game -> Gõ vào console: print(game.PlaceId)
