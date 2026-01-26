@@ -1,10 +1,13 @@
+--- START OF FILE Paste January 26, 2026 - 9:05PM ---
+
 --[[ 
     🐻 KUMA HUB - CULTIVATION EDITION (FULL SAFE) 🐻
     ---------------------------------------------------
-    Phiên bản: V2.3.1 (Safe Config & Full Features)
+    Phiên bản: V2.3.3 (Teleport List Update)
     Changelogs:
-    - CONFIG FIX: Đã đổi thư mục lưu sang "KumaHub_Cultivation_Safe_V3" để KHÔNG GHI ĐÈ config cũ.
-    - KEEP: Giữ nguyên 100% tính năng (Farm, Spin V8, ESP, Craft...).
+    - MOVED: Chuyển Teleport sang tab "Dịch Chuyển".
+    - UPDATE: Thêm danh sách chọn địa điểm (Dropdown).
+    - KEEP: Giữ nguyên 100% tính năng cũ.
 ]]
 
 -- ==============================================================================
@@ -820,9 +823,43 @@ task.spawn(function()
     end)
 
     -- =============================================================
-    -- TAB 2: TELE
+    -- TAB 2: TELE (CẬP NHẬT MỚI Ở ĐÂY)
     -- =============================================================
     local TabTele = Window:CreateTab("🚀 Dịch Chuyển", 4483362458)
+    
+    TabTele:CreateSection("Danh sách địa điểm (Locations)")
+    
+    -- [BẠN CÓ THỂ THÊM TỌA ĐỘ VÀO ĐÂY]
+    local Locations = {
+        ["Small Village"] = CFrame.new(880, -65, 465), 
+        ["Vị trí mẫu 1"] = CFrame.new(0, 50, 0),
+        ["Vị trí mẫu 2"] = CFrame.new(100, 50, 100)
+    }
+    
+    local LocationNames = {}
+    for name, _ in pairs(Locations) do table.insert(LocationNames, name) end
+    table.sort(LocationNames)
+    local SelectedLocation = LocationNames[1]
+
+    TabTele:CreateDropdown({
+        Name = "Chọn địa điểm",
+        Options = LocationNames,
+        CurrentOption = SelectedLocation,
+        Callback = function(Option)
+            SelectedLocation = Option[1]
+        end
+    })
+
+    TabTele:CreateButton({
+        Name = "🚀 Dịch chuyển đến địa điểm chọn",
+        Callback = function()
+            local target = Locations[SelectedLocation]
+            if target and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                LP.Character.HumanoidRootPart.CFrame = target
+            end
+        end
+    })
+
     TabTele:CreateSection("Hệ thống tự quay lại")
     TabTele:CreateButton({ Name = "📍 Lưu vị trí hiện tại", Callback = function() if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then _G.Config.SavedPosition = LP.Character.HumanoidRootPart.CFrame end end })
     TabTele:CreateButton({ Name = "🚨 Dịch chuyển về điểm lưu", Callback = function() if _G.Config.SavedPosition and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then LP.Character.HumanoidRootPart.CFrame = _G.Config.SavedPosition end end })
@@ -874,6 +911,7 @@ task.spawn(function()
     -- TAB 3: MISC
     -- =============================================================
     local TabMisc = Window:CreateTab("🧩 Khác", 4483362458)
+    
     TabMisc:CreateSection("Hiển thị (ESP)")
     local ESP_NPC_Enabled = false
     local ESP_Player_Enabled = false
