@@ -1,5 +1,3 @@
---- START OF FILE Paste January 27, 2026 - 4:05PM ---
-
 --[[ 
     🐻 KUMA HUB - CULTIVATION EDITION (FULL SAFE) 🐻
     ---------------------------------------------------
@@ -687,7 +685,7 @@ task.spawn(function()
     if ShowMobileButton then task.spawn(CreateMobileButton) end
 
     -- =============================================================
-    -- TAB 1: FARM (ĐÃ SỬA LỖI TELE VÀO CHỖ KHÔNG CÓ CÂY)
+    -- TAB 1: FARM
     -- =============================================================
     local TabFarm = Window:CreateTab("🌿 Farm", 4483362458)
     local StatusLabel = TabFarm:CreateLabel("Trạng thái: Đang nghỉ")
@@ -705,7 +703,6 @@ task.spawn(function()
     TabFarm:CreateToggle({ Name = "Moon Flower", CurrentValue = false, Callback = function(V) _G.Config.Tracking["Moon Flower"] = V end })
     TabFarm:CreateToggle({ Name = "Death Flower", CurrentValue = false, Callback = function(V) _G.Config.Tracking["Death Flower"] = V end })
 
-    -- [LOOP 1] QUÉT TÌM CÂY (Giữ nguyên)
     task.spawn(function()
         while IsAlive() do
             if _G.Config.AutoWaypoint then
@@ -729,7 +726,6 @@ task.spawn(function()
                                 else for herbName, enabled in pairs(_G.Config.Tracking) do if enabled and cleanName:find(herbName) then isMatch = true break end end end
                                 
                                 if isMatch then
-                                    -- Chỉ thêm vào danh sách nếu có Prompt hoặc ClickDetector
                                     if v:FindFirstChildWhichIsA("ProximityPrompt", true) or v:FindFirstChildWhichIsA("ClickDetector", true) or _G.Config.InstantFarm then
                                         local pos = GetPosition(v)
                                         table.insert(tempCache, {Name = cleanName, Position = pos, Instance = v})
@@ -781,26 +777,16 @@ task.spawn(function()
         end
     end
 
-    -- [LOOP 2] THỰC HIỆN FARM (ĐÃ SỬA LOGIC KIỂM TRA)
     task.spawn(function()
         while IsAlive() do
             if (_G.Config.AutoLoot or _G.Config.InstantFarm) and not IsReturning and not _G.Config.AutoWaypoint then
                 if #LocationCache > 0 then
                     local targetData = LocationCache[1]
                     local isValid = false
-                    
-                    -- [SỬA ĐỔI QUAN TRỌNG Ở ĐÂY] --------------------------
                     if targetData and targetData.Instance and targetData.Instance.Parent then
-                        -- Kiểm tra kỹ: Phải có Nút bấm (Prompt) hoặc ClickDetector thì mới tính là còn cây
-                        -- Dù là InstantFarm cũng phải check, nếu không sẽ tele vào chỗ cây đã bị người khác hái
-                        local hasPrompt = targetData.Instance:FindFirstChildWhichIsA("ProximityPrompt", true)
-                        local hasClick = targetData.Instance:FindFirstChildWhichIsA("ClickDetector", true)
-                        
-                        if hasPrompt or hasClick then
-                            isValid = true
-                        end
+                        if _G.Config.InstantFarm then isValid = true
+                        else if targetData.Instance:FindFirstChildWhichIsA("ProximityPrompt", true) or targetData.Instance:FindFirstChildWhichIsA("ClickDetector", true) then isValid = true end end
                     end
-                    -- -----------------------------------------------------
 
                     if isValid then
                         local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
@@ -810,22 +796,16 @@ task.spawn(function()
                             local plat = EnsurePlatform()
                             plat.CFrame = hrp.CFrame - Vector3.new(0, 3.5, 0)
                             task.wait(_G.Config.SyncDelay)
-                            
-                            -- Check lại lần cuối sau khi teleport đến nơi
                             if targetData.Instance.Parent then
                                 local distCheck = (hrp.Position - tPos).Magnitude
                                 if distCheck < 20 then
-                                    if _G.Config.InstantFarm then 
-                                        CollectRemote:FireServer(targetData.Instance)
-                                    else 
-                                        SafeInteract(targetData.Instance) 
-                                    end
+                                    if _G.Config.InstantFarm then CollectRemote:FireServer(targetData.Instance)
+                                    else SafeInteract(targetData.Instance) end
                                 end
                             end
                             table.remove(LocationCache, 1)
                         end
                     else
-                        -- Nếu không valid (người khác hái rồi), xóa ngay khỏi danh sách để ko bị kẹt
                         table.remove(LocationCache, 1)
                     end
                 else 
@@ -839,7 +819,7 @@ task.spawn(function()
             end
         end
     end)
-    
+
     -- =============================================================
     -- TAB 2: TELE (CẬP NHẬT MỚI Ở ĐÂY)
     -- =============================================================
@@ -1052,7 +1032,7 @@ task.spawn(function()
     TabCraft:CreateDropdown({ Name = "Niên đại (Năm)", Options = {"1 Year", "10 Year", "100 Year", "1000 Year", "10000 Year", "100000 Year"}, CurrentOption = "1 Year", Callback = function(O) _G.Config.CraftYear = O[1] end})
     TabCraft:CreateInput({ Name = "Cấp lò luyện", PlaceholderText = "10", Callback = function(Text) _G.Config.CraftLevel = tonumber(Text) or 10 end})
     TabCraft:CreateInput({ Name = "Số lượng", PlaceholderText = "1", Callback = function(Text) _G.Config.CraftAmount = tonumber(Text) or 1 end})
-    TabCraft:CreateToggle({ Name = "▶ Bắt đầu chế thuốc", CurrentValue = false, Callback = function(V) _G.Config.CraftEnabled = V if V then task.spawn(function() local count = 0 while _G.Config.CraftEnabled and count < (_G.Config.CraftAmount or 1) and IsAlive() do count = count + 1 local recipe = nil for _,r in ipairs(CraftRecipes) do if r.Name == _G.Config.CraftRecipe then recipe = r break end end if recipe then local Remote_Craft = RE:WaitForChild("Events"):WaitForChild("CraftPill") local Remote_Add = RE:WaitForChild("Events"):WaitForChild("UseHerbAlchemy") local Remote_Reset = RE:FindFirstChild("ReturnHerbalAlchemy", true) if Remote_Reset then Remote_Reset:FireServer() end task.wait(0.1) for s, h in ipairs(recipe.Items) do if not _G.Config.CraftEnabled then break end Remote_Add:FireServer(h, _G.Config.CraftYear, s) task.wait(0.1) end if _G.Config.CraftEnabled then Remote_Craft:FireServer(_G.Config.CraftRecipe, YearToGrade[_G.Config.CraftYear], _G.Config.CraftLevel or 10, 1) end end task.wait(0.5) end _G.Config.CraftEnabled = false end) end end})
+    TabCraft:CreateToggle({ Name = "▶ Bắt đầu chế thuốc", CurrentValue = false, Callback = function(V) _G.Config.CraftEnabled = V if V then task.spawn(function() local count = 0 while _G.Config.CraftEnabled and count < (_G.Config.CraftAmount or 1) and IsAlive() do count = count + 1 local recipe = nil for _,r in ipairs(CraftRecipes) do if r.Name == _G.Config.CraftRecipe then recipe = r break end end if recipe then local Remote_Craft = RE:WaitForChild("Events"):WaitForChild("CraftPill") local Remote_Add = RE:WaitForChild("Events"):WaitForChild("UseHerbAlchemy") local Remote_Reset = RE:FindFirstChild("ReturnHerbalAlchemy", true) if Remote_Reset then Remote_Reset:FireServer() end task.wait(0.5) for s, h in ipairs(recipe.Items) do if not _G.Config.CraftEnabled then break end Remote_Add:FireServer(h, _G.Config.CraftYear, s) task.wait(0.3) end if _G.Config.CraftEnabled then Remote_Craft:FireServer(_G.Config.CraftRecipe, YearToGrade[_G.Config.CraftYear], _G.Config.CraftLevel or 10, 1) end end task.wait(1) end _G.Config.CraftEnabled = false end) end end})
 
     -- =============================================================
     -- TAB 5: CÀI ĐẶT
