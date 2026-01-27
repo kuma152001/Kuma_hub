@@ -1,11 +1,11 @@
 --[[ 
-    🐻 KUMA HUB - CULTIVATION EDITION (FULL SAFE) 🐻
+    🐻 KUMA HUB - CULTIVATION EDITION (REAL DROPDOWN FIX) 🐻
     ---------------------------------------------------
-    Phiên bản: V2.3.3 (Teleport List Update)
+    Phiên bản: V2.4.2 (Real Expandable Dropdowns)
     Changelogs:
-    - MOVED: Chuyển Teleport sang tab "Dịch Chuyển".
-    - UPDATE: Thêm danh sách chọn địa điểm (Dropdown).
-    - KEEP: Giữ nguyên 100% tính năng cũ.
+    - RECODE UI: Viết lại hàm Dropdown thành dạng danh sách xổ xuống (Expandable List).
+    - KEEP: Farm giữ nguyên dạng Toggle (Nút gạt).
+    - KEEP: Logic hoạt động giữ nguyên (Safe).
 ]]
 
 -- ==============================================================================
@@ -38,7 +38,7 @@ task.spawn(function()
     repeat task.wait() until game:IsLoaded()
 
     -- ==============================================================================
-    -- 1. BỘ THƯ VIỆN GUI
+    -- 1. BỘ THƯ VIỆN GUI (ĐÃ NÂNG CẤP DROPDOWN)
     -- ==============================================================================
     local KumaUI = {}
     local KumaMainFrame = nil 
@@ -47,7 +47,7 @@ task.spawn(function()
     function KumaUI:CreateWindow(Settings)
         local CoreGui = game:GetService("CoreGui")
         local Screen = Instance.new("ScreenGui")
-        Screen.Name = "KumaHub_Cultivation_Fix"
+        Screen.Name = "KumaHub_Cultivation_Fix_V2"
         Screen.Parent = CoreGui
         Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         
@@ -337,18 +337,26 @@ task.spawn(function()
                 if Info.CurrentKey and Info.Callback then pcall(Info.Callback, Info.CurrentKey) end
             end
 
+            -- [NEW] REAL EXPANDABLE DROPDOWN FUNCTION
             function TabFunctions:CreateDropdown(Info) 
-                local Btn = Instance.new("TextButton")
-                Btn.Size = UDim2.new(1, 0, 0, ItemHeight)
-                Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-                Btn.BackgroundTransparency = 0.5
-                Btn.Text = ""
-                Btn.Parent = Page
-                Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 4)
+                local DropContainer = Instance.new("Frame")
+                DropContainer.Name = Info.Name .. "_Drop"
+                DropContainer.Size = UDim2.new(1, 0, 0, ItemHeight)
+                DropContainer.BackgroundTransparency = 1
+                DropContainer.Parent = Page
+                
+                local MainBtn = Instance.new("TextButton")
+                MainBtn.Name = "Header"
+                MainBtn.Size = UDim2.new(1, 0, 0, ItemHeight)
+                MainBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                MainBtn.BackgroundTransparency = 0.5
+                MainBtn.Text = ""
+                MainBtn.Parent = DropContainer
+                Instance.new("UICorner", MainBtn).CornerRadius = UDim.new(0, 4)
                 
                 local Title = Instance.new("TextLabel")
                 Title.Text = Info.Name .. ": " .. (Info.CurrentOption or "")
-                Title.Size = UDim2.new(1, -10, 1, 0)
+                Title.Size = UDim2.new(1, -25, 1, 0)
                 Title.BackgroundTransparency = 1
                 Title.TextColor3 = Color3.fromRGB(240, 240, 240)
                 Title.TextXAlignment = Enum.TextXAlignment.Left 
@@ -357,23 +365,85 @@ task.spawn(function()
                 local Pad = Instance.new("UIPadding") 
                 Pad.PaddingLeft = UDim.new(0, 10)
                 Pad.Parent = Title
-                Title.Parent = Btn
+                Title.Parent = MainBtn
                 
-                local Idx = 1
-                for i, v in ipairs(Info.Options) do if v == Info.CurrentOption then Idx = i end end
+                local Arrow = Instance.new("TextLabel")
+                Arrow.Text = "▼"
+                Arrow.Size = UDim2.new(0, 25, 1, 0)
+                Arrow.Position = UDim2.new(1, -25, 0, 0)
+                Arrow.BackgroundTransparency = 1
+                Arrow.TextColor3 = Color3.fromRGB(255, 140, 0)
+                Arrow.Font = Enum.Font.GothamBold
+                Arrow.TextSize = 12 * SizeScale
+                Arrow.Parent = MainBtn
                 
-                Btn.MouseButton1Click:Connect(function()
-                    Idx = Idx + 1
-                    if Idx > #Info.Options then Idx = 1 end
-                    local Val = Info.Options[Idx]
-                    Title.Text = Info.Name .. ": " .. Val
-                    pcall(Info.Callback, {Val}) 
+                local OptionList = Instance.new("ScrollingFrame")
+                OptionList.Name = "List"
+                OptionList.Size = UDim2.new(1, 0, 0, 0)
+                OptionList.Position = UDim2.new(0, 0, 0, ItemHeight + 2)
+                OptionList.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+                OptionList.BorderSizePixel = 0
+                OptionList.Visible = false
+                OptionList.ScrollBarThickness = 2
+                OptionList.Parent = DropContainer
+                OptionList.ZIndex = 10 
+
+                local ListLayout = Instance.new("UIListLayout")
+                ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                ListLayout.Parent = OptionList
+                
+                local IsOpen = false
+                
+                local function RefreshList()
+                    for _, child in pairs(OptionList:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+                    local Count = 0
+                    for _, OptName in ipairs(Info.Options) do
+                        Count = Count + 1
+                        local OptBtn = Instance.new("TextButton")
+                        OptBtn.Text = OptName
+                        OptBtn.Size = UDim2.new(1, 0, 0, ItemHeight)
+                        OptBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                        OptBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+                        OptBtn.Font = Enum.Font.Gotham
+                        OptBtn.TextSize = 12 * SizeScale
+                        OptBtn.Parent = OptionList
+                        if OptName == Info.CurrentOption then OptBtn.TextColor3 = Color3.fromRGB(255, 140, 0) end
+                        OptBtn.MouseButton1Click:Connect(function()
+                            Info.CurrentOption = OptName
+                            Title.Text = Info.Name .. ": " .. OptName
+                            pcall(Info.Callback, {OptName})
+                            IsOpen = false
+                            OptionList.Visible = false
+                            Arrow.Text = "▼"
+                            DropContainer.Size = UDim2.new(1, 0, 0, ItemHeight)
+                            Arrow.Rotation = 0
+                        end)
+                    end
+                    OptionList.CanvasSize = UDim2.new(0, 0, 0, Count * ItemHeight)
+                end
+                
+                MainBtn.MouseButton1Click:Connect(function()
+                    IsOpen = not IsOpen
+                    OptionList.Visible = IsOpen
+                    if IsOpen then
+                        RefreshList()
+                        local Count = #Info.Options
+                        local ListHeight = math.min(Count * ItemHeight, 150)
+                        OptionList.Size = UDim2.new(1, 0, 0, ListHeight)
+                        DropContainer.Size = UDim2.new(1, 0, 0, ItemHeight + ListHeight + 5)
+                        Arrow.Rotation = 180
+                    else
+                        DropContainer.Size = UDim2.new(1, 0, 0, ItemHeight)
+                        Arrow.Rotation = 0
+                    end
                 end)
+                
                 local DropFunc = {}
                 function DropFunc:Refresh(NewOpts, Keep)
                     Info.Options = NewOpts
-                    Idx = 1
-                    Title.Text = Info.Name .. ": " .. (Info.Options[1] or "")
+                    if not Keep then Info.CurrentOption = NewOpts[1] end
+                    Title.Text = Info.Name .. ": " .. (Info.CurrentOption or "")
+                    if IsOpen then RefreshList() end
                 end
                 return DropFunc
             end
@@ -623,7 +693,7 @@ task.spawn(function()
     local Window = Rayfield:CreateWindow({
        Name = "🐻 KUMA HUB 🐻",
        LoadingTitle = "Đang tải...",
-       LoadingSubtitle = "V2.3.1 Safe Config",
+       LoadingSubtitle = "V2.4.2 Real Dropdowns",
        ConfigurationSaving = { Enabled = false }, 
        KeySystem = false,
     })
@@ -685,7 +755,7 @@ task.spawn(function()
     if ShowMobileButton then task.spawn(CreateMobileButton) end
 
     -- =============================================================
-    -- TAB 1: FARM
+    -- TAB 1: FARM (GIỮ NGUYÊN TOGGLE THEO YÊU CẦU)
     -- =============================================================
     local TabFarm = Window:CreateTab("🌿 Farm", 4483362458)
     local StatusLabel = TabFarm:CreateLabel("Trạng thái: Đang nghỉ")
@@ -695,7 +765,8 @@ task.spawn(function()
     TabFarm:CreateToggle({ Name = "▶ Farm Thường (Giữ E)", CurrentValue = false, Callback = function(V) _G.Config.AutoLoot = V if V then _G.Config.InstantFarm = false end end })
     TabFarm:CreateToggle({ Name = "🌍 Farm Tất Cả (Bỏ lọc)", CurrentValue = false, Callback = function(V) _G.Config.FarmAll = V end })
 
-    TabFarm:CreateSection("🌿 Cấu Hình Lọc")
+    TabFarm:CreateSection("🌿 Cấu Hình Lọc (Chọn nhiều)")
+    -- [GIỮ NGUYÊN] Dạng Toggle để chọn được nhiều cây
     TabFarm:CreateToggle({ Name = "Ginseng", CurrentValue = false, Callback = function(V) _G.Config.Tracking["Ginseng"] = V end })
     TabFarm:CreateToggle({ Name = "Spirit Rose", CurrentValue = false, Callback = function(V) _G.Config.Tracking["Spirit Rose"] = V end })
     TabFarm:CreateToggle({ Name = "Qi Flower", CurrentValue = false, Callback = function(V) _G.Config.Tracking["Qi Flower"] = V end })
@@ -821,13 +892,12 @@ task.spawn(function()
     end)
 
     -- =============================================================
-    -- TAB 2: TELE (CẬP NHẬT MỚI Ở ĐÂY)
+    -- TAB 2: TELE (DẠNG DROPDOWN XỔ XUỐNG)
     -- =============================================================
     local TabTele = Window:CreateTab("🚀 Dịch Chuyển", 4483362458)
     
     TabTele:CreateSection("Danh sách địa điểm (Locations)")
     
-    -- [BẠN CÓ THỂ THÊM TỌA ĐỘ VÀO ĐÂY]
     local Locations = {
         ["Small Village"] = CFrame.new(880, -65, 465), 
         ["40000x Zone"] = CFrame.new(-1069, 574, 609),
@@ -906,7 +976,7 @@ task.spawn(function()
     end)
 
     -- =============================================================
-    -- TAB 3: MISC
+    -- TAB 3: MISC (DẠNG DROPDOWN XỔ XUỐNG)
     -- =============================================================
     local TabMisc = Window:CreateTab("🧩 Khác", 4483362458)
     
@@ -1011,7 +1081,7 @@ task.spawn(function()
     TabMisc:CreateButton({ Name = "🗑 Xóa chuỗi phím", Callback = function() _G.Config.ExtraKeys = {} UpdateKeys() end})
 
     -- =============================================================
-    -- TAB 4: CRAFT
+    -- TAB 4: CRAFT (DẠNG DROPDOWN XỔ XUỐNG)
     -- =============================================================
     local TabCraft = Window:CreateTab("⚗ Chế Thuốc", 4483362458)
     local CraftRecipes = {
@@ -1028,11 +1098,12 @@ task.spawn(function()
     local RecipeNames = {}
     for _, v in ipairs(CraftRecipes) do table.insert(RecipeNames, v.Name) end
     local YearToGrade = { ["100000 Year"] = 6, ["10000 Year"] = 5, ["1000 Year"] = 4, ["100 Year"] = 3, ["10 Year"] = 2, ["1 Year"] = 1 }
+    
     TabCraft:CreateDropdown({ Name = "Công thức", Options = RecipeNames, CurrentOption = RecipeNames[1], Callback = function(O) _G.Config.CraftRecipe = O[1] end})
     TabCraft:CreateDropdown({ Name = "Niên đại (Năm)", Options = {"1 Year", "10 Year", "100 Year", "1000 Year", "10000 Year", "100000 Year"}, CurrentOption = "1 Year", Callback = function(O) _G.Config.CraftYear = O[1] end})
     TabCraft:CreateInput({ Name = "Cấp lò luyện", PlaceholderText = "10", Callback = function(Text) _G.Config.CraftLevel = tonumber(Text) or 10 end})
     TabCraft:CreateInput({ Name = "Số lượng", PlaceholderText = "1", Callback = function(Text) _G.Config.CraftAmount = tonumber(Text) or 1 end})
-    TabCraft:CreateToggle({ Name = "▶ Bắt đầu chế thuốc", CurrentValue = false, Callback = function(V) _G.Config.CraftEnabled = V if V then task.spawn(function() local count = 0 while _G.Config.CraftEnabled and count < (_G.Config.CraftAmount or 1) and IsAlive() do count = count + 1 local recipe = nil for _,r in ipairs(CraftRecipes) do if r.Name == _G.Config.CraftRecipe then recipe = r break end end if recipe then local Remote_Craft = RE:WaitForChild("Events"):WaitForChild("CraftPill") local Remote_Add = RE:WaitForChild("Events"):WaitForChild("UseHerbAlchemy") local Remote_Reset = RE:FindFirstChild("ReturnHerbalAlchemy", true) if Remote_Reset then Remote_Reset:FireServer() end task.wait(0.5) for s, h in ipairs(recipe.Items) do if not _G.Config.CraftEnabled then break end Remote_Add:FireServer(h, _G.Config.CraftYear, s) task.wait(0.3) end if _G.Config.CraftEnabled then Remote_Craft:FireServer(_G.Config.CraftRecipe, YearToGrade[_G.Config.CraftYear], _G.Config.CraftLevel or 10, 1) end end task.wait(0.2) end _G.Config.CraftEnabled = false end) end end})
+    TabCraft:CreateToggle({ Name = "▶ Bắt đầu chế thuốc", CurrentValue = false, Callback = function(V) _G.Config.CraftEnabled = V if V then task.spawn(function() local count = 0 while _G.Config.CraftEnabled and count < (_G.Config.CraftAmount or 1) and IsAlive() do count = count + 1 local recipe = nil for _,r in ipairs(CraftRecipes) do if r.Name == _G.Config.CraftRecipe then recipe = r break end end if recipe then local Remote_Craft = RE:WaitForChild("Events"):WaitForChild("CraftPill") local Remote_Add = RE:WaitForChild("Events"):WaitForChild("UseHerbAlchemy") local Remote_Reset = RE:FindFirstChild("ReturnHerbalAlchemy", true) if Remote_Reset then Remote_Reset:FireServer() end task.wait(0.2) for s, h in ipairs(recipe.Items) do if not _G.Config.CraftEnabled then break end Remote_Add:FireServer(h, _G.Config.CraftYear, s) task.wait(0.1) end if _G.Config.CraftEnabled then Remote_Craft:FireServer(_G.Config.CraftRecipe, YearToGrade[_G.Config.CraftYear], _G.Config.CraftLevel or 10, 1) end end task.wait(0.2) end _G.Config.CraftEnabled = false end) end end})
 
     -- =============================================================
     -- TAB 5: CÀI ĐẶT
