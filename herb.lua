@@ -831,7 +831,7 @@ task.spawn(function()
     local Locations = {
         ["Small Village"] = CFrame.new(880, -65, 465), 
         ["40000x Zone"] = CFrame.new(-1050, 584, 606),
-        ["Vị trí mẫu 2"] = CFrame.new(100, 50, 100)
+        ["sect"] = CFrame.new(-1426, 29, 1876)
     }
     
     local LocationNames = {}
