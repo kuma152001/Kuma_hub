@@ -830,7 +830,7 @@ task.spawn(function()
     -- [BẠN CÓ THỂ THÊM TỌA ĐỘ VÀO ĐÂY]
     local Locations = {
         ["Small Village"] = CFrame.new(880, -65, 465), 
-        ["40000x Zone"] = CFrame.new(-1050, 584, 606),
+        ["40000x Zone"] = CFrame.new(-1069, 574, 609),
         ["sect"] = CFrame.new(-1426, 29, 1876)
     }
     
@@ -1032,7 +1032,7 @@ task.spawn(function()
     TabCraft:CreateDropdown({ Name = "Niên đại (Năm)", Options = {"1 Year", "10 Year", "100 Year", "1000 Year", "10000 Year", "100000 Year"}, CurrentOption = "1 Year", Callback = function(O) _G.Config.CraftYear = O[1] end})
     TabCraft:CreateInput({ Name = "Cấp lò luyện", PlaceholderText = "10", Callback = function(Text) _G.Config.CraftLevel = tonumber(Text) or 10 end})
     TabCraft:CreateInput({ Name = "Số lượng", PlaceholderText = "1", Callback = function(Text) _G.Config.CraftAmount = tonumber(Text) or 1 end})
-    TabCraft:CreateToggle({ Name = "▶ Bắt đầu chế thuốc", CurrentValue = false, Callback = function(V) _G.Config.CraftEnabled = V if V then task.spawn(function() local count = 0 while _G.Config.CraftEnabled and count < (_G.Config.CraftAmount or 1) and IsAlive() do count = count + 1 local recipe = nil for _,r in ipairs(CraftRecipes) do if r.Name == _G.Config.CraftRecipe then recipe = r break end end if recipe then local Remote_Craft = RE:WaitForChild("Events"):WaitForChild("CraftPill") local Remote_Add = RE:WaitForChild("Events"):WaitForChild("UseHerbAlchemy") local Remote_Reset = RE:FindFirstChild("ReturnHerbalAlchemy", true) if Remote_Reset then Remote_Reset:FireServer() end task.wait(0.5) for s, h in ipairs(recipe.Items) do if not _G.Config.CraftEnabled then break end Remote_Add:FireServer(h, _G.Config.CraftYear, s) task.wait(0.3) end if _G.Config.CraftEnabled then Remote_Craft:FireServer(_G.Config.CraftRecipe, YearToGrade[_G.Config.CraftYear], _G.Config.CraftLevel or 10, 1) end end task.wait(1) end _G.Config.CraftEnabled = false end) end end})
+    TabCraft:CreateToggle({ Name = "▶ Bắt đầu chế thuốc", CurrentValue = false, Callback = function(V) _G.Config.CraftEnabled = V if V then task.spawn(function() local count = 0 while _G.Config.CraftEnabled and count < (_G.Config.CraftAmount or 1) and IsAlive() do count = count + 1 local recipe = nil for _,r in ipairs(CraftRecipes) do if r.Name == _G.Config.CraftRecipe then recipe = r break end end if recipe then local Remote_Craft = RE:WaitForChild("Events"):WaitForChild("CraftPill") local Remote_Add = RE:WaitForChild("Events"):WaitForChild("UseHerbAlchemy") local Remote_Reset = RE:FindFirstChild("ReturnHerbalAlchemy", true) if Remote_Reset then Remote_Reset:FireServer() end task.wait(0.5) for s, h in ipairs(recipe.Items) do if not _G.Config.CraftEnabled then break end Remote_Add:FireServer(h, _G.Config.CraftYear, s) task.wait(0.3) end if _G.Config.CraftEnabled then Remote_Craft:FireServer(_G.Config.CraftRecipe, YearToGrade[_G.Config.CraftYear], _G.Config.CraftLevel or 10, 1) end end task.wait(0.2) end _G.Config.CraftEnabled = false end) end end})
 
     -- =============================================================
     -- TAB 5: CÀI ĐẶT
