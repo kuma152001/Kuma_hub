@@ -901,12 +901,12 @@ task.spawn(function()
     local Locations = {
         ["Small Village"] = CFrame.new(880, -65, 465), 
         ["40000x Zone"] = CFrame.new(-1069, 574, 609),
-        ["Mob 5+"] = CFrame.new(-3495, 8, 5219)
-        ["Mob 10+"] = CFrame.new(-2209, -8, 2253)
-        ["Mob 15+"] = CFrame.new(-244, 12, 5509)
-        ["Mob 18+"] = CFrame.new(62, 40, 133)
-        ["Mob 20+"] = CFrame.new(-1701, -44, -90)
-        ["Mob 25+"] = CFrame.new(-448, 49, 1724)
+        ["Mob 5+"] = CFrame.new(-3495, 8, 5219),
+        ["Mob 10+"] = CFrame.new(-2209, -8, 2253),
+        ["Mob 15+"] = CFrame.new(-244, 12, 5509),
+        ["Mob 18+"] = CFrame.new(62, 40, 133),
+        ["Mob 20+"] = CFrame.new(-1701, -44, -90),
+        ["Mob 25+"] = CFrame.new(-448, 49, 1724),
         ["sect"] = CFrame.new(-1426, 29, 1876)
         
     }
