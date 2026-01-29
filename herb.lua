@@ -991,63 +991,140 @@ task.spawn(function()
     local ESP_Player_Enabled = false
     local FolderNPCName = "Kuma_ESP_NPC"
     local FolderPlayerName = "Kuma_ESP_Player"
-    local ESP_Cache = {}
+    
+    local ESP_Storage = {} 
 
-    local function CreateESP_V7(model, holder, color, isPlayer)
-        if not model or ESP_Cache[model] then return end
-        pcall(function()
-            if model == LP.Character then return end
-            local hum = model:FindFirstChild("Humanoid")
-            if not isPlayer then if not hum then return end if PLRS:GetPlayerFromCharacter(model) then return end end
-            local root = model:FindFirstChild("UpperTorso") or model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Torso") or model:FindFirstChild("Head") or model.PrimaryPart
-            if root then
-                ESP_Cache[model] = true
-                local hl = Instance.new("Highlight")
-                hl.Adornee = model
-                hl.FillColor = color
-                hl.OutlineColor = Color3.new(1,1,1)
-                hl.FillTransparency = 0.5
-                hl.Parent = holder
-                local bg = Instance.new("BillboardGui", hl)
-                bg.Adornee = root
-                bg.Size = UDim2.new(0,150,0,40)
-                bg.StudsOffset = Vector3.new(0,3.5,0)
-                bg.AlwaysOnTop = true
-                local t = Instance.new("TextLabel", bg)
-                t.BackgroundTransparency = 1
-                t.Size = UDim2.new(1,0,1,0)
-                local hp = hum and math.floor(hum.Health) or "?"
-                t.Text = model.Name .. "\n[" .. hp .. "]"
-                t.TextColor3 = color 
-                t.TextStrokeTransparency = 0
-                t.Font = Enum.Font.SourceSansBold
-                t.TextSize = 12
-                model.AncestryChanged:Connect(function(_, parent) if not parent then hl:Destroy() ESP_Cache[model] = nil end end)
+    local function RemoveESP_Obj(model)
+        if ESP_Storage[model] then
+            if ESP_Storage[model].Conn then ESP_Storage[model].Conn:Disconnect() end
+            if ESP_Storage[model].Highlight then ESP_Storage[model].Highlight:Destroy() end
+            if ESP_Storage[model].Billboard then ESP_Storage[model].Billboard:Destroy() end
+            ESP_Storage[model] = nil
+        end
+    end
+
+    local function CreateESP_V8(model, holder, color, isPlayer)
+        if not model or ESP_Storage[model] then return end
+        if model == LP.Character then return end
+        
+        -- Kiểm tra Humanoid
+        local hum = model:FindFirstChild("Humanoid")
+        -- Với Player xa, đôi khi RootPart chưa kịp load, ta dùng WaitForChild nhẹ
+        local root = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("UpperTorso") or model.PrimaryPart
+        
+        if not root or not hum or hum.Health <= 0 then return end
+        
+        -- Logic lọc: Nếu là chế độ NPC thì bỏ qua Model là Player thật
+        if not isPlayer and PLRS:GetPlayerFromCharacter(model) then return end 
+
+        -- 1. Highlight
+        local hl = Instance.new("Highlight")
+        hl.Adornee = model
+        hl.FillColor = color
+        hl.OutlineColor = Color3.new(1, 1, 1)
+        hl.FillTransparency = 0.65 
+        hl.OutlineTransparency = 0.3
+        
+        local success, _ = pcall(function() hl.Parent = holder end)
+        if not success then hl:Destroy() hl = nil end 
+
+        -- 2. BillboardGui
+        local bg = Instance.new("BillboardGui")
+        bg.Adornee = root
+        bg.Size = UDim2.new(0, 150, 0, 40)
+        bg.StudsOffset = Vector3.new(0, 4.5, 0)
+        bg.AlwaysOnTop = true
+        bg.Parent = holder
+
+        local t = Instance.new("TextLabel", bg)
+        t.BackgroundTransparency = 1
+        t.Size = UDim2.new(1, 0, 1, 0)
+        t.TextColor3 = color
+        t.TextStrokeTransparency = 0
+        t.TextStrokeColor3 = Color3.new(0, 0, 0)
+        t.Font = Enum.Font.GothamBold
+        t.TextSize = 12
+        
+        local function UpdateText()
+            if hum and model and model.Parent then
+                local hp = math.floor(hum.Health)
+                local maxHp = math.floor(hum.MaxHealth)
+                local distStr = ""
+                -- Tính khoảng cách
+                if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and root then
+                    local dist = (LP.Character.HumanoidRootPart.Position - root.Position).Magnitude
+                    distStr = string.format("\nDist: %d", math.floor(dist))
+                end
+                t.Text = string.format("%s\n[%d/%d]%s", model.Name, hp, maxHp, distStr)
+            else
+                RemoveESP_Obj(model)
             end
+        end
+        UpdateText()
+
+        local healthConn = hum.HealthChanged:Connect(UpdateText)
+        local removingConn = model.AncestryChanged:Connect(function(_, parent)
+            if not parent then RemoveESP_Obj(model) end
         end)
+
+        ESP_Storage[model] = { Highlight = hl, Billboard = bg, Conn = healthConn }
     end
 
     local function StartSmartScan(targetType, folderName, color)
         local Holder = CG:FindFirstChild(folderName) or Instance.new("Folder", CG)
         Holder.Name = folderName
+        
         task.spawn(function()
             while IsAlive() do
-                if (targetType == "NPC" and not ESP_NPC_Enabled) or (targetType == "PLAYER" and not ESP_Player_Enabled) then Holder:ClearAllChildren() ESP_Cache = {} break end
-                for i, obj in ipairs(WS:GetDescendants()) do
-                    if i % 300 == 0 then task.wait() end 
-                    if obj:IsA("Model") then
-                        if targetType == "NPC" then CreateESP_V7(obj, Holder, color, false)
-                        elseif targetType == "PLAYER" and PLRS:GetPlayerFromCharacter(obj) then CreateESP_V7(obj, Holder, color, true) end
+                if (targetType == "NPC" and not ESP_NPC_Enabled) or (targetType == "PLAYER" and not ESP_Player_Enabled) then 
+                    Holder:ClearAllChildren() 
+                    for m, _ in pairs(ESP_Storage) do RemoveESP_Obj(m) end 
+                    ESP_Storage = {}
+                    break 
+                end
+
+                if targetType == "PLAYER" then
+                    -- QUÉT PLAYER: Dùng GetPlayers để đảm bảo không sót ai (nếu đã load)
+                    for _, p in ipairs(PLRS:GetPlayers()) do
+                        if p ~= LP and p.Character then 
+                            CreateESP_V8(p.Character, Holder, color, true)
+                        end
+                    end
+                elseif targetType == "NPC" then
+                    -- QUÉT NPC: Dùng GetDescendants (Quét sâu) nhưng CÓ DELAY để không lag
+                    local count = 0
+                    for _, obj in ipairs(WS:GetDescendants()) do
+                        -- Chỉ kiểm tra Model có Humanoid
+                        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") then
+                             -- Kiểm tra xem có phải Player không để loại trừ
+                            if not PLRS:GetPlayerFromCharacter(obj) then
+                                CreateESP_V8(obj, Holder, color, false)
+                            end
+                        end
+                        
+                        count = count + 1
+                        -- Cứ quét 300 vật thể thì nghỉ 1 nhịp (BÍ KÍP KHÔNG LAG)
+                        -- Con số này giúp tìm ra NPC ẩn sâu mà không làm đơ màn hình
+                        if count % 350 == 0 then task.wait() end 
                     end
                 end
+                
+                -- Dọn dẹp xác chết
+                for model, _ in pairs(ESP_Storage) do
+                    if not model.Parent or (model:FindFirstChild("Humanoid") and model.Humanoid.Health <= 0) then
+                        RemoveESP_Obj(model)
+                    end
+                end
+
+                -- Đợi 3 giây trước khi quét lại toàn bộ map
                 task.wait(3)
             end
         end)
     end
 
-    TabMisc:CreateToggle({Name = "🔥 Hiện NPC (Đỏ)", CurrentValue = false, Callback = function(V) ESP_NPC_Enabled = V if V then StartSmartScan("NPC", FolderNPCName, Color3.fromRGB(255, 50, 50)) end end})
-    TabMisc:CreateToggle({Name = "👤 Hiện Người Chơi (Xanh)", CurrentValue = false, Callback = function(V) ESP_Player_Enabled = V if V then StartSmartScan("PLAYER", FolderPlayerName, Color3.fromRGB(0, 255, 100)) end end})
-
+    TabMisc:CreateToggle({Name = "🔥 Hiện NPC (Deep Scan)", CurrentValue = false, Callback = function(V) ESP_NPC_Enabled = V if V then StartSmartScan("NPC", FolderNPCName, Color3.fromRGB(255, 60, 60)) end end})
+    TabMisc:CreateToggle({Name = "👤 Hiện Người Chơi (Dist)", CurrentValue = false, Callback = function(V) ESP_Player_Enabled = V if V then StartSmartScan("PLAYER", FolderPlayerName, Color3.fromRGB(0, 255, 100)) end end})
+    
     TabMisc:CreateSection("Quay thưởng (Kuma V8 Safe)")
     local SpinStatus = TabMisc:CreateLabel("Trạng thái: Chờ...")
     _G.AutoRace = false
