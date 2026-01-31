@@ -1005,7 +1005,7 @@ task.spawn(function()
         ["Mob 18+"] = CFrame.new(62, 40, 133),
         ["Mob 20+"] = CFrame.new(-1701, -44, -90),
         ["Mob 25+"] = CFrame.new(-448, 49, 1724),
-        ["sect"] = CFrame.new(-1426, 29, 1876)
+        ["sect"] = CFrame.new(-3325, 51, 2047)
     }
     
     local LocationNames = {}
