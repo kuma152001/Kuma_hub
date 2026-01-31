@@ -1218,7 +1218,7 @@ task.spawn(function()
     _G.SelectRank = 3
     _G.SelectSlot = 1 
 
-    local Ranks = {{Name = "Common", Val = 1}, {Name = "Rare", Val = 2}, {Name = "Epic", Val = 3}, {Name = "Legendary", Val = 4}, {Name = "Mythic", Val = 5}, {Name = "secret", Val = 6}}
+    local Ranks = {{Name = "Common", Val = 1}, {Name = "Rare", Val = 2}, {Name = "Epic", Val = 3}, {Name = "Legendary", Val = 4}, {Name = "Mythic", Val = 5}, {Name = "Secret", Val = 6}}
     local RankNames = {}
     for _, r in ipairs(Ranks) do table.insert(RankNames, r.Name) end
 
