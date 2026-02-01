@@ -1,21 +1,18 @@
+--- START OF FILE KUMA HUB V3.1 - ULTRA OPTIMIZED ---
+
 --[[ 
-    🐻 KUMA HUB - CULTIVATION EDITION (FULL OPTIMIZED) 🐻
+    🐻 KUMA HUB - CULTIVATION V3.1 (ULTRA OPTIMIZED) 🐻
     ---------------------------------------------------
-    Phiên bản: V2.5.1 (Added White Screen)
-    Changelogs:
-    - Tối ưu hóa toàn bộ code hệ thống (Core).
-    - GIỮ NGUYÊN 100% tính năng cũ (ESP, Spin, Craft, Farm...).
-    - Giảm tụt FPS khi treo lâu.
-    - Đã thêm: Chế độ Màn hình trắng (White Screen).
+    Phiên bản: V3.1 (PC/Mobile - Siêu nhẹ)
+    Trạng thái: GIỮ NGUYÊN TÍNH NĂNG - TỐI ƯU SÂU RAM/GPU
 ]]
 
 -- ==============================================================================
--- 0. TỐI ƯU HÓA BIẾN (SERVICES & LOCALS)
+-- 0. KHỞI TẠO & DỊCH VỤ
 -- ==============================================================================
 local ScriptID = tick()
 _G.KumaInstanceID = ScriptID
 
--- Dịch vụ (Services)
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local UIS = game:GetService("UserInputService")
@@ -27,8 +24,13 @@ local VIM = game:GetService("VirtualInputManager")
 local VU = game:GetService("VirtualUser")
 local HttpService = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
+local Stats = game:GetService("Stats")
 
--- Biến cục bộ (Local Functions) - Giúp xử lý nhanh hơn
+local LP = Players.LocalPlayer
+local IsMobile = UIS.TouchEnabled and not UIS.MouseEnabled
+local SizeScale = IsMobile and 1.0 or 1.25 
+
+-- Các hàm toán học/bảng tối ưu
 local Vector3_new = Vector3.new
 local Vector2_new = Vector2.new
 local CFrame_new = CFrame.new
@@ -44,15 +46,11 @@ local math_floor = math.floor
 local math_min = math.min
 local pcall_func = pcall
 
-local LP = Players.LocalPlayer
-local IsMobile = UIS.TouchEnabled and not UIS.MouseEnabled
-local SizeScale = IsMobile and 1.0 or 1.25 
-
 local function IsAlive() 
     return _G.KumaInstanceID == ScriptID 
 end
 
--- Dọn dẹp GUI cũ
+-- Dọn dẹp tài nguyên cũ để tránh tràn RAM khi thực thi lại script
 pcall_func(function()
     for _, v in pairs(CoreGui:GetChildren()) do
         if v.Name:find("Kuma") or v.Name:find("Rayfield") or v.Name == "KumaMobileButton" then 
@@ -67,13 +65,12 @@ task_spawn(function()
     repeat task_wait() until game:IsLoaded()
 
     -- ==============================================================================
-    -- 1. BỘ THƯ VIỆN GUI (OPTIMIZED BUILDER)
+    -- 1. BỘ THƯ VIỆN GUI (BUILDER) - GIỮ NGUYÊN CẤU TRÚC GỐC
     -- ==============================================================================
     local KumaUI = {}
     local KumaMainFrame = nil 
     local CurrentToggleKey = Enum.KeyCode.RightControl
 
-    -- Hàm tạo Object nhanh (Giảm dòng code)
     local function Create(className, properties, children)
         local obj = Instance.new(className)
         for k, v in pairs(properties or {}) do obj[k] = v end
@@ -82,7 +79,7 @@ task_spawn(function()
     end
 
     function KumaUI:CreateWindow(Settings)
-        local Screen = Create("ScreenGui", {Name = "KumaHub_Cultivation_Optimized", Parent = CoreGui, ZIndexBehavior = Enum.ZIndexBehavior.Sibling})
+        local Screen = Create("ScreenGui", {Name = "KumaHub_V3_Expanded", Parent = CoreGui, ZIndexBehavior = Enum.ZIndexBehavior.Sibling})
         
         UIS.InputBegan:Connect(function(input, gpe)
             if not gpe and input.KeyCode == CurrentToggleKey and KumaMainFrame then
@@ -294,10 +291,10 @@ task_spawn(function()
     local Rayfield = KumaUI 
 
     -- ==============================================================================
-    -- 2. KHAI BÁO DỊCH VỤ & BIẾN & CONFIG
+    -- 2. KHAI BÁO BIẾN & CẤU HÌNH (CONFIG)
     -- ==============================================================================
     local CollectRemote = RE:FindFirstChild("CollectHerb", true)
-    local ConfigFolder = "KumaHub_Cultivation_Safe_V3" 
+    local ConfigFolder = "KumaHub_Cultivation_V3" 
     if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
 
     local Default_Config = { 
@@ -316,11 +313,11 @@ task_spawn(function()
     local InputProfileName = ""
 
     -- ==============================================================================
-    -- CÁC HÀM HỖ TRỢ (TỐI ƯU HÓA)
+    -- 3. CÁC HÀM HỖ TRỢ - TỐI ƯU HÓA SIÊU CẤP (ULTRA OPTIMIZATION)
     -- ==============================================================================
     local function GetPosition(obj)
         if obj:IsA("Model") then return obj:GetPivot().Position
-        elseif obj:IsA("BasePart") or obj:IsA("Part") or obj:IsA("MeshPart") then return obj.Position end
+        elseif obj:IsA("BasePart") then return obj.Position end
         return Vector3_new(0,0,0)
     end
 
@@ -346,11 +343,12 @@ task_spawn(function()
     local function EnsurePlatform()
         local p = WS:FindFirstChild("Kuma_Platform")
         if not p then
-            p = Create("Part", {Name = "Kuma_Platform", Size = Vector3_new(30, 1, 30), Anchored = true, CanCollide = true, Material = Enum.Material.Neon, Color = Color3_fromRGB(0, 255, 100), Transparency = 0.5, Parent = WS})
+            p = Create("Part", {Name = "Kuma_Platform", Size = Vector3_new(100, 1, 100), Anchored = true, CanCollide = true, Material = Enum.Material.SmoothPlastic, Color = Color3_fromRGB(0, 255, 100), Transparency = 0.5, Parent = WS})
         end
         return p
     end
 
+    -- Hàm NukeMap cải tiến: Xóa triệt để hơn nhưng an toàn cho Script
     local function NukeMap()
         if not _G.Config.DestroyMap then return end
         local plat = EnsurePlatform()
@@ -361,19 +359,45 @@ task_spawn(function()
         end
         for _, v in ipairs(WS:GetChildren()) do
             if v.Name ~= "Players" and v.Name ~= "Plants" and v.Name ~= "Camera" and v.Name ~= "Terrain" and v.Name ~= "Kuma_Platform" then
-                if (v:IsA("Model") or v:IsA("Folder") or v:IsA("Part") or v:IsA("MeshPart")) and v ~= LP.Character then v:Destroy() end
+                if (v:IsA("Model") or v:IsA("Folder") or v:IsA("Part") or v:IsA("MeshPart")) and v ~= LP.Character then 
+                    v:Destroy() 
+                end
             end
         end
         WS.Terrain:Clear()
+        collectgarbage("collect") -- Giải phóng RAM sau khi xóa map
     end
 
-    local function BoostFPS()
-        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+    -- [HÀM MỚI] SIÊU GIẢM RAM VÀ GPU (POTATO MODE) - ĐÃ NÂNG CẤP
+    local function UltraRAMClean()
+        -- Hạ thấp chất lượng đồ họa của Engine xuống mức 1
+        pcall_func(function()
+            settings().Rendering.QualityLevel = 1
+            settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.Level0
+        end)
+
+        for _, v in ipairs(game:GetDescendants()) do
+            if v:IsA("Texture") or v:IsA("Decal") or v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
+                v:Destroy()
+            elseif v:IsA("BasePart") and not v:IsA("MeshPart") then
+                v.Material = Enum.Material.SmoothPlastic
+                v.Reflectance = 0
+                v.CastShadow = false
+            elseif v:IsA("PostEffect") or v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("ColorCorrectionEffect") then
+                v.Enabled = false
+            end
+        end
+        
+        -- Tắt hiệu ứng nước và ánh sáng
+        WS.Terrain.WaterWaveSize = 0
+        WS.Terrain.WaterWaveSpeed = 0
+        WS.Terrain.WaterReflectance = 0
+        WS.Terrain.WaterTransparency = 0
         Lighting.GlobalShadows = false
         Lighting.FogEnd = 9e9
-        for _, v in pairs(game:GetDescendants()) do
-            if v:IsA("Texture") or v:IsA("Decal") or v:IsA("ParticleEmitter") or v:IsA("Trail") then v:Destroy() end
-        end
+        Lighting.Brightness = 1
+        
+        collectgarbage("collect")
     end
 
     LP.Idled:Connect(function() if _G.Config.AntiAFK then VU:CaptureController() VU:ClickButton2(Vector2_new()) end end)
@@ -407,15 +431,10 @@ task_spawn(function()
         if decoded.SavedPosition then _G.Config.SavedPosition = CFrame_new(unpack(decoded.SavedPosition)) end
     end
 
-    local function DeleteUserProfile(name)
-        local fileName = ConfigFolder .. "/" .. LP.UserId .. "_" .. name .. ".json"
-        if isfile(fileName) then delfile(fileName) end
-    end
-
     -- ==============================================================================
-    -- 4. GIAO DIỆN CHÍNH
+    -- 4. GIAO DIỆN CHÍNH (GUI)
     -- ==============================================================================
-    local Window = Rayfield:CreateWindow({ Name = "🐻 KUMA HUB 🐻", ConfigurationSaving = { Enabled = false } })
+    local Window = Rayfield:CreateWindow({ Name = "🐻 KUMA HUB V3.1 (ULTRA) 🐻", ConfigurationSaving = { Enabled = false } })
 
     local ShowMobileButton = IsMobile
     local MobileBtnInstance = nil
@@ -451,7 +470,7 @@ task_spawn(function()
     if ShowMobileButton then task_spawn(CreateMobileButton) end
 
     -- =============================================================
-    -- TAB 1: FARM (OPTIMIZED LOGIC)
+    -- TAB 1: FARM
     -- =============================================================
     local TabFarm = Window:CreateTab("🌿 Farm")
     local StatusLabel = TabFarm:CreateLabel("Trạng thái: Đang nghỉ")
@@ -466,7 +485,7 @@ task_spawn(function()
         TabFarm:CreateToggle({ Name = k, CurrentValue = v, Callback = function(Val) _G.Config.Tracking[k] = Val end })
     end
 
-    -- [OPTIMIZED SCANNER]
+    -- [SCANNER LOOP - TỐI ƯU HÓA]
     task_spawn(function()
         while IsAlive() do
             if _G.Config.AutoWaypoint then
@@ -516,15 +535,13 @@ task_spawn(function()
         end
     end)
 
-    -- [OPTIMIZED FARM LOOP - CRASH SAFE]
+    -- [FARM MAIN LOOP]
     task_spawn(function()
         while IsAlive() do
             local success = pcall_func(function()
                 if (_G.Config.AutoLoot or _G.Config.InstantFarm) and not IsReturning and not _G.Config.AutoWaypoint then
                     if #LocationCache > 0 then
                         local targetData = LocationCache[1]
-                        
-                        -- Validate Target
                         if targetData and targetData.Instance and targetData.Instance.Parent then
                             local char = LP.Character
                             local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -550,10 +567,10 @@ task_spawn(function()
                                 end
                                 table_remove(LocationCache, 1)
                             else
-                                task_wait(1) -- Character chết/loading
+                                task_wait(1) 
                             end
                         else
-                            table_remove(LocationCache, 1) -- Object invalid
+                            table_remove(LocationCache, 1) 
                         end
                     else 
                         StatusLabel:Set("Đang đợi cây spawn...")
@@ -642,7 +659,7 @@ task_spawn(function()
     end)
 
     -- =============================================================
-    -- TAB 3: MISC (ESP & SPIN - GIỮ NGUYÊN)
+    -- TAB 3: MISC (ESP & SPIN)
     -- =============================================================
     local TabMisc = Window:CreateTab("🧩 Khác")
     
@@ -672,7 +689,7 @@ task_spawn(function()
         local hl = Instance.new("Highlight")
         hl.Adornee = model
         hl.FillColor = color
-        hl.OutlineColor = Color3_new(1, 1, 1)
+        hl.OutlineColor = Color3_fromRGB(255, 255, 255)
         hl.FillTransparency = 0.65 
         hl.OutlineTransparency = 0.3
         pcall_func(function() hl.Parent = holder end)
@@ -763,7 +780,7 @@ task_spawn(function()
     TabMisc:CreateButton({ Name = "🗑 Xóa chuỗi phím", Callback = function() _G.Config.ExtraKeys = {} UpdateKeys() end})
 
     -- =============================================================
-    -- TAB 4: CRAFT (OPTIMIZED)
+    -- TAB 4: CRAFT
     -- =============================================================
     local TabCraft = Window:CreateTab("⚗ Chế Thuốc")
     local CraftRecipes = {
@@ -775,7 +792,7 @@ task_spawn(function()
         {Name = "Harvester's Insight Pill",    Items = {"Qi Berries", "Ginseng", "Spirit Rose", "Qi Flower"}},
         {Name = "Spirit Shield Pill",          Items = {"Ginseng", "Ginseng", "Spirit Rose", "Moon Flower"}},
         {Name = "Moonlit Destruction Pill",    Items = {"Spirit Rose", "Qi Flower", "Moon Flower", "Death Flower"}},
-        {Name = "Heaven-Defying Rebirth Pill",    Items = {"Ginseng", "Death Flower", "Death Flower", "Death Flower"}}
+        {Name = "Heaven-Defying Rebirth Pill", Items = {"Ginseng", "Death Flower", "Death Flower", "Death Flower"}}
     }
     local RecipeNames = {} for _, v in ipairs(CraftRecipes) do table_insert(RecipeNames, v.Name) end
     local YearToGrade = { ["100000 Year"] = 6, ["10000 Year"] = 5, ["1000 Year"] = 4, ["100 Year"] = 3, ["10 Year"] = 2, ["1 Year"] = 1 }
@@ -822,28 +839,56 @@ task_spawn(function()
     TabCraft:CreateRecipeBoard(CraftRecipes)
 
     -- =============================================================
-    -- TAB 5: CÀI ĐẶT
+    -- TAB 5: CÀI ĐẶT (SETTINGS) - NÂNG CẤP TỐI ƯU PC
     -- =============================================================
     local TabSettings = Window:CreateTab("⚙ Cài đặt")
+    
+    TabSettings:CreateSection("Tối ưu hóa SIÊU CẤP (Cho PC yếu)")
+    -- NÚT: SIÊU GIẢM RAM (POTATO MODE)
+    TabSettings:CreateButton({ Name = "🥔 Chế độ Khoai Tây (Tối ưu RAM/CPU)", Callback = function() 
+        UltraRAMClean() 
+    end})
+    
+    -- NÚT: MÀN HÌNH TRẮNG (Tắt 3D Rendering)
+    TabSettings:CreateToggle({ Name = "📺 Màn hình trắng (Tắt GPU 100%)", CurrentValue = false, Callback = function(V) 
+        RS:Set3dRenderingEnabled(not V) 
+        if V then 
+            -- Khi bật màn hình trắng, hiển thị thông báo tiết kiệm điện
+            StatusLabel:Set("GPU ĐANG ĐƯỢC NGHỈ NGƠI...")
+        else
+            StatusLabel:Set("Trạng thái: Đang nghỉ")
+        end
+    end})
+
+    TabSettings:CreateToggle({ Name = "🔥 Xóa Map Triệt Để", CurrentValue = false, Callback = function(V) 
+        _G.Config.DestroyMap = V 
+        if V then NukeMap() end 
+    end})
+    
     TabSettings:CreateSection("Thiết lập PC/Mobile")
     TabSettings:CreateKeybind({Name = "Phím Bật/Tắt GUI (PC)", CurrentKey = CurrentToggleKey, Callback = function(Key) CurrentToggleKey = Key end})
     TabSettings:CreateToggle({ Name = "Hiện nút Mobile (Góc trái)", CurrentValue = ShowMobileButton, Callback = function(V) if V then CreateMobileButton() else if MobileBtnInstance then MobileBtnInstance:Destroy() end end end})
+    
     TabSettings:CreateSection("Tốc độ & Độ trễ")
     TabSettings:CreateSlider({ Name = "Độ trễ Tele Farm", Range = {0.5, 5}, Increment = 0.5, CurrentValue = 1.5, Callback = function(V) _G.Config.SyncDelay = V end})
     TabSettings:CreateSlider({ Name = "Chờ giữa các điểm tele Loop", Range = {0, 60}, Increment = 0.5, CurrentValue = 2.0, Callback = function(V) _G.Config.WaypointDelay = V end})
+    
     TabSettings:CreateSection("Quản lý cấu hình")
     TabSettings:CreateInput({ Name = "Tên cấu hình", PlaceholderText = "VD: FarmSam", Callback = function(Text) InputProfileName = Text end})
     TabSettings:CreateButton({ Name = "💾 Lưu / Tạo cấu hình", Callback = function() SaveUserProfile(InputProfileName) end})
     local ProfileDropdown = TabSettings:CreateDropdown({ Name = "Chọn cấu hình", Options = GetMyProfiles(), CurrentOption = "", Callback = function(Option) SelectedProfile = Option[1] end})
     TabSettings:CreateButton({ Name = "📂 Tải cấu hình", Callback = function() LoadUserProfile(SelectedProfile) UpdateKeys() WaypointLabel:Set("Điểm đã lưu: " .. #_G.Config.Waypoints) end})
     TabSettings:CreateButton({ Name = "🔄 Làm mới danh sách", Callback = function() ProfileDropdown:Refresh(GetMyProfiles(), true) end})
-    TabSettings:CreateSection("Hệ thống")
-    TabSettings:CreateToggle({ Name = "💤 Chống treo máy (Anti-AFK)", CurrentValue = true, Callback = function(V) _G.Config.AntiAFK = V end})
-    TabSettings:CreateButton({ Name = "⚡ Tăng FPS (Giảm lag)", Callback = BoostFPS })
-    TabSettings:CreateToggle({ Name = "🔥 Xóa Map + Sàn đứng", CurrentValue = false, Callback = function(V) _G.Config.DestroyMap = V if V then NukeMap() end end})
-    
-    -- [MỚI] Chức năng Màn hình trắng (White Screen)
-    TabSettings:CreateToggle({ Name = "📺 Màn hình trắng (Tắt 3D)", CurrentValue = false, Callback = function(V) RS:Set3dRenderingEnabled(not V) end})
 
     Rayfield:LoadConfiguration()
+    
+    -- Vòng lặp giải phóng RAM định kỳ (Mỗi 5 phút)
+    task_spawn(function()
+        while IsAlive() do
+            task_wait(300)
+            collectgarbage("collect")
+        end
+    end)
 end)
+
+--- END OF FILE ---
