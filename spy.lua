@@ -1,92 +1,79 @@
---[[
-    🐻 KUMA REMOTE SPY - ELITE EDITION 🐻
+--[[ 
+    🐻 KUMA PASSIVE REMOTE SPY (NON-INTRUSIVE) 🐻
     ---------------------------------------------------
-    - Tính năng: Theo dõi tất cả RemoteEvent và RemoteFunction.
-    - Hiển thị: Console (Bấm F9 để xem).
-    - Tối ưu: Chỉ in dữ liệu cần thiết, hỗ trợ phân tích Table sâu.
+    - CƠ CHẾ: Chỉ thăm dò (Probing), không chặn lệnh (Non-blocking).
+    - HIỆU NĂNG: Cực cao, không gây delay lệnh của game.
+    - HIỂN THỊ: Console (F9).
 ]]
 
 local game = game
-local Players = game:GetService("Players")
-local LogService = game:GetService("LogService")
+local typeof = typeof
+local tostring = tostring
+local table_insert = table.insert
+local table_concat = table.concat
 
--- 0. TIỆN ÍCH PHÂN TÍCH DỮ LIỆU (DEEP SCAN)
-local function FormatArguments(args)
-    local result = ""
-    for i, v in pairs(args) do
-        local typeV = typeof(v)
-        local strV = tostring(v)
-        
-        if typeV == "table" then
-            -- Phân tích table đơn giản
-            local inner = "{"
+-- 1. HÀM ĐỊNH DẠNG DỮ LIỆU (CHẠY NGẦM)
+local function ParseArgs(...)
+    local args = {...}
+    local formatted = {}
+    
+    for i, v in ipairs(args) do
+        local t = typeof(v)
+        if t == "table" then
+            local s = "{"
             local count = 0
             for k, val in pairs(v) do
                 count = count + 1
-                if count > 10 then inner = inner .. " ... (too long)"; break end
-                inner = inner .. tostring(k) .. "=" .. tostring(val) .. ", "
+                if count > 15 then s = s .. "..."; break end
+                s = s .. tostring(k) .. "=" .. tostring(val) .. ","
             end
-            strV = inner .. "}"
-        elseif typeV == "Instance" then
-            strV = v:GetFullName()
-        elseif typeV == "string" then
-            strV = '"' .. v .. '"'
+            table_insert(formatted, "["..i.."] (Table): " .. s .. "}")
+        elseif t == "Instance" then
+            table_insert(formatted, "["..i.."] (Instance): " .. (v.Parent and v:GetFullName() or v.Name))
+        elseif t == "CFrame" then
+            table_insert(formatted, "["..i.."] (CFrame): " .. tostring(v))
+        elseif t == "Vector3" then
+            table_insert(formatted, "["..i.."] (Vector3): " .. tostring(v))
+        else
+            table_insert(formatted, "["..i.."] ("..t.."): " .. tostring(v))
         end
-        
-        result = result .. "[" .. i .. "]: (" .. typeV .. ") " .. strV .. " | "
     end
-    return result
+    return table_concat(formatted, " | ")
 end
 
--- 1. HỆ THỐNG HOOK (THEO DÕI NGẦM)
+-- 2. HỆ THỐNG THĂM DÒ (PASSIVE HOOK)
 local oldNamecall
 oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local args = {...}
     local method = getnamecallmethod()
-    local script = getcallingscript() -- Script nào đang gọi Remote này
+    local args = {...} -- Sao chép tham số ngay lập tức
     
-    -- Chỉ bắt các lệnh gửi lên Server
-    if method == "FireServer" or method == "InvokeServer" then
+    -- Lệnh này được đẩy đi TRƯỚC khi xử lý log để đảm bảo game không bị delay
+    if (method == "FireServer" or method == "InvokeServer") and self:IsA("RemoteEvent") or self:IsA("RemoteFunction") then
         local remoteName = self.Name
         local remotePath = self:GetFullName()
-        local scriptPath = script and script:GetFullName() or "Unknown Script"
+        local caller = getcallingscript()
         
-        -- In ra Console với định dạng chuyên nghiệp
-        print("--------------------------------------------------")
-        print("🛰️ REMOTE CALLED: " .. remoteName)
-        print("📁 Path: " .. remotePath)
-        print("📜 Caller: " .. scriptPath)
-        print("🛠️ Method: " .. method)
-        print("📦 Args: " .. FormatArguments(args))
-        print("--------------------------------------------------")
+        -- Xử lý việc in Log trong một luồng riêng (không làm nghẽn luồng chính của game)
+        task.spawn(function()
+            local timestamp = os.date("%H:%M:%S")
+            print("--------------------------------------------------")
+            print("🛰️ [" .. timestamp .. "] REMOTE DETECTED: " .. remoteName)
+            print("📁 Path: " .. remotePath)
+            print("📜 Script: " .. (caller and caller:GetFullName() or "Unknown"))
+            print("📦 Data: " .. ParseArgs(unpack(args)))
+            print("--------------------------------------------------")
+        end)
     end
     
+    -- Luôn trả về kết quả gốc của game ngay lập tức
     return oldNamecall(self, ...)
 end)
 
--- 2. THÔNG BÁO KHỞI CHẠY
-local function Notify(txt)
-    print("🚀 [KUMA SPY]: " .. txt)
-    -- Nếu muốn hiện thông báo góc màn hình (tùy chọn)
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Kuma Remote Spy",
-        Text = txt,
-        Duration = 5
-    })
-end
+-- 3. THÔNG BÁO
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Kuma Spy Active",
+    Text = "Thăm dò Remote thành công. Check F9.",
+    Duration = 3
+})
 
-Notify("Remote Spy is ACTIVE. Press F9 to view logs.")
-
--- 3. CHỐNG SPAM LOG (TÙY CHỌN)
--- Nếu game spam quá nhiều, code này sẽ lọc bớt các Remote trùng lặp trong 1 giây
-local LastCalls = {}
-local function IsSpam(name)
-    local now = tick()
-    if LastCalls[name] and (now - LastCalls[name]) < 0.5 then
-        return true
-    end
-    LastCalls[name] = now
-    return false
-end
-
--- Lưu ý: Nếu muốn dùng IsSpam, hãy thêm điều kiện 'if not IsSpam(remoteName)' vào trong Hook.
+print("🚀 [KUMA SPY]: Chế độ thăm dò thụ động đã kích hoạt. Không can thiệp lệnh game.")
