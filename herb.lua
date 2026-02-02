@@ -1150,7 +1150,13 @@ task.spawn(function()
         ["Mob 18+"] = CFrame.new(62, 40, 133),
         ["Mob 20+"] = CFrame.new(-1701, -44, -90),
         ["Mob 25+"] = CFrame.new(-448, 49, 1724),
-        ["sect"] = CFrame.new(-1426, 29, 1876)
+        ["sect"] = CFrame.new(-1426, 29, 1876),
+        ["cave 1"] = CFrame.new(-2092, 9, 5372),
+        ["cave 2-rooster iron"] = CFrame.new(462, -40, 4167),
+        ["cave 3-hevean metal"] = CFrame.new(-1138, -17, 737),
+        ["cave 4-snow"] = CFrame.new(831, 14, 2724),
+        ["cave 5-red smoke"] = CFrame.new(-2588, 67, 2692)
+
     }
     
     local LocationNames = {}
