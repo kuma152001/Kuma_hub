@@ -1,13 +1,13 @@
---- START OF FILE Paste February 01, 2026 - 4:41PM ---
+--- START OF FILE Paste February 02, 2026 - 9:59AM ---
 
 --[[ 
-    🐻 KUMA HUB - CULTIVATION EDITION (COMPACT UI) 🐻
+    Bear KUMA HUB - CULTIVATION EDITION (COMPACT UI) 🐻
     ---------------------------------------------------
-    Phiên bản: V2.4.5 (Fixed Death Crash)
+    Phiên bản: V2.4.5 (Optimized Mining)
     Changelogs:
+    - OPTIMIZED: Mining V25 mượt hơn, không còn đơ 1s khi chuyển quặng.
     - FIX: Sửa lỗi script dừng hoạt động khi nhân vật chết.
-    - UI: Làm gọn các ô nhập liệu trong tab Craft (chung 1 dòng).
-    - UI: Thêm bảng hiển thị công thức thuốc.
+    - UI: Làm gọn các ô nhập liệu trong tab Craft.
 ]]
 
 -- ==============================================================================
@@ -34,13 +34,15 @@ pcall(function()
     end
     local oldPlat = workspace:FindFirstChild("Kuma_Platform")
     if oldPlat then oldPlat:Destroy() end
+    local oldFloor = workspace:FindFirstChild("Kuma_Floor")
+    if oldFloor then oldFloor:Destroy() end
 end)
 
 task.spawn(function()
     repeat task.wait() until game:IsLoaded()
 
     -- ==============================================================================
-    -- 1. BỘ THƯ VIỆN GUI (ĐÃ NÂNG CẤP)
+    -- 1. BỘ THƯ VIỆN GUI
     -- ==============================================================================
     local KumaUI = {}
     local KumaMainFrame = nil 
@@ -283,7 +285,6 @@ task.spawn(function()
                 Box.FocusLost:Connect(function() pcall(Info.Callback, Box.Text) end)
             end
 
-            -- [NEW] MULTI INPUT ROW (Để gộp các ô nhập liệu vào 1 dòng)
             function TabFunctions:CreateMultiInput(Infos)
                 local Container = Instance.new("Frame")
                 Container.Name = "MultiInputRow"
@@ -301,7 +302,6 @@ task.spawn(function()
                 
                 for _, Info in ipairs(Infos) do
                     local Box = Instance.new("TextBox")
-                    -- Tính toán kích thước trừ đi khoảng đệm
                     Box.Size = UDim2.new(WidthPerItem, -((5 * (Count-1)) / Count), 1, 0)
                     Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
                     Box.BackgroundTransparency = 0.5
@@ -376,11 +376,9 @@ task.spawn(function()
                 if Info.CurrentKey and Info.Callback then pcall(Info.Callback, Info.CurrentKey) end
             end
 
-            -- [MODIFIED] DROPDOWN GỌN HƠN
             function TabFunctions:CreateDropdown(Info) 
                 local DropContainer = Instance.new("Frame")
                 DropContainer.Name = Info.Name .. "_Drop"
-                -- Chiều rộng mặc định vẫn là 100% để hiển thị đủ tên, nhưng bạn có thể chỉnh scale nếu muốn
                 local Width = Info.WidthScale or 1.0 
                 DropContainer.Size = UDim2.new(Width, 0, 0, ItemHeight)
                 DropContainer.BackgroundTransparency = 1
@@ -489,11 +487,10 @@ task.spawn(function()
                 return DropFunc
             end
             
-            -- [NEW] RECIPE BOARD FUNCTION
             function TabFunctions:CreateRecipeBoard(Recipes)
                 local BoardFrame = Instance.new("Frame")
                 BoardFrame.Name = "RecipeBoard"
-                BoardFrame.Size = UDim2.new(1, 0, 0, 200) -- Chiều cao cố định
+                BoardFrame.Size = UDim2.new(1, 0, 0, 200) 
                 BoardFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
                 BoardFrame.Parent = Page
                 Instance.new("UICorner", BoardFrame).CornerRadius = UDim.new(0, 6)
@@ -528,8 +525,6 @@ task.spawn(function()
                     Row.TextXAlignment = Enum.TextXAlignment.Left
                     Row.TextWrapped = true
                     
-                    -- Format text
-                    local ingredients = ""
                     local counts = {}
                     for _, item in ipairs(recipe.Items) do
                         counts[item] = (counts[item] or 0) + 1
@@ -538,10 +533,10 @@ task.spawn(function()
                     for name, count in pairs(counts) do
                         table.insert(parts, name .. " x" .. count)
                     end
-                    ingredients = table.concat(parts, ", ")
+                    local ingredients = table.concat(parts, ", ")
                     
                     Row.Text = "• " .. recipe.Name .. ":\n   ➜ " .. ingredients
-                    Row.Size = UDim2.new(1, 0, 0, 40) -- Tăng chiều cao mỗi dòng
+                    Row.Size = UDim2.new(1, 0, 0, 40) 
                     Row.Parent = Scroller
                 end
                 
@@ -607,6 +602,8 @@ task.spawn(function()
     local PlayerGui = LP:WaitForChild("PlayerGui")
 
     local CollectRemote = RE:FindFirstChild("CollectHerb", true)
+    local CurrentMiningTarget = nil
+    local MiningCache = {} 
     
     local ConfigFolder = "KumaHub_Cultivation_Safe_V3" 
     if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
@@ -643,7 +640,21 @@ task.spawn(function()
         CraftYear = "1 Year",
         CraftAmount = 1,
         CraftBulkAmount = 1, 
-        CraftLevel = 1
+        CraftLevel = 1,
+        -- Mining Config
+        AutoMining = false,
+        MiningTracking = {
+            ["All"] = false,
+            ["RoosterIronOre"] = false,
+            ["WhiteSnow"] = false,
+            ["HeavenMetal"] = false,
+            ["Inkstone"] = false,
+            ["RedSmokeIronOre"] = false
+        },
+        MineBurst = 20,
+        MineSyncDelay = 0.2,
+        MineScanInterval = 1.0,
+        MinePlatformOffset = -5
     }
 
     _G.Config = HttpService:JSONDecode(HttpService:JSONEncode(Default_Config))
@@ -653,7 +664,7 @@ task.spawn(function()
     local InputProfileName = ""
 
     -- ==============================================================================
-    -- CÁC HÀM HỖ TRỢ (GIỮ NGUYÊN)
+    -- CÁC HÀM HỖ TRỢ
     -- ==============================================================================
     local function GetPosition(obj)
         if obj:IsA("Model") then return obj:GetPivot().Position
@@ -782,20 +793,13 @@ task.spawn(function()
         end
     end
 
-    local function DeleteUserProfile(name)
-        local fileName = ConfigFolder .. "/" .. LP.UserId .. "_" .. name .. ".json"
-        if isfile(fileName) then
-            delfile(fileName)
-        end
-    end
-
     -- ==============================================================================
     -- 4. GIAO DIỆN CHÍNH
     -- ==============================================================================
     local Window = Rayfield:CreateWindow({
        Name = "🐻 KUMA HUB 🐻",
        LoadingTitle = "Đang tải...",
-       LoadingSubtitle = "V2.4.5 Fixed Crash",
+       LoadingSubtitle = "V2.4.5 Optimized Mining",
        ConfigurationSaving = { Enabled = false }, 
        KeySystem = false,
     })
@@ -875,6 +879,130 @@ task.spawn(function()
     TabFarm:CreateToggle({ Name = "Moon Flower", CurrentValue = false, Callback = function(V) _G.Config.Tracking["Moon Flower"] = V end })
     TabFarm:CreateToggle({ Name = "Death Flower", CurrentValue = false, Callback = function(V) _G.Config.Tracking["Death Flower"] = V end })
 
+    -- =============================================================
+    -- [OPTIMIZED] TAB 2: MINING
+    -- =============================================================
+    local TabMining = Window:CreateTab("⛏ Mining", 4483362458)
+    local MiningStatusLabel = TabMining:CreateLabel("Trạng thái: Đang nghỉ")
+
+    TabMining:CreateSection("Điều khiển Mining V25 (Mượt)")
+    TabMining:CreateToggle({ Name = "⛏ Bắt đầu khai thác", CurrentValue = false, Callback = function(V) _G.Config.AutoMining = V if not V then CurrentMiningTarget = nil end end })
+    TabMining:CreateToggle({ Name = "🌍 Khai thác tất cả", CurrentValue = false, Callback = function(V) _G.Config.MiningTracking["All"] = V end })
+
+    TabMining:CreateSection("💎 Cấu Hình Lọc Quặng")
+    TabMining:CreateToggle({ Name = "Rooster Iron", CurrentValue = false, Callback = function(V) _G.Config.MiningTracking["RoosterIronOre"] = V end })
+    TabMining:CreateToggle({ Name = "Heavenly White", CurrentValue = false, Callback = function(V) _G.Config.MiningTracking["HeavenlyWhiteSnowIronOre"] = V end })
+    TabMining:CreateToggle({ Name = "Heaven Metal", CurrentValue = false, Callback = function(V) _G.Config.MiningTracking["HeavenMetalOre"] = V end })
+    TabMining:CreateToggle({ Name = "Dark Inkstone", CurrentValue = false, Callback = function(V) _G.Config.MiningTracking["Inkstone"] = V end })
+    TabMining:CreateToggle({ Name = "Red Smoke Iron", CurrentValue = false, Callback = function(V) _G.Config.MiningTracking["RedSmokeIronOre"] = V end })
+
+    TabMining:CreateSection("⚙ Cài đặt đào")
+    TabMining:CreateSlider({ Name = "Sức mạnh đào (Burst)", Range = {1, 10}, Increment = 1, CurrentValue = 1, Callback = function(V) _G.Config.MineBurst = V end})
+    TabMining:CreateSlider({ Name = "Độ trễ ổn định", Range = {0.1, 1}, Increment = 0.1, CurrentValue = 0.2, Callback = function(V) _G.Config.MineSyncDelay = V end})
+
+    -- LOGIC MINING OPTIMIZED
+    local function CheckOreName(objName)
+        if _G.Config.MiningTracking["All"] then return true end
+        local lowName = string.lower(objName)
+        for key, active in pairs(_G.Config.MiningTracking) do
+            if active and key ~= "All" and string.find(lowName, string.lower(key)) then return true end
+        end
+        return false
+    end
+
+    local lastMiningScan = 0
+    local function GetMiningTarget()
+        -- Kiểm tra nếu mục tiêu cũ còn tồn tại
+        if CurrentMiningTarget and CurrentMiningTarget.Parent and CheckOreName(CurrentMiningTarget.Name) then
+            return CurrentMiningTarget
+        end
+
+        -- Giới hạn tần suất quét để tránh giật lag (1 giây quét 1 lần)
+        if tick() - lastMiningScan < 1.0 then return nil end
+        lastMiningScan = tick()
+
+        local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return nil end
+
+        local nearest = nil
+        local dist = math.huge
+        
+        -- Ưu tiên tìm trong các vật thể cấp 1 để tăng tốc
+        for _, v in ipairs(WS:GetChildren()) do
+            if v:IsA("Model") and CheckOreName(v.Name) then
+                local d = (hrp.Position - v:GetPivot().Position).Magnitude
+                if d < dist then dist = d; nearest = v end
+            end
+        end
+        
+        -- Nếu không thấy, mới quét sâu (Deep Scan)
+        if not nearest then
+            for _, v in ipairs(WS:GetDescendants()) do
+                if v:IsA("Model") and CheckOreName(v.Name) and not v:FindFirstChild("Humanoid") then
+                    local d = (hrp.Position - v:GetPivot().Position).Magnitude
+                    if d < dist then dist = d; nearest = v end
+                end
+            end
+        end
+
+        CurrentMiningTarget = nearest
+        return nearest
+    end
+
+    -- TASK MINING TASK (TÁCH BIỆT ĐỂ KHÔNG LÀM ĐƠ UI)
+    task.spawn(function()
+        local MineRemote = RE:WaitForChild("Shared", 5):WaitForChild("Remotes", 5):WaitForChild("Mining", 5):WaitForChild("Mine", 5)
+        
+        while IsAlive() do
+            if _G.Config.AutoMining then
+                local success, err = pcall(function()
+                    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                    local target = GetMiningTarget()
+
+                    if target and hrp then
+                        MiningStatusLabel:Set("Mining: " .. target.Name)
+                        local tPos = target:GetPivot().Position
+                        
+                        -- Cập nhật sàn Platform
+                        local floor = WS:FindFirstChild("Kuma_Floor") or Instance.new("Part", WS)
+                        floor.Name = "Kuma_Floor"; floor.Size = Vector3.new(12, 1, 12); floor.Anchored = true; floor.Transparency = 1; floor.CanCollide = true
+                        floor.CFrame = CFrame.new(tPos + Vector3.new(0, _G.Config.MinePlatformOffset, 0))
+                        
+                        -- Tự động cầm cuốc
+                        local char = LP.Character
+                        if char and not char:FindFirstChildOfClass("Tool") then
+                            local tool = LP.Backpack:FindFirstChildOfClass("Tool")
+                            if tool then char.Humanoid:EquipTool(tool) end
+                        end
+
+                        hrp.CFrame = CFrame.new(tPos + Vector3.new(0, 1.5, 0), tPos)
+                        task.wait(_G.Config.MineSyncDelay) 
+                        
+                        -- ĐÀO BURST CỰC MƯỢT
+                        if target.Parent and MineRemote then
+                            for i = 1, _G.Config.MineBurst do
+                                if not _G.Config.AutoMining or not IsAlive() or not target.Parent then break end
+                                MineRemote:FireServer(target) 
+                                if i % 10 == 0 then task.wait() end -- Nghỉ cực ngắn để CPU thở
+                            end
+                        end
+                        -- Sau khi đào xong, reset mục tiêu ngay lập tức để vòng lặp sau tìm cái mới
+                        CurrentMiningTarget = nil 
+                    else
+                        MiningStatusLabel:Set("Status: Đang tìm quặng...")
+                        if WS:FindFirstChild("Kuma_Floor") then WS.Kuma_Floor.CFrame = CFrame.new(0, -999, 0) end
+                        task.wait(0.5)
+                    end
+                end)
+            else
+                if WS:FindFirstChild("Kuma_Floor") then WS.Kuma_Floor:Destroy() end
+                task.wait(1)
+            end
+            task.wait(0.05)
+        end
+    end)
+
+    -- TASK QUÉT CÂY CŨ (GIỮ NGUYÊN)
     task.spawn(function()
         while IsAlive() do
             if _G.Config.AutoWaypoint then
@@ -949,12 +1077,9 @@ task.spawn(function()
         end
     end
 
-    -- ==============================================================================
-    -- [UPDATED] FARM LOOP - SỬA LỖI CHẾT KHÔNG FARM ĐƯỢC
-    -- ==============================================================================
+    -- LOOP FARM CŨ
     task.spawn(function()
         while IsAlive() do
-            -- Thêm pcall để bắt lỗi nếu nhân vật chết đột ngột
             local success, err = pcall(function()
                 if (_G.Config.AutoLoot or _G.Config.InstantFarm) and not IsReturning and not _G.Config.AutoWaypoint then
                     if #LocationCache > 0 then
@@ -966,7 +1091,6 @@ task.spawn(function()
                         end
 
                         if isValid then
-                            -- Kiểm tra Character còn sống không
                             local char = LP.Character
                             local hrp = char and char:FindFirstChild("HumanoidRootPart")
                             local hum = char and char:FindFirstChild("Humanoid")
@@ -978,7 +1102,6 @@ task.spawn(function()
                                 plat.CFrame = hrp.CFrame - Vector3.new(0, 3.5, 0)
                                 task.wait(_G.Config.SyncDelay)
                                 if targetData.Instance.Parent then
-                                    -- Kiểm tra lại khoảng cách trước khi thực hiện hành động
                                     local distCheck = (hrp.Position - tPos).Magnitude
                                     if distCheck < 20 then
                                         if _G.Config.InstantFarm then CollectRemote:FireServer(targetData.Instance)
@@ -986,38 +1109,24 @@ task.spawn(function()
                                     end
                                 end
                                 table.remove(LocationCache, 1)
-                            else
-                                -- Nếu chết, đợi 1s rồi tiếp tục vòng lặp (để nhân vật spawn lại)
-                                task.wait(1)
-                            end
-                        else
-                            table.remove(LocationCache, 1)
-                        end
+                            else task.wait(1) end
+                        else table.remove(LocationCache, 1) end
                     else 
                         StatusLabel:Set("Đang đợi cây spawn...")
                         local p = workspace:FindFirstChild("Kuma_Platform")
                         if p then p.CFrame = CFrame.new(0, -500, 0) end
                         task.wait(1) 
                     end
-                else
-                    task.wait(0.2)
-                end
+                else task.wait(0.2) end
             end)
-
-            if not success then
-                -- Nếu có lỗi (do nhân vật vừa chết), chỉ wait và không làm crash script
-                task.wait(1)
-            end
+            if not success then task.wait(1) end
         end
     end)
 
-    -- =============================================================
-    -- TAB 2: TELE
-    -- =============================================================
+    -- [GIỮ NGUYÊN TẤT CẢ CÁC TAB KHÁC DƯỚI ĐÂY]
+    
     local TabTele = Window:CreateTab("🚀 Dịch Chuyển", 4483362458)
-    
     TabTele:CreateSection("Danh sách địa điểm (Locations)")
-    
     local Locations = {
         ["Small Village"] = CFrame.new(880, -65, 465), 
         ["40000x Zone"] = CFrame.new(-1069, 574, 609),
@@ -1028,271 +1137,56 @@ task.spawn(function()
         ["Mob 20+"] = CFrame.new(-1701, -44, -90),
         ["Mob 25+"] = CFrame.new(-448, 49, 1724),
         ["sect"] = CFrame.new(-1426, 29, 1876),
-        ["cave 1"] = CFrame.new(-2092, 9, 5372),
+		["cave 1"] = CFrame.new(-2092, 9, 5372),
         ["cave 2-rooster iron"] = CFrame.new(462, -40, 4167),
         ["cave 3-hevean metal"] = CFrame.new(-1138, -17, 737),
         ["cave 4-snow"] = CFrame.new(831, 14, 2724),
         ["cave 5-red smoke"] = CFrame.new(-2588, 67, 2692)
     }
-    
     local LocationNames = {}
     for name, _ in pairs(Locations) do table.insert(LocationNames, name) end
     table.sort(LocationNames)
     local SelectedLocation = LocationNames[1]
-
-    TabTele:CreateDropdown({
-        Name = "Chọn địa điểm",
-        Options = LocationNames,
-        CurrentOption = SelectedLocation,
-        Callback = function(Option)
-            SelectedLocation = Option[1]
-        end
-    })
-
-    TabTele:CreateButton({
-        Name = "🚀 Dịch chuyển đến địa điểm chọn",
-        Callback = function()
-            local target = Locations[SelectedLocation]
-            if target and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-                LP.Character.HumanoidRootPart.CFrame = target
-            end
-        end
-    })
-
+    TabTele:CreateDropdown({Name = "Chọn địa điểm", Options = LocationNames, CurrentOption = SelectedLocation, Callback = function(Option) SelectedLocation = Option[1] end})
+    TabTele:CreateButton({Name = "🚀 Dịch chuyển đến địa điểm chọn", Callback = function() local target = Locations[SelectedLocation] if target and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then LP.Character.HumanoidRootPart.CFrame = target end end})
     TabTele:CreateSection("Hệ thống tự quay lại")
     TabTele:CreateButton({ Name = "📍 Lưu vị trí hiện tại", Callback = function() if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then _G.Config.SavedPosition = LP.Character.HumanoidRootPart.CFrame end end })
     TabTele:CreateButton({ Name = "🚨 Dịch chuyển về điểm lưu", Callback = function() if _G.Config.SavedPosition and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then LP.Character.HumanoidRootPart.CFrame = _G.Config.SavedPosition end end })
     TabTele:CreateToggle({ Name = "💀 Tự về khi chết (+ Phím)", CurrentValue = false, Callback = function(V) _G.Config.AutoReturnDeath = V end })
-    LP.CharacterAdded:Connect(function(newChar)
-        if _G.Config.AutoReturnDeath and _G.Config.SavedPosition then
-            local hrp = newChar:WaitForChild("HumanoidRootPart", 10)
-            local hum = newChar:WaitForChild("Humanoid", 10)
-            if hrp and hum then
-                task.wait(1.5)
-                hrp.CFrame = _G.Config.SavedPosition
-                if #_G.Config.ExtraKeys > 0 then
-                    task.wait(0.8)
-                    for _, k in ipairs(_G.Config.ExtraKeys) do if hum.Health > 0 then PressKey(k) task.wait(_G.Config.ExtraKeyDelay) end end
-                end
-            end
-        end
-    end)
+    LP.CharacterAdded:Connect(function(newChar) if _G.Config.AutoReturnDeath and _G.Config.SavedPosition then local hrp = newChar:WaitForChild("HumanoidRootPart", 10) local hum = newChar:WaitForChild("Humanoid", 10) if hrp and hum then task.wait(1.5) hrp.CFrame = _G.Config.SavedPosition if #_G.Config.ExtraKeys > 0 then task.wait(0.8) for _, k in ipairs(_G.Config.ExtraKeys) do if hum.Health > 0 then PressKey(k) task.wait(_G.Config.ExtraKeyDelay) end end end end end end)
     TabTele:CreateSection("Vòng lặp điểm (Waypoints)")
     local WaypointLabel = TabTele:CreateLabel("Điểm đã lưu: 0")
     TabTele:CreateButton({ Name = "➕ Thêm vị trí đứng", Callback = function() if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then table.insert(_G.Config.Waypoints, LP.Character.HumanoidRootPart.CFrame) WaypointLabel:Set("Điểm đã lưu: " .. #_G.Config.Waypoints) end end})
     TabTele:CreateButton({ Name = "🗑 Xóa danh sách", Callback = function() _G.Config.Waypoints = {} WaypointLabel:Set("Điểm đã lưu: 0") end})
-    TabTele:CreateToggle({ Name = "▶ Bắt đầu chạy vòng lặp", CurrentValue = false, Callback = function(V) _G.Config.AutoWaypoint = V end})
-    task.spawn(function()
-        while IsAlive() do
-            if _G.Config.AutoWaypoint and #_G.Config.Waypoints > 0 and not _G.Config.AutoLoot and not _G.Config.InstantFarm then
-                for i, cf in ipairs(_G.Config.Waypoints) do
-                    if not _G.Config.AutoWaypoint then break end
-                    local plat = EnsurePlatform()
-                    plat.CFrame = cf - Vector3.new(0, 3.5, 0)
-                    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then LP.Character.HumanoidRootPart.CFrame = cf end
-                    local d = tonumber(_G.Config.WaypointDelay) or 1
-                    if d < 0.1 then d = 0.1 end
-                    task.wait(d)
-                    if _G.Config.DestroyMap then NukeMap() end
-                end
-                if _G.Config.AutoClean then table.clear(LocationCache) LocationCache = {} end
-            else
-                if not _G.Config.AutoLoot and not _G.Config.InstantFarm and not _G.Config.DestroyMap then
-                    local p = workspace:FindFirstChild("Kuma_Platform")
-                    if p then p:Destroy() end
-                end
-                task.wait(1)
-            end
-        end
-    end)
+    TabTele:CreateToggle({ Name = "▶ Bắt đầu chạy vòng lặp", CurrentValue = false, Callback = function(V) _G.AutoWaypoint = V end})
+    task.spawn(function() while IsAlive() do if _G.Config.AutoWaypoint and #_G.Config.Waypoints > 0 and not _G.Config.AutoLoot and not _G.Config.InstantFarm then for i, cf in ipairs(_G.Config.Waypoints) do if not _G.Config.AutoWaypoint then break end local plat = EnsurePlatform() plat.CFrame = cf - Vector3.new(0, 3.5, 0) if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then LP.Character.HumanoidRootPart.CFrame = cf end local d = tonumber(_G.Config.WaypointDelay) or 1 if d < 0.1 then d = 0.1 end task.wait(d) if _G.Config.DestroyMap then NukeMap() end end if _G.Config.AutoClean then table.clear(LocationCache) LocationCache = {} end else if not _G.Config.AutoLoot and not _G.Config.InstantFarm and not _G.Config.DestroyMap then local p = workspace:FindFirstChild("Kuma_Platform") if p then p:Destroy() end end task.wait(1) end end end)
 
-    -- =============================================================
-    -- TAB 3: MISC
-    -- =============================================================
     local TabMisc = Window:CreateTab("🧩 Khác", 4483362458)
-    
     TabMisc:CreateSection("Hiển thị (ESP)")
-    local ESP_NPC_Enabled = false
-    local ESP_Player_Enabled = false
-    local FolderNPCName = "Kuma_ESP_NPC"
-    local FolderPlayerName = "Kuma_ESP_Player"
-    
-    local ESP_Storage = {} 
-
-    local function RemoveESP_Obj(model)
-        if ESP_Storage[model] then
-            if ESP_Storage[model].Conn then ESP_Storage[model].Conn:Disconnect() end
-            if ESP_Storage[model].Highlight then ESP_Storage[model].Highlight:Destroy() end
-            if ESP_Storage[model].Billboard then ESP_Storage[model].Billboard:Destroy() end
-            ESP_Storage[model] = nil
-        end
-    end
-
-    local function CreateESP_V8(model, holder, color, isPlayer)
-        if not model or ESP_Storage[model] then return end
-        if model == LP.Character then return end
-        
-        -- Kiểm tra Humanoid
-        local hum = model:FindFirstChild("Humanoid")
-        local root = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("UpperTorso") or model.PrimaryPart
-        
-        if not root or not hum or hum.Health <= 0 then return end
-        
-        if not isPlayer and PLRS:GetPlayerFromCharacter(model) then return end 
-
-        -- 1. Highlight
-        local hl = Instance.new("Highlight")
-        hl.Adornee = model
-        hl.FillColor = color
-        hl.OutlineColor = Color3.new(1, 1, 1)
-        hl.FillTransparency = 0.65 
-        hl.OutlineTransparency = 0.3
-        
-        local success, _ = pcall(function() hl.Parent = holder end)
-        if not success then hl:Destroy() hl = nil end 
-
-        -- 2. BillboardGui
-        local bg = Instance.new("BillboardGui")
-        bg.Adornee = root
-        bg.Size = UDim2.new(0, 150, 0, 40)
-        bg.StudsOffset = Vector3.new(0, 4.5, 0)
-        bg.AlwaysOnTop = true
-        bg.Parent = holder
-
-        local t = Instance.new("TextLabel", bg)
-        t.BackgroundTransparency = 1
-        t.Size = UDim2.new(1, 0, 1, 0)
-        t.TextColor3 = color
-        t.TextStrokeTransparency = 0
-        t.TextStrokeColor3 = Color3.new(0, 0, 0)
-        t.Font = Enum.Font.GothamBold
-        t.TextSize = 12
-        
-        local function UpdateText()
-            if hum and model and model.Parent then
-                local hp = math.floor(hum.Health)
-                local maxHp = math.floor(hum.MaxHealth)
-                local distStr = ""
-                if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and root then
-                    local dist = (LP.Character.HumanoidRootPart.Position - root.Position).Magnitude
-                    distStr = string.format("\nDist: %d", math.floor(dist))
-                end
-                t.Text = string.format("%s\n[%d/%d]%s", model.Name, hp, maxHp, distStr)
-            else
-                RemoveESP_Obj(model)
-            end
-        end
-        UpdateText()
-
-        local healthConn = hum.HealthChanged:Connect(UpdateText)
-        local removingConn = model.AncestryChanged:Connect(function(_, parent)
-            if not parent then RemoveESP_Obj(model) end
-        end)
-
-        ESP_Storage[model] = { Highlight = hl, Billboard = bg, Conn = healthConn }
-    end
-
-    local function StartSmartScan(targetType, folderName, color)
-        local Holder = CG:FindFirstChild(folderName) or Instance.new("Folder", CG)
-        Holder.Name = folderName
-        
-        task.spawn(function()
-            while IsAlive() do
-                if (targetType == "NPC" and not ESP_NPC_Enabled) or (targetType == "PLAYER" and not ESP_Player_Enabled) then 
-                    Holder:ClearAllChildren() 
-                    for m, _ in pairs(ESP_Storage) do RemoveESP_Obj(m) end 
-                    ESP_Storage = {}
-                    break 
-                end
-
-                if targetType == "PLAYER" then
-                    for _, p in ipairs(PLRS:GetPlayers()) do
-                        if p ~= LP and p.Character then 
-                            CreateESP_V8(p.Character, Holder, color, true)
-                        end
-                    end
-                elseif targetType == "NPC" then
-                    local count = 0
-                    for _, obj in ipairs(WS:GetDescendants()) do
-                        if obj:IsA("Model") and obj:FindFirstChild("Humanoid") then
-                            if not PLRS:GetPlayerFromCharacter(obj) then
-                                CreateESP_V8(obj, Holder, color, false)
-                            end
-                        end
-                        count = count + 1
-                        if count % 350 == 0 then task.wait() end 
-                    end
-                end
-                
-                for model, _ in pairs(ESP_Storage) do
-                    if not model.Parent or (model:FindFirstChild("Humanoid") and model.Humanoid.Health <= 0) then
-                        RemoveESP_Obj(model)
-                    end
-                end
-                task.wait(3)
-            end
-        end)
-    end
-
+    local ESP_NPC_Enabled, ESP_Player_Enabled, FolderNPCName, FolderPlayerName, ESP_Storage = false, false, "Kuma_ESP_NPC", "Kuma_ESP_Player", {}
+    local function RemoveESP_Obj(model) if ESP_Storage[model] then if ESP_Storage[model].Conn then ESP_Storage[model].Conn:Disconnect() end if ESP_Storage[model].Highlight then ESP_Storage[model].Highlight:Destroy() end if ESP_Storage[model].Billboard then ESP_Storage[model].Billboard:Destroy() end ESP_Storage[model] = nil end end
+    local function CreateESP_V8(model, holder, color, isPlayer) if not model or ESP_Storage[model] then return end if model == LP.Character then return end local hum = model:FindFirstChild("Humanoid") local root = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("UpperTorso") or model.PrimaryPart if not root or not hum or hum.Health <= 0 then return end if not isPlayer and PLRS:GetPlayerFromCharacter(model) then return end local hl = Instance.new("Highlight", holder) hl.Adornee = model hl.FillColor = color hl.OutlineColor = Color3.new(1, 1, 1) hl.FillTransparency = 0.65 local bg = Instance.new("BillboardGui", holder) bg.Adornee = root bg.Size = UDim2.new(0, 150, 0, 40) bg.StudsOffset = Vector3.new(0, 4.5, 0) bg.AlwaysOnTop = true local t = Instance.new("TextLabel", bg) t.BackgroundTransparency = 1 t.Size = UDim2.new(1, 0, 1, 0) t.TextColor3 = color t.TextStrokeTransparency = 0 t.Font = Enum.Font.GothamBold t.TextSize = 12 local function UpdateText() if hum and model and model.Parent then local hp = math.floor(hum.Health) local distStr = "" if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and root then local dist = (LP.Character.HumanoidRootPart.Position - root.Position).Magnitude distStr = string.format("\nDist: %d", math.floor(dist)) end t.Text = string.format("%s\n[%d/%d]%s", model.Name, hp, math.floor(hum.MaxHealth), distStr) else RemoveESP_Obj(model) end end UpdateText() ESP_Storage[model] = { Highlight = hl, Billboard = bg, Conn = hum.HealthChanged:Connect(UpdateText) } end
+    local function StartSmartScan(targetType, folderName, color) local Holder = CG:FindFirstChild(folderName) or Instance.new("Folder", CG) Holder.Name = folderName task.spawn(function() while IsAlive() do if (targetType == "NPC" and not ESP_NPC_Enabled) or (targetType == "PLAYER" and not ESP_Player_Enabled) then Holder:ClearAllChildren() for m, _ in pairs(ESP_Storage) do RemoveESP_Obj(m) end ESP_Storage = {} break end if targetType == "PLAYER" then for _, p in ipairs(PLRS:GetPlayers()) do if p ~= LP and p.Character then CreateESP_V8(p.Character, Holder, color, true) end end elseif targetType == "NPC" then for _, obj in ipairs(WS:GetDescendants()) do if obj:IsA("Model") and obj:FindFirstChild("Humanoid") then if not PLRS:GetPlayerFromCharacter(obj) then CreateESP_V8(obj, Holder, color, false) end end end end task.wait(3) end end) end
     TabMisc:CreateToggle({Name = "🔥 Hiện NPC (Deep Scan)", CurrentValue = false, Callback = function(V) ESP_NPC_Enabled = V if V then StartSmartScan("NPC", FolderNPCName, Color3.fromRGB(255, 60, 60)) end end})
     TabMisc:CreateToggle({Name = "👤 Hiện Người Chơi (Dist)", CurrentValue = false, Callback = function(V) ESP_Player_Enabled = V if V then StartSmartScan("PLAYER", FolderPlayerName, Color3.fromRGB(0, 255, 100)) end end})
-    
     TabMisc:CreateSection("Quay thưởng (Kuma V8 Safe)")
     local SpinStatus = TabMisc:CreateLabel("Trạng thái: Chờ...")
-    
-    _G.AutoRace = false
-    _G.AutoRoot = false
-    _G.SelectRank = 3
-    _G.SelectSlot = 1 
-
+    _G.AutoRace, _G.AutoRoot, _G.SelectRank, _G.SelectSlot = false, false, 3, 1
     local Ranks = {{Name = "Common", Val = 1}, {Name = "Rare", Val = 2}, {Name = "Epic", Val = 3}, {Name = "Legendary", Val = 4}, {Name = "Mythic", Val = 5}, {Name = "secret", Val = 6}}
-    local RankNames = {}
-    for _, r in ipairs(Ranks) do table.insert(RankNames, r.Name) end
-
-    local function CheckStop()
-        for _, gui in pairs(LP.PlayerGui:GetDescendants()) do
-            if gui:IsA("TextLabel") and gui.Visible then
-                local txt = gui.Text
-                if txt:find("Rolled:") then
-                    for _, r in ipairs(Ranks) do if txt:find(r.Name) and r.Val >= _G.SelectRank then return true, r.Name end end
-                end
-            end
-        end
-        return false, nil
-    end
-
-    local function Spin(type)
-        local events = RE:FindFirstChild("Events")
-        if type == "Race" and events and events:FindFirstChild("RollRace") then events.RollRace:FireServer(_G.SelectSlot, true)
-        elseif type == "Root" and events and events:FindFirstChild("RollSpiritRoot") then events.RollSpiritRoot:FireServer(_G.SelectSlot, true) end
-    end
-
-    TabMisc:CreateDropdown({
-        Name = "🎯 Chọn Slot Quay",
-        Options = {"Slot 1", "Slot 2", "Slot 3"},
-        CurrentOption = "Slot 1",
-        Callback = function(Option)
-            if Option[1] == "Slot 1" then _G.SelectSlot = 1
-            elseif Option[1] == "Slot 2" then _G.SelectSlot = 2
-            elseif Option[1] == "Slot 3" then _G.SelectSlot = 3
-            end
-        end
-    })
-
+    local RankNames = {} for _, r in ipairs(Ranks) do table.insert(RankNames, r.Name) end
+    local function CheckStop() for _, gui in pairs(LP.PlayerGui:GetDescendants()) do if gui:IsA("TextLabel") and gui.Visible then local txt = gui.Text if txt:find("Rolled:") then for _, r in ipairs(Ranks) do if txt:find(r.Name) and r.Val >= _G.SelectRank then return true, r.Name end end end end end return false, nil end
+    local function Spin(type) local events = RE:FindFirstChild("Events") if type == "Race" and events and events:FindFirstChild("RollRace") then events.RollRace:FireServer(_G.SelectSlot, true) elseif type == "Root" and events and events:FindFirstChild("RollSpiritRoot") then events.RollSpiritRoot:FireServer(_G.SelectSlot, true) end end
+    TabMisc:CreateDropdown({Name = "🎯 Chọn Slot Quay", Options = {"Slot 1", "Slot 2", "Slot 3"}, CurrentOption = "Slot 1", Callback = function(Option) _G.SelectSlot = Option[1] == "Slot 1" and 1 or (Option[1] == "Slot 2" and 2 or 3) end})
     TabMisc:CreateDropdown({Name = "Chọn Rank Dừng (>=)", Options = RankNames, CurrentOption = "Epic", Callback = function(Option) for _, r in ipairs(Ranks) do if r.Name == Option[1] then _G.SelectRank = r.Val end end end})
-    TabMisc:CreateToggle({Name = "🌀 Auto Quay Tộc (Race)", CurrentValue = false, Callback = function(V) _G.AutoRace = V if V then _G.AutoRoot = false SpinStatus:Set("Auto Race: ON (Slot ".._G.SelectSlot..")...") task.spawn(function() while _G.AutoRace and IsAlive() do Spin("Race") task.wait(0.1) local stop, r = CheckStop() if stop then _G.AutoRace = false SpinStatus:Set("DỪNG: " .. r) end end if not _G.AutoRace then SpinStatus:Set("Auto Race: OFF") end end) else SpinStatus:Set("Auto Race: OFF") end end})
-    TabMisc:CreateToggle({Name = "🌀 Auto Quay Linh Căn (Root)", CurrentValue = false, Callback = function(V) _G.AutoRoot = V if V then _G.AutoRace = false SpinStatus:Set("Auto Root: ON (Slot ".._G.SelectSlot..")...") task.spawn(function() while _G.AutoRoot and IsAlive() do Spin("Root") task.wait(0.1) local stop, r = CheckStop() if stop then _G.AutoRoot = false SpinStatus:Set("DỪNG: " .. r) end end if not _G.AutoRoot then SpinStatus:Set("Auto Root: OFF") end end) else SpinStatus:Set("Auto Root: OFF") end end})
-
+    TabMisc:CreateToggle({Name = "🌀 Auto Quay Tộc (Race)", CurrentValue = false, Callback = function(V) _G.AutoRace = V if V then _G.AutoRoot = false SpinStatus:Set("Auto Race: ON...") task.spawn(function() while _G.AutoRace and IsAlive() do Spin("Race") task.wait(0.1) local stop, r = CheckStop() if stop then _G.AutoRace = false SpinStatus:Set("DỪNG: " .. r) end end end) end end})
+    TabMisc:CreateToggle({Name = "🌀 Auto Quay Linh Căn (Root)", CurrentValue = false, Callback = function(V) _G.AutoRoot = V if V then _G.AutoRace = false SpinStatus:Set("Auto Root: ON...") task.spawn(function() while _G.AutoRoot and IsAlive() do Spin("Root") task.wait(0.1) local stop, r = CheckStop() if stop then _G.AutoRoot = false SpinStatus:Set("DỪNG: " .. r) end end end) end end})
     TabMisc:CreateSection("Chuỗi phím bổ trợ")
     local SequenceDisplay = TabMisc:CreateLabel("Phím hiện tại: [ Trống ]")
-    local function UpdateKeys() if #_G.Config.ExtraKeys == 0 then SequenceDisplay:Set("Phím hiện tại: [ Trống ]") else SequenceDisplay:Set("Phím: " .. table.concat(_G.Config.ExtraKeys, " -> ")) end end
+    local function UpdateKeys() SequenceDisplay:Set(#_G.Config.ExtraKeys == 0 and "Phím hiện tại: [ Trống ]" or "Phím: " .. table.concat(_G.Config.ExtraKeys, " -> ")) end
     TabMisc:CreateDropdown({ Name = "Chọn phím", Options = {"C", "G", "V", "B", "H", "E", "R", "Z", "Space"}, CurrentOption = "Z", Callback = function(O) _G.Config.TempKey = O[1] end})
     TabMisc:CreateButton({ Name = "➕ Thêm phím vào chuỗi", Callback = function() table.insert(_G.Config.ExtraKeys, _G.Config.TempKey) UpdateKeys() end})
     TabMisc:CreateButton({ Name = "🗑 Xóa chuỗi phím", Callback = function() _G.Config.ExtraKeys = {} UpdateKeys() end})
 
-    -- =============================================================
-    -- TAB 4: CRAFT (ĐÃ TỐI ƯU GIAO DIỆN)
-    -- =============================================================
     local TabCraft = Window:CreateTab("⚗ Chế Thuốc", 4483362458)
     local CraftRecipes = {
         {Name = "Lesser Qi Condensation Pill", Items = {"Qi Berries", "Qi Berries", "Spirit Rose", "Qi Flower"}},
@@ -1305,81 +1199,36 @@ task.spawn(function()
         {Name = "Moonlit Destruction Pill",    Items = {"Spirit Rose", "Qi Flower", "Moon Flower", "Death Flower"}},
         {Name = "Heaven-Defying Rebirth Pill",    Items = {"Ginseng", "Death Flower", "Death Flower", "Death Flower"}}
     }
-    local RecipeNames = {}
-    for _, v in ipairs(CraftRecipes) do table.insert(RecipeNames, v.Name) end
+    local RecipeNames = {} for _, v in ipairs(CraftRecipes) do table.insert(RecipeNames, v.Name) end
     local YearToGrade = { ["100000 Year"] = 6, ["10000 Year"] = 5, ["1000 Year"] = 4, ["100 Year"] = 3, ["10 Year"] = 2, ["1 Year"] = 1 }
-    
     TabCraft:CreateDropdown({ Name = "Công thức", Options = RecipeNames, CurrentOption = RecipeNames[1], Callback = function(O) _G.Config.CraftRecipe = O[1] end})
     TabCraft:CreateDropdown({ Name = "Niên đại (Năm)", Options = {"1 Year", "10 Year", "100 Year", "1000 Year", "10000 Year", "100000 Year"}, CurrentOption = "1 Year", Callback = function(O) _G.Config.CraftYear = O[1] end})
-    
-    -- [NEW] COMPACT INPUTS ROW
-    TabCraft:CreateMultiInput({
-        {Name = "Cấp Lò", PlaceholderText = "10", Callback = function(Text) _G.Config.CraftLevel = tonumber(Text) or 10 end},
-        {Name = "Loop (Lần)", PlaceholderText = "1", Callback = function(Text) _G.Config.CraftAmount = tonumber(Text) or 1 end},
-        {Name = "Bulk (Viên)", PlaceholderText = "1", Callback = function(Text) _G.Config.CraftBulkAmount = tonumber(Text) or 1 end}
-    })
-
-    TabCraft:CreateToggle({ Name = "▶ Bắt đầu chế thuốc", CurrentValue = false, Callback = function(V) 
-        _G.Config.CraftEnabled = V 
-        if V then 
-            task.spawn(function() 
-                local count = 0 
-                while _G.Config.CraftEnabled and count < (_G.Config.CraftAmount or 1) and IsAlive() do 
-                    count = count + 1 
-                    local recipe = nil 
-                    for _,r in ipairs(CraftRecipes) do if r.Name == _G.Config.CraftRecipe then recipe = r break end end 
-                    
-                    if recipe then 
-                        local Remote_Craft = RE:WaitForChild("Events"):WaitForChild("CraftPill") 
-                        local Remote_Add = RE:WaitForChild("Events"):WaitForChild("UseHerbAlchemy") 
-                        local Remote_Reset = RE:FindFirstChild("ReturnHerbalAlchemy", true) 
-                        
-                        if Remote_Reset then Remote_Reset:FireServer() end 
-                        task.wait(0.5) 
-                        
-                        for s, h in ipairs(recipe.Items) do 
-                            if not _G.Config.CraftEnabled then break end 
-                            Remote_Add:FireServer(h, _G.Config.CraftYear, s) 
-                            task.wait(0.3) 
-                        end 
-                        
-                        if _G.Config.CraftEnabled then 
-                            Remote_Craft:FireServer(_G.Config.CraftRecipe, YearToGrade[_G.Config.CraftYear], _G.Config.CraftLevel or 10, _G.Config.CraftBulkAmount or 1) 
-                        end 
-                    end 
-                    task.wait(0.2) 
-                end 
-                _G.Config.CraftEnabled = false 
-            end) 
-        end 
-    end})
-    
-    -- [NEW] RECIPE BOARD AT BOTTOM
+    TabCraft:CreateMultiInput({{Name = "Cấp Lò", PlaceholderText = "10", Callback = function(T) _G.Config.CraftLevel = tonumber(T) or 10 end}, {Name = "Loop (Lần)", PlaceholderText = "1", Callback = function(T) _G.Config.CraftAmount = tonumber(T) or 1 end}, {Name = "Bulk (Viên)", PlaceholderText = "1", Callback = function(T) _G.Config.CraftBulkAmount = tonumber(T) or 1 end}})
+    TabCraft:CreateToggle({ Name = "▶ Bắt đầu chế thuốc", CurrentValue = false, Callback = function(V) _G.Config.CraftEnabled = V if V then task.spawn(function() local count = 0 while _G.Config.CraftEnabled and count < (_G.Config.CraftAmount or 1) and IsAlive() do count = count + 1 local recipe = nil for _,r in ipairs(CraftRecipes) do if r.Name == _G.Config.CraftRecipe then recipe = r break end end if recipe then local Remote_Craft = RE:WaitForChild("Events"):WaitForChild("CraftPill") local Remote_Add = RE:WaitForChild("Events"):WaitForChild("UseHerbAlchemy") local Remote_Reset = RE:FindFirstChild("ReturnHerbalAlchemy", true) if Remote_Reset then Remote_Reset:FireServer() end task.wait(0.5) for s, h in ipairs(recipe.Items) do if not _G.Config.CraftEnabled then break end Remote_Add:FireServer(h, _G.Config.CraftYear, s) task.wait(0.3) end if _G.Config.CraftEnabled then Remote_Craft:FireServer(_G.Config.CraftRecipe, YearToGrade[_G.Config.CraftYear], _G.Config.CraftLevel or 10, _G.Config.CraftBulkAmount or 1) end end task.wait(0.2) end _G.Config.CraftEnabled = false end) end end})
     TabCraft:CreateRecipeBoard(CraftRecipes)
 
-    -- =============================================================
-    -- TAB 5: CÀI ĐẶT
+     -- =============================================================
+    -- TAB: CÀI ĐẶT
     -- =============================================================
     local TabSettings = Window:CreateTab("⚙ Cài đặt", 4483362458)
     TabSettings:CreateSection("Thiết lập PC/Mobile")
     TabSettings:CreateKeybind({Name = "Phím Bật/Tắt GUI (PC)", CurrentKey = CurrentToggleKey, Callback = function(Key) CurrentToggleKey = Key end})
-    TabSettings:CreateToggle({ Name = "Hiện nút Mobile (Góc trái)", CurrentValue = ShowMobileButton, Callback = function(V) if V then CreateMobileButton() else if MobileBtnInstance then MobileBtnInstance:Destroy() end end end})
+    TabSettings:CreateToggle({ Name = "Hiện nút Mobile", CurrentValue = ShowMobileButton, Callback = function(V) if V then CreateMobileButton() else if MobileBtnInstance then MobileBtnInstance:Destroy() end end end})
     TabSettings:CreateSection("Tốc độ & Độ trễ")
-    TabSettings:CreateSlider({ Name = "Độ trễ Tele Farm (Chống Kick)", Range = {0.5, 5}, Increment = 0.5, CurrentValue = 1.5, Callback = function(V) _G.Config.SyncDelay = V end})
-    TabSettings:CreateSlider({ Name = "Chờ giữa các điểm tele Loop", Range = {0, 60}, Increment = 0.5, CurrentValue = 2.0, Callback = function(V) _G.Config.WaypointDelay = V end})
-    TabSettings:CreateSlider({ Name = "Thời gian giữ phím (E)", Range = {0, 5}, Increment = 0.1, CurrentValue = 3.0, Callback = function(V) _G.Config.HoldDelay = V end})
+    TabSettings:CreateSlider({ Name = "Độ trễ Tele Farm", Range = {0.5, 5}, Increment = 0.5, CurrentValue = 1.5, Callback = function(V) _G.Config.SyncDelay = V end})
+    TabSettings:CreateSlider({ Name = "Chờ Tele Loop", Range = {0, 60}, Increment = 0.5, CurrentValue = 2.0, Callback = function(V) _G.Config.WaypointDelay = V end})
+    TabSettings:CreateSlider({ Name = "Thời gian giữ E", Range = {0, 5}, Increment = 0.1, CurrentValue = 3.0, Callback = function(V) _G.Config.HoldDelay = V end})
     TabSettings:CreateSection("Quản lý cấu hình")
-    TabSettings:CreateInput({ Name = "Tên cấu hình", PlaceholderText = "VD: FarmSam", RemoveTextAfterFocusLost = false, Callback = function(Text) InputProfileName = Text end})
-    TabSettings:CreateButton({ Name = "💾 Lưu / Tạo cấu hình", Callback = function() SaveUserProfile(InputProfileName) end})
+    TabSettings:CreateInput({ Name = "Tên cấu hình", PlaceholderText = "FarmSam", Callback = function(Text) InputProfileName = Text end})
+    TabSettings:CreateButton({ Name = "💾 Lưu cấu hình", Callback = function() SaveUserProfile(InputProfileName) end})
     local ProfileDropdown = TabSettings:CreateDropdown({ Name = "Chọn cấu hình", Options = GetMyProfiles(), CurrentOption = "", Callback = function(Option) SelectedProfile = Option[1] end})
     TabSettings:CreateButton({ Name = "📂 Tải cấu hình", Callback = function() LoadUserProfile(SelectedProfile) UpdateKeys() WaypointLabel:Set("Điểm đã lưu: " .. #_G.Config.Waypoints) end})
-    TabSettings:CreateButton({ Name = "🗑 Xóa cấu hình", Callback = function() DeleteUserProfile(SelectedProfile) ProfileDropdown:Refresh(GetMyProfiles(), true) end})
     TabSettings:CreateButton({ Name = "🔄 Làm mới danh sách", Callback = function() ProfileDropdown:Refresh(GetMyProfiles(), true) end})
     TabSettings:CreateSection("Hệ thống")
-    TabSettings:CreateToggle({ Name = "💤 Chống treo máy (Anti-AFK)", CurrentValue = true, Callback = function(V) _G.Config.AntiAFK = V end})
-    TabSettings:CreateButton({ Name = "⚡ Tăng FPS (Giảm lag)", Callback = BoostFPS })
-    TabSettings:CreateToggle({ Name = "🔥 Xóa Map + Sàn đứng", CurrentValue = false, Callback = function(V) _G.Config.DestroyMap = V if V then NukeMap() end end})
-    TabSettings:CreateToggle({ Name = "📺 Màn hình trắng (Tắt 3D)", CurrentValue = false, Callback = function(V) RS:Set3dRenderingEnabled(not V) end})
+    TabSettings:CreateToggle({ Name = "💤 Anti-AFK", CurrentValue = true, Callback = function(V) _G.Config.AntiAFK = V end})
+    TabSettings:CreateButton({ Name = "⚡ Tăng FPS", Callback = BoostFPS })
+    TabSettings:CreateToggle({ Name = "🔥 Xóa Map", CurrentValue = false, Callback = function(V) _G.Config.DestroyMap = V if V then NukeMap() end end})
+    TabSettings:CreateToggle({ Name = "📺 Màn hình trắng", CurrentValue = false, Callback = function(V) RS:Set3dRenderingEnabled(not V) end})
 
     Rayfield:LoadConfiguration()
 end)
