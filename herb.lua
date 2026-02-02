@@ -1031,7 +1031,7 @@ task.spawn(function()
         ["cave 1"] = CFrame.new(-2092, 9, 5372),
         ["cave 2-rooster iron"] = CFrame.new(462, -40, 4167),
         ["cave 3-hevean metal"] = CFrame.new(-1138, -17, 737),
-        ["cave 4-snow"] = CFrame.new(831, 14, 2724),snow
+        ["cave 4-snow"] = CFrame.new(831, 14, 2724),
         ["cave 5-red smoke"] = CFrame.new(-2588, 67, 2692)
     }
     
