@@ -701,30 +701,108 @@ task.spawn(function()
 
     local function NukeMap()
         if not _G.Config.DestroyMap then return end
-        local plat = EnsurePlatform()
-        if not _G.Config.AutoLoot and not _G.Config.InstantFarm and not _G.Config.AutoWaypoint then
-            if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-                plat.CFrame = LP.Character.HumanoidRootPart.CFrame - Vector3.new(0, 3.5, 0)
-            end
+
+    -- 1. Xóa sạch địa hình (Đất, nước, núi) - Đây là thứ ngốn RAM nhất
+        if workspace.Terrain then
+            workspace.Terrain:Clear()
         end
-        for _, v in ipairs(WS:GetChildren()) do
-            if v.Name ~= "Players" and v.Name ~= "Plants" and v.Name ~= "Camera" and v.Name ~= "Terrain" and v.Name ~= "Kuma_Platform" then
-                if v:IsA("Model") or v:IsA("Folder") or v:IsA("Part") or v:IsA("MeshPart") then
-                    if v ~= LP.Character then v:Destroy() end
+
+    -- 2. Hàm hỗ trợ: Kiểm tra xem vật thể có phải là Cây (Herb) hay không
+        local function IsHerb(obj)
+            if not obj or not obj.Name then return false end
+        
+            local name = obj.Name
+        -- Giữ lại thư mục gốc chứa cây
+            if name == "Plants" then return true end
+        
+        -- Kiểm tra tên vật thể dựa trên danh sách đang được chọn trong Farm Tab
+            for herbName, enabled in pairs(_G.Config.Tracking) do
+                if enabled and string.find(name, herbName) then
+                    return true
                 end
             end
+            return false
         end
-        WS.Terrain:Clear()
+
+    -- 3. Hàm thực hiện dọn dẹp vật thể
+        local function Clean(obj)
+        -- DANH SÁCH TRẮNG: Tuyệt đối không xóa
+            if obj:IsA("Camera") or obj:IsA("Terrain") or obj.Name == "Players" then 
+                return 
+            end
+        
+        -- Giữ lại sàn đứng và nền tảng của Hub
+            if obj.Name == "Kuma_Platform" or obj.Name == "Kuma_Floor" then 
+                return 
+            end
+        
+        -- Giữ lại nhân vật của người chơi
+            if LP.Character and (obj == LP.Character or obj:IsDescendantOf(LP.Character)) then 
+                return 
+            end
+
+        -- BẢO VỆ CÂY CỎ: Kiểm tra chính nó hoặc thư mục cha của nó
+            if IsHerb(obj) or (obj.Parent and IsHerb(obj.Parent)) then
+                return
+            end
+
+        -- XỬ LÝ XÓA: Chỉ xóa các vật thể kiến trúc, model, map rác
+            if obj:IsA("Model") or obj:IsA("BasePart") or obj:IsA("Folder") or obj:IsA("MeshPart") then
+            -- Tắt va chạm trước khi xóa để tránh kẹt nhân vật khi đang Tele
+                if obj:IsA("BasePart") then
+                    obj.CanCollide = false
+                end
+            
+                pcall(function() 
+                    obj:Destroy() 
+                end)
+            end
+        end
+
+    -- 4. Chạy quét dọn dẹp các vật thể đang có sẵn trên bản đồ
+    for _, v in ipairs(workspace:GetChildren()) do
+        pcall(Clean, v)
     end
 
+    -- 5. [QUAN TRỌNG] Lắng nghe vật thể mới tải vào khi bạn Teleport sang vùng mới
+    if not _G.MapListenerConnection then
+        _G.MapListenerConnection = workspace.ChildAdded:Connect(function(child)
+            if _G.Config.DestroyMap then
+                -- Đợi 0.1 giây để game nạp đủ dữ liệu tên vật thể trước khi quét
+                task.wait(0.1)
+                pcall(Clean, child)
+            end
+        end)
+    end
+end
+
     local function BoostFPS()
+    -- 1. Chỉnh chất lượng hình ảnh về thấp nhất
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-        LGT.GlobalShadows = false
-        LGT.FogEnd = 9e9
-        for _, v in pairs(game:GetDescendants()) do
-            if v:IsA("Texture") or v:IsA("Decal") or v:IsA("ParticleEmitter") or v:IsA("Trail") then v:Destroy() end
+    
+    -- 2. Tắt các hiệu ứng ánh sáng nặng
+        local Lighting = game:GetService("Lighting")
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 9e9
+        Lighting.Brightness = 1
+    
+    -- Xóa các hiệu ứng làm đẹp (Bloom, SunRays, Blur, ColorCorrection)
+        for _, v in pairs(Lighting:GetChildren()) do
+            if v:IsA("PostEffect") or v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") then
+                v.Enabled = false -- Tắt thay vì Destroy để tránh lỗi game
+            end
+        end
+
+    -- 3. Chỉ quét trong Workspace (Nơi chứa Object gây lag) thay vì toàn bộ Game
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("BasePart") or v:IsA("MeshPart") then
+            v.Material = Enum.Material.SmoothPlastic -- Ép vật liệu nhẹ nhất
+            v.Reflectance = 0
+        elseif v:IsA("Decal") or v:IsA("Texture") or v:IsA("ParticleEmitter") or v:IsA("Trail") then
+            v:Destroy() -- Xóa bỏ các hình dán và hiệu ứng hạt
         end
     end
+end
 
     LP.Idled:Connect(function()
         if _G.Config.AntiAFK then
@@ -974,6 +1052,7 @@ task.spawn(function()
                             if hrp and hum and hum.Health > 0 then
                                 local tPos = GetPosition(targetData.Instance)
                                 hrp.CFrame = CFrame.new(tPos) + Vector3.new(0, 3, 0)
+								if _G.Config.DestroyMap then NukeMap() end
                                 local plat = EnsurePlatform()
                                 plat.CFrame = hrp.CFrame - Vector3.new(0, 3.5, 0)
                                 task.wait(_G.Config.SyncDelay)
@@ -1206,21 +1285,52 @@ task.spawn(function()
     TabTele:CreateButton({ Name = "➕ Thêm vị trí đứng", Callback = function() if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then table.insert(_G.Config.Waypoints, LP.Character.HumanoidRootPart.CFrame) WaypointLabel:Set("Điểm đã lưu: " .. #_G.Config.Waypoints) end end})
     TabTele:CreateButton({ Name = "🗑 Xóa danh sách", Callback = function() _G.Config.Waypoints = {} WaypointLabel:Set("Điểm đã lưu: 0") end})
     TabTele:CreateToggle({ Name = "▶ Bắt đầu chạy vòng lặp", CurrentValue = false, Callback = function(V) _G.Config.AutoWaypoint = V end})
+
+    -- =============================================================
+-- KHỐI VÒNG LẶP ĐIỂM (WAYPOINTS) - XÓA MAP TỨC THÌ
+-- =============================================================
     task.spawn(function()
         while IsAlive() do
+        -- Chỉ chạy nếu bật Auto Waypoint và không đang chạy Farm cây
             if _G.Config.AutoWaypoint and #_G.Config.Waypoints > 0 and not _G.Config.AutoLoot and not _G.Config.InstantFarm then
                 for i, cf in ipairs(_G.Config.Waypoints) do
+                    -- Dừng ngay nếu người dùng tắt nút
                     if not _G.Config.AutoWaypoint then break end
+                
+                -- 1. Chuẩn bị sàn Platform tại điểm đến
                     local plat = EnsurePlatform()
                     plat.CFrame = cf - Vector3.new(0, 3.5, 0)
-                    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then LP.Character.HumanoidRootPart.CFrame = cf end
+                
+                -- 2. Thực hiện dịch chuyển nhân vật
+                    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then 
+                        LP.Character.HumanoidRootPart.CFrame = cf 
+                    end
+
+                -- 3. [QUAN TRỌNG] XÓA MAP NGAY LẬP TỨC (Giống Herb Farm)
+                -- Gọi lệnh này ngay tại đây để dọn dẹp các vật thể vừa nạp vào khi bay tới
+                    if _G.Config.DestroyMap then 
+                        NukeMap() 
+                    end
+                
+                -- 4. Chờ theo thời gian Delay đã cài đặt
                     local d = tonumber(_G.Config.WaypointDelay) or 1
                     if d < 0.1 then d = 0.1 end
                     task.wait(d)
-                    if _G.Config.DestroyMap then NukeMap() end
+
+                -- 5. Quét dọn thêm một lần nữa sau khi đứng chờ
+                -- Để xóa những mảnh map nạp chậm (StreamingEnabled)
+                    if _G.Config.DestroyMap then 
+                        NukeMap() 
+                    end
                 end
-                if _G.Config.AutoClean then table.clear(LocationCache) LocationCache = {} end
+
+            -- Dọn Cache nếu bật Auto Clean
+                if _G.Config.AutoClean then 
+                    table.clear(LocationCache) 
+                    LocationCache = {} 
+                end
             else
+            -- Dọn dẹp sàn Platform khi không sử dụng
                 if not _G.Config.AutoLoot and not _G.Config.InstantFarm and not _G.Config.DestroyMap then
                     local p = workspace:FindFirstChild("Kuma_Platform")
                     if p then p:Destroy() end
