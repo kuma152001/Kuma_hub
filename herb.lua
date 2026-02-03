@@ -1507,3 +1507,43 @@ task.spawn(function()
 
     Rayfield:LoadConfiguration()
 end)
+
+-- ==============================================================================
+-- KHỐI DỌN RÁC VÀ TỐI ƯU HÓA RAM TỰ ĐỘNG (Dán vào cuối Script)
+-- ==============================================================================
+task.spawn(function()
+    local LastGC = tick()
+    local GC_Interval = 60 -- Giờ chạy dọn dẹp sau mỗi 60 giây (có thể chỉnh thành 30)
+
+    while task.wait(5) do -- Kiểm tra nhẹ nhàng mỗi 5 giây
+        if not IsAlive() then break end -- Dừng nếu script chính bị tắt
+
+        -- 1. Kiểm tra thời gian để chạy dọn rác nặng (Garbage Collection)
+        if tick() - LastGC >= GC_Interval then
+            -- Ép Lua giải phóng các vùng nhớ không còn sử dụng
+            collectgarbage("collect")
+            
+            -- Giải phóng bộ nhớ đệm của hệ thống nội bộ Roblox
+            -- (Giúp ích rất nhiều nếu bạn treo máy lâu)
+            local success, err = pcall(function()
+                game:GetService("Stats"):ClearMemoryBudget() 
+            end)
+
+            LastGC = tick()
+            -- print("--- [KUMA HUB] Đã thực hiện dọn dẹp RAM hệ thống ---")
+        end
+
+        -- 2. Tối ưu hóa bảng dữ liệu (Cache) nếu nó quá lớn
+        -- Nếu LocationCache tích tụ hơn 100 mục rác, hãy làm sạch nó
+        if LocationCache and #LocationCache > 100 then
+            table.clear(LocationCache)
+            -- print("--- [KUMA HUB] Đã dọn dẹp bảng Cache cây cỏ ---")
+        end
+
+        -- 3. Giải phóng bộ nhớ Log (Nhật ký lỗi) để tránh phình dung lượng
+        local LogService = game:GetService("LogService")
+        if LogService then
+            pcall(function() LogService:ClearOutput() end)
+        end
+    end
+end)
