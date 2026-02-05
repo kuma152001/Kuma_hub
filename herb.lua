@@ -1105,7 +1105,7 @@ end
     TabMining:CreateToggle({ Name = "Heavenly White", CurrentValue = false, Callback = function(V) _G.Config.MiningTracking["HeavenlyWhiteSnowIronOre"] = V end })
     TabMining:CreateToggle({ Name = "Heaven Metal", CurrentValue = false, Callback = function(V) _G.Config.MiningTracking["HeavenMetalOre"] = V end })
     TabMining:CreateToggle({ Name = "Dark Inkstone", CurrentValue = false, Callback = function(V) _G.Config.MiningTracking["Inkstone"] = V end })
-    TabMining:CreateToggle({ Name = "Red Smoke Iron", CurrentValue = false, Callback = function(V) _G.Config.MiningTracking["RedSmokeIronOre"] = V end })
+    TabMining:CreateToggle({ Name = "Red Snake Iron", CurrentValue = false, Callback = function(V) _G.Config.MiningTracking["RedSnakeIronOre"] = V end })
 
     TabMining:CreateSection("⚙ Cài đặt đào")
     TabMining:CreateSlider({ Name = "Sức mạnh đào (Burst)", Range = {1, 10}, Increment = 1, CurrentValue = 1, Callback = function(V) _G.Config.MineBurst = V end})
