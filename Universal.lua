@@ -392,10 +392,133 @@ TabVisual:CreateToggle({
 })
 
 -- =========================================================
--- TAB 4: TELEPORT
+-- TAB 4: TELEPORT (NÂNG CẤP: WAYPOINTS & AUTO TP)
 -- =========================================================
 local TabTP = Window:CreateTab("🚀 Teleport", 4483362458)
 
+-- Biến quản lý Waypoints
+getgenv().KumaWaypoints = {}
+local WaypointList = {}
+local SelectedWaypoint = nil
+local WaypointName = "Điểm 1"
+getgenv().AutoTPActive = false
+getgenv().AutoTPDelay = 5
+
+-- Hàm cập nhật danh sách Dropdown
+local function UpdateWaypointDropdown()
+    WaypointList = {}
+    for name, _ in pairs(getgenv().KumaWaypoints) do
+        table.insert(WaypointList, name)
+    end
+    if #WaypointList == 0 then table.insert(WaypointList, "Chưa có điểm lưu") end
+end
+
+TabTP:CreateSection("📍 Quản lý tọa độ (Waypoints)")
+
+TabTP:CreateInput({
+   Name = "Tên điểm muốn lưu",
+   PlaceholderText = "Nhập tên điểm...",
+   RemoveTextAfterFocusLost = false,
+   Callback = function(Text)
+       WaypointName = Text
+   end,
+})
+
+local WPDropdown -- Khai báo trước để Refresh
+
+TabTP:CreateButton({
+   Name = "💾 Lưu vị trí hiện tại",
+   Callback = function()
+       if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+           local currentCF = LocalPlayer.Character.HumanoidRootPart.CFrame
+           getgenv().KumaWaypoints[WaypointName] = currentCF
+           
+           UpdateWaypointDropdown()
+           WPDropdown:Refresh(WaypointList)
+           
+           Rayfield:Notify({Title = "Kuma Hub", Content = "Đã lưu: " .. WaypointName, Duration = 2})
+       end
+   end,
+})
+
+WPDropdown = TabTP:CreateDropdown({
+   Name = "Danh sách điểm đã lưu",
+   Options = {"Chưa có điểm lưu"},
+   CurrentOption = {""},
+   MultipleOptions = false,
+   Callback = function(Option)
+       SelectedWaypoint = Option[1]
+   end,
+})
+
+TabTP:CreateButton({
+   Name = "🌀 Teleport tới điểm đã chọn",
+   Callback = function()
+       if SelectedWaypoint and getgenv().KumaWaypoints[SelectedWaypoint] then
+           LocalPlayer.Character.HumanoidRootPart.CFrame = getgenv().KumaWaypoints[SelectedWaypoint]
+       else
+           Rayfield:Notify({Title = "Lỗi", Content = "Vui lòng chọn 1 điểm hợp lệ!", Duration = 2})
+       end
+   end,
+})
+
+TabTP:CreateButton({
+   Name = "🗑️ Xóa điểm đã chọn",
+   Callback = function()
+       if SelectedWaypoint then
+           getgenv().KumaWaypoints[SelectedWaypoint] = nil
+           UpdateWaypointDropdown()
+           WPDropdown:Refresh(WaypointList)
+           Rayfield:Notify({Title = "Kuma Hub", Content = "Đã xóa điểm!", Duration = 2})
+       end
+   end,
+})
+
+TabTP:CreateSection("🔄 Auto Teleport Loop")
+
+TabTP:CreateToggle({
+   Name = "Kích hoạt Auto Tele (Vòng lặp)",
+   CurrentValue = false,
+   Callback = function(Value)
+       getgenv().AutoTPActive = Value
+       if Value then
+           task.spawn(function()
+               while getgenv().AutoTPActive do
+                   local hasPoints = false
+                   for name, cf in pairs(getgenv().KumaWaypoints) do
+                       if not getgenv().AutoTPActive then break end
+                       if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                           LocalPlayer.Character.HumanoidRootPart.CFrame = cf
+                           Rayfield:Notify({Title = "Auto TP", Content = "Đang tới: " .. name, Duration = 1})
+                           hasPoints = true
+                       end
+                       task.wait(getgenv().AutoTPDelay)
+                   end
+                   if not hasPoints then 
+                       Rayfield:Notify({Title = "Lỗi", Content = "Không có điểm nào để Auto TP!", Duration = 2})
+                       getgenv().AutoTPActive = false
+                       break 
+                   end
+                   task.wait(0.1)
+               end
+           end)
+       end
+   end,
+})
+
+TabTP:CreateSlider({
+   Name = "Thời gian chờ (giây)",
+   Range = {1, 60},
+   Increment = 1,
+   CurrentValue = 5,
+   Callback = function(Value)
+       getgenv().AutoTPDelay = Value
+   end,
+})
+
+TabTP:CreateSection("👥 Teleport tới người chơi")
+
+-- (Giữ nguyên phần chọn người chơi cũ của bạn ở đây)
 local SelTP = nil
 local TPDrop = TabTP:CreateDropdown({
    Name = "Chọn người chơi",
@@ -417,24 +540,8 @@ TabTP:CreateButton({
 })
 
 TabTP:CreateButton({
-   Name = "🔄 Làm mới danh sách",
+   Name = "🔄 Làm mới danh sách Player",
    Callback = function() UpdatePlayerList() TPDrop:Refresh(PlayerList) end,
-})
-
-TabTP:CreateButton({
-   Name = "🛠️ Lấy Tool Click TP (Ctrl + Click)",
-   Callback = function()
-       local Tool = Instance.new("Tool")
-       Tool.Name = "Kuma TP"
-       Tool.RequiresHandle = false
-       Tool.Parent = LocalPlayer.Backpack
-       Tool.Activated:Connect(function()
-           local M = LocalPlayer:GetMouse()
-           if LocalPlayer.Character then
-               LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(M.Hit.p + Vector3.new(0,3,0))
-           end
-       end)
-   end,
 })
 
 -- =========================================================
