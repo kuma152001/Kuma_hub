@@ -17,24 +17,61 @@ local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
+-- CHÈN VÀO ĐÂY (Dưới dòng local Mouse = ...)
+local function CFtoTab(cf) return {cf:GetComponents()} end
+local function TabtoCF(tab) return CFrame.new(unpack(tab)) end
 
--- Khởi tạo Config (Đảm bảo 100% đầy đủ để Load)
-getgenv().KumaConfig = {
-    Speed = 16, Jump = 50, EnableSpeed = false, EnableJump = false,
-    Fly = false, FlySpeed = 20, Noclip = false, InfJump = false,
-    SpinBot = false, Fling = false,
-    Aimbot = false, AimbotRadius = 150, AimbotTeamCheck = false,
-    ESP = false, Hitbox = false, HitboxSize = 5,
-    Fullbright = false, FOV = 70,
-    MoveMethod = "Teleport", TweenSpeed = 100, AutoDelay = 2, AutoLoopActive = false,
-    AutoReconnect = false, TargetPlr = nil
-}
+local function SaveAllData()
+    local data = {
+        Settings = getgenv().KumaConfig,
+        Waypoints = {}
+    }
+    for name, cf in pairs(getgenv().KumaWaypoints) do
+        data.Waypoints[name] = CFtoTab(cf)
+    end
+    writefile("KumaV3_Storage.json", game:GetService("HttpService"):JSONEncode(data))
+end
 
-getgenv().KumaWaypoints = {}
+local function LoadAllData()
+    if isfile("KumaV3_Storage.json") then
+        local data = game:GetService("HttpService"):JSONDecode(readfile("KumaV3_Storage.json"))
+        getgenv().KumaConfig = data.Settings
+        for name, tab in pairs(data.Waypoints) do
+            getgenv().KumaWaypoints[name] = TabtoCF(tab)
+        end
+    end
+end
+-- 1. Nạp dữ liệu từ file trước
+LoadAllData() 
+
+-- 2. Kiểm tra: Nếu nạp thất bại hoặc file chưa tồn tại (KumaConfig vẫn trống) thì mới nạp mặc định
+if not getgenv().KumaConfig or next(getgenv().KumaConfig) == nil then
+    getgenv().KumaConfig = {
+        Speed = 16, Jump = 50, EnableSpeed = false, EnableJump = false,
+        Fly = false, FlySpeed = 20, Noclip = false, InfJump = false,
+        SpinBot = false, Fling = false,
+        Aimbot = false, AimbotRadius = 150, AimbotTeamCheck = false,
+        ESP = false, Hitbox = false, HitboxSize = 5,
+        Fullbright = false, FOV = 70,
+        MoveMethod = "Teleport", TweenSpeed = 100, AutoDelay = 2, AutoLoopActive = false,
+        AutoReconnect = false, TargetPlr = nil
+    }
+end
+
+-- 3. Khởi tạo Waypoints nếu trống
+if not getgenv().KumaWaypoints then
+    getgenv().KumaWaypoints = {}
+end
+
 local SelectedPoint = nil
 local TempPointName = "Điểm Mới"
-local WaypointList = {"Chưa có điểm"}
+local WaypointList = {}
 
+-- Tạo danh sách tên điểm cho Dropdown
+for n, _ in pairs(getgenv().KumaWaypoints) do 
+    table.insert(WaypointList, n) 
+end
+if #WaypointList == 0 then table.insert(WaypointList, "Chưa có điểm") end
 -- Hàm xử lý Dropdown
 local function GetDropValue(Option)
     if type(Option) == "table" then return Option[1] end
@@ -156,8 +193,11 @@ TabTP:CreateButton({ Name = "💾 Lưu tọa độ hiện tại", Callback = fun
         local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if hrp then
             getgenv().KumaWaypoints[TempPointName] = hrp.CFrame
-            local list = {} for n, _ in pairs(getgenv().KumaWaypoints) do table.insert(list, n) end
-            if WPDropdown then WPDropdown:Refresh(list) end
+            local list = {} 
+            for n, _ in pairs(getgenv().KumaWaypoints) do table.insert(list, n) end
+            WPDropdown:Refresh(list)
+            
+            SaveAllData() -- Thêm dòng này để lưu vào máy
             Rayfield:Notify({Title = "Hệ thống", Content = "Đã lưu: "..TempPointName, Duration = 2})
         end
     end)
@@ -171,6 +211,7 @@ TabTP:CreateButton({ Name = "🗑️ Xóa điểm chọn", Callback = function()
             getgenv().KumaWaypoints[SelectedPoint] = nil
             local list = {} for n, _ in pairs(getgenv().KumaWaypoints) do table.insert(list, n) end
             WPDropdown:Refresh(list)
+			SaveAllData()
         end
     end)
 end })
@@ -204,15 +245,13 @@ TabPlayer:CreateButton({ Name = "🔄 Refresh List", Callback = function() PlrDr
 local TabSys = Window:CreateTab("⚙️ Hệ Thống", 4483362458)
 
 TabSys:CreateButton({
-   Name = "💾 MANUAL SAVE CONFIG",
+   Name = "💾 MANUAL SAVE ALL DATA",
    Callback = function()
        local success, err = pcall(function()
-           if Rayfield.SaveConfiguration then Rayfield:SaveConfiguration() 
-           elseif Window.SaveConfiguration then Window:SaveConfiguration() end
-           if writefile then writefile("KumaConfig_Backup.json", game:GetService("HttpService"):JSONEncode(getgenv().KumaConfig)) end
+           SaveAllData() -- Sử dụng hàm lưu mới của chúng ta
        end)
-       if success then Rayfield:Notify({Title="Thành công", Content="Đã lưu cấu hình!", Duration=3})
-       else Rayfield:Notify({Title="Lỗi", Content="Executor không hỗ trợ ghi file!", Duration=3}) end
+       if success then Rayfield:Notify({Title="Thành công", Content="Đã lưu cấu hình & tọa độ!", Duration=3})
+       else Rayfield:Notify({Title="Lỗi", Content="Không thể lưu file!", Duration=3}) end
    end
 })
 
@@ -283,3 +322,12 @@ UserInputService.JumpRequest:Connect(function() if getgenv().KumaConfig.InfJump 
 
 task.wait(2)
 pcall(function() Rayfield:LoadConfiguration() end)
+-- Cập nhật lại UI sau khi load dữ liệu từ file
+task.spawn(function()
+    task.wait(1)
+    local list = {}
+    for n, _ in pairs(getgenv().KumaWaypoints) do table.insert(list, n) end
+    if #list > 0 and WPDropdown then
+        WPDropdown:Refresh(list)
+    end
+end)
