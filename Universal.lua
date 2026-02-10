@@ -33,13 +33,29 @@ local function SaveAllData()
 end
 
 local function LoadAllData()
-    if isfile("KumaV3_Storage.json") then
-        local data = game:GetService("HttpService"):JSONDecode(readfile("KumaV3_Storage.json"))
-        getgenv().KumaConfig = data.Settings
-        for name, tab in pairs(data.Waypoints) do
-            getgenv().KumaWaypoints[name] = TabtoCF(tab)
+    pcall(function()
+        if isfile("KumaV3_Storage.json") then
+            local rawData = readfile("KumaV3_Storage.json")
+            if rawData and #rawData > 0 then
+                local data = game:GetService("HttpService"):JSONDecode(rawData)
+                
+                -- Kiểm tra và nạp Settings
+                if data and data.Settings then
+                    getgenv().KumaConfig = data.Settings
+                end
+                
+                -- Kiểm tra và nạp Waypoints (Chống lỗi nil index)
+                if data and data.Waypoints then
+                    getgenv().KumaWaypoints = {}
+                    for name, tab in pairs(data.Waypoints) do
+                        if type(tab) == "table" then -- Chỉ nạp nếu là table hợp lệ
+                            getgenv().KumaWaypoints[name] = TabtoCF(tab)
+                        end
+                    end
+                end
+            end
         end
-    end
+    end)
 end
 -- 1. Nạp dữ liệu từ file trước
 LoadAllData() 
