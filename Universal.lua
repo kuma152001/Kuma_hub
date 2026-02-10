@@ -392,74 +392,91 @@ TabVisual:CreateToggle({
 })
 
 -- =========================================================
--- TAB 4: TELEPORT (TWEEN & INSTANT - UNIFIED DELAY)
+-- TAB 4: HỆ THỐNG DI CHUYỂN NHẤT QUÁN (UNIFIED TP SYSTEM)
 -- =========================================================
 local TabTP = Window:CreateTab("🚀 Teleport", 4483362458)
 
--- Biến cấu hình
+-- Biến cấu hình Toàn cục (Dùng chung cho tất cả chức năng)
 getgenv().KumaWaypoints = {}
-getgenv().UseTween = false
-getgenv().TweenSpeed = 50
-getgenv().AutoTPActive = false
-getgenv().AutoTPDelay = 2 -- Thời gian nghỉ dùng chung
+getgenv().MoveMethod = "Teleport" -- Mặc định là Teleport
+getgenv().TweenSpeed = 100
+getgenv().GlobalDelay = 2        -- Thời gian nghỉ dùng chung
+getgenv().AutoLoopActive = false
 
 local WaypointList = {}
 local SelectedWaypoint = nil
 local WaypointName = "Điểm 1"
 
--- Hàm di chuyển lõi (Dùng chung cho cả nút bấm và vòng lặp)
-local function KumaMoveTo(targetCFrame)
+-- [ HÀM LÕI ]: ĐIỀU KHIỂN CÁCH THỨC DI CHUYỂN
+local function ExecuteMovement(targetCFrame)
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    if getgenv().UseTween then
-        -- Tính toán thời gian dựa trên khoảng cách và tốc độ
+    if getgenv().MoveMethod == "Tween" then
+        -- Cách 1: Bay mượt (Tween)
         local distance = (hrp.Position - targetCFrame.Position).Magnitude
         local duration = distance / math.max(getgenv().TweenSpeed, 1)
         
-        -- Bật Noclip xuyên tường khi đang bay
+        -- Noclip xuyên tường khi đang Tween
         local noclipSignal = RunService.Stepped:Connect(function()
             if char then
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then part.CanCollide = false end
+                for _, v in pairs(char:GetDescendants()) do
+                    if v:IsA("BasePart") then v.CanCollide = false end
                 end
             end
         end)
 
         local tween = game:GetService("TweenService"):Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
         tween:Play()
-        tween.Completed:Wait() -- Đợi bay xong hoàn toàn
-        
+        tween.Completed:Wait() -- Đợi bay xong mới tiếp tục
         noclipSignal:Disconnect()
     else
-        -- Dịch chuyển tức thời (Instant Teleport)
+        -- Cách 2: Biến hình ngay lập tức (Teleport)
         hrp.CFrame = targetCFrame
-        task.wait(0.1) -- Một khoảng nghỉ cực ngắn để engine game cập nhật vị trí
+        task.wait(0.1) -- Nghỉ cực ngắn để ổn định vị trí
     end
 end
 
-TabTP:CreateSection("⚙️ Cấu hình phương thức di chuyển")
+-- =========================================================
+-- PHẦN 1: CÀI ĐẶT CHUNG (METHOD / SPEED / DELAY)
+-- =========================================================
+TabTP:CreateSection("⚙️ Cài đặt phương thức di chuyển")
 
-TabTP:CreateToggle({
-   Name = "Sử dụng Tween (Bay mượt)",
-   CurrentValue = false,
-   Callback = function(Value) getgenv().UseTween = Value end,
+TabTP:CreateDropdown({
+   Name = "Chọn phương thức di chuyển",
+   Options = {"Teleport", "Tween"},
+   CurrentOption = {"Teleport"},
+   MultipleOptions = false,
+   Callback = function(Option)
+       getgenv().MoveMethod = Option[1]
+   end,
 })
 
 TabTP:CreateSlider({
-   Name = "Tốc độ Tween (Studs/s)",
+   Name = "Tốc độ Tween (Nếu chọn Tween)",
    Range = {10, 500},
    Increment = 10,
    CurrentValue = 100,
    Callback = function(Value) getgenv().TweenSpeed = Value end,
 })
 
+TabTP:CreateSlider({
+   Name = "Thời gian nghỉ giữa mỗi lần di chuyển (Giây)",
+   Range = {0, 60},
+   Increment = 1,
+   CurrentValue = 2,
+   Callback = function(Value) getgenv().GlobalDelay = Value end,
+})
+
+-- =========================================================
+-- PHẦN 2: QUẢN LÝ TỌA ĐỘ (WAYPOINTS)
+-- =========================================================
 TabTP:CreateSection("📍 Quản lý tọa độ (Waypoints)")
 
 TabTP:CreateInput({
    Name = "Tên điểm lưu",
-   PlaceholderText = "Nhập tên (ví dụ: Boss)...",
+   PlaceholderText = "Nhập tên điểm...",
    Callback = function(Text) WaypointName = Text end,
 })
 
@@ -470,28 +487,28 @@ TabTP:CreateButton({
        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
            getgenv().KumaWaypoints[WaypointName] = LocalPlayer.Character.HumanoidRootPart.CFrame
            
-           -- Cập nhật danh sách hiển thị
+           -- Cập nhật danh sách
            WaypointList = {}
            for name, _ in pairs(getgenv().KumaWaypoints) do table.insert(WaypointList, name) end
            WPDropdown:Refresh(WaypointList)
            
-           Rayfield:Notify({Title = "Kuma Hub", Content = "Đã lưu tọa độ: " .. WaypointName, Duration = 2})
+           Rayfield:Notify({Title = "Kuma Hub", Content = "Đã lưu: "..WaypointName, Duration = 2})
        end
    end,
 })
 
 WPDropdown = TabTP:CreateDropdown({
-   Name = "Chọn điểm trong danh sách",
+   Name = "Danh sách điểm đã lưu",
    Options = {"Chưa có điểm"},
    CurrentOption = {""},
    Callback = function(Option) SelectedWaypoint = Option[1] end,
 })
 
 TabTP:CreateButton({
-   Name = "🌀 Di chuyển tới điểm đã chọn",
+   Name = "🌀 Bay tới điểm đã chọn",
    Callback = function()
        if SelectedWaypoint and getgenv().KumaWaypoints[SelectedWaypoint] then
-           KumaMoveTo(getgenv().KumaWaypoints[SelectedWaypoint])
+           ExecuteMovement(getgenv().KumaWaypoints[SelectedWaypoint])
        end
    end,
 })
@@ -508,39 +525,34 @@ TabTP:CreateButton({
    end,
 })
 
-TabTP:CreateSection("🔄 Vòng lặp tự động (Auto Loop)")
-
-TabTP:CreateSlider({
-   Name = "Thời gian nghỉ tại mỗi điểm (Giây)",
-   Range = {0, 60},
-   Increment = 1,
-   CurrentValue = 2,
-   Callback = function(Value) getgenv().AutoTPDelay = Value end,
-})
+-- =========================================================
+-- PHẦN 3: VÒNG LẶP TỰ ĐỘNG (AUTO LOOP)
+-- =========================================================
+TabTP:CreateSection("🔄 Vòng lặp tự động")
 
 TabTP:CreateToggle({
-   Name = "Bật Auto Teleport Loop",
+   Name = "Kích hoạt vòng lặp Auto Tele",
    CurrentValue = false,
    Callback = function(Value)
-       getgenv().AutoTPActive = Value
+       getgenv().AutoLoopActive = Value
        if Value then
            task.spawn(function()
-               while getgenv().AutoTPActive do
-                   local pointCount = 0
+               while getgenv().AutoLoopActive do
+                   local hasAnyPoint = false
                    for name, cf in pairs(getgenv().KumaWaypoints) do
-                       if not getgenv().AutoTPActive then break end
-                       pointCount = pointCount + 1
+                       if not getgenv().AutoLoopActive then break end
+                       hasAnyPoint = true
                        
-                       -- Thực hiện di chuyển (đợi cho đến khi tới nơi)
-                       KumaMoveTo(cf)
+                       -- Thực hiện di chuyển theo phương thức đã chọn
+                       ExecuteMovement(cf)
                        
-                       -- Sau khi đã tới nơi, nghỉ một khoảng thời gian trước khi sang điểm tiếp theo
-                       task.wait(getgenv().AutoTPDelay)
+                       -- Sau khi tới nơi, nghỉ theo thời gian Global Delay
+                       task.wait(getgenv().GlobalDelay)
                    end
                    
-                   if pointCount == 0 then
-                       Rayfield:Notify({Title = "Lỗi", Content = "Danh sách điểm trống!", Duration = 3})
-                       getgenv().AutoTPActive = false
+                   if not hasAnyPoint then
+                       Rayfield:Notify({Title = "Lỗi", Content = "Vui lòng lưu ít nhất 1 điểm!", Duration = 3})
+                       getgenv().AutoLoopActive = false
                        break
                    end
                    task.wait(0.1)
@@ -550,7 +562,10 @@ TabTP:CreateToggle({
    end,
 })
 
-TabTP:CreateSection("👥 Teleport tới người chơi")
+-- =========================================================
+-- PHẦN 4: NGƯỜI CHƠI (PLAYERS)
+-- =========================================================
+TabTP:CreateSection("👥 Di chuyển tới người chơi khác")
 
 local SelTP = nil
 local TPDrop = TabTP:CreateDropdown({
@@ -566,7 +581,8 @@ TabTP:CreateButton({
        if SelTP then
            local t = Players:FindFirstChild(SelTP)
            if t and t.Character and t.Character:FindFirstChild("HumanoidRootPart") then
-               KumaMoveTo(t.Character.HumanoidRootPart.CFrame)
+               -- Vẫn sử dụng hàm chung để tuân thủ Tween/Teleport
+               ExecuteMovement(t.Character.HumanoidRootPart.CFrame)
            end
        end
    end,
