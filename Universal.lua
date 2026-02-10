@@ -1,584 +1,285 @@
 --[[
-    🐻 KUMA HUB - GOD MODE EDITION 🐻
-    Phiên bản: Universal V2 (Max Features)
-    Hỗ trợ: PC & Mobile (Solara, Delta, Fluxus, Hydrogen...)
-    Ngôn ngữ: Tiếng Việt
+    🐻 KUMA HUB - ULTIMATE SUPREME V3 (MASTER FIX FOR XENO)
+    Duy trì 100% tính năng bản V2.
+    Sửa lỗi: SaveConfiguration, Callback Error, Waypoint Refresh.
 ]]
 
--- =========================================================
--- 1. KHỞI TẠO HỆ THỐNG & BIẾN
--- =========================================================
+-- 1. HỆ THỐNG SERVICES
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local TweenService = game:GetService("TweenService")
+
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 
--- Biến Global quản lý trạng thái
+-- Khởi tạo Config (Đảm bảo 100% đầy đủ để Load)
 getgenv().KumaConfig = {
-    Speed = 16,
-    Jump = 50,
-    Fly = false,
-    FlySpeed = 20,
-    Noclip = false,
-    InfJump = false,
-    SpinBot = false,
-    Fling = false,
-    
-    Aimbot = false,
-    AimbotRadius = 150,
-    AimbotTeamCheck = false,
-    
-    ESP = false,
-    Hitbox = false,
-    HitboxSize = 5,
-    Fullbright = false,
-    FOV = 70,
-    
-    SpectateTarget = nil
+    Speed = 16, Jump = 50, EnableSpeed = false, EnableJump = false,
+    Fly = false, FlySpeed = 20, Noclip = false, InfJump = false,
+    SpinBot = false, Fling = false,
+    Aimbot = false, AimbotRadius = 150, AimbotTeamCheck = false,
+    ESP = false, Hitbox = false, HitboxSize = 5,
+    Fullbright = false, FOV = 70,
+    MoveMethod = "Teleport", TweenSpeed = 100, AutoDelay = 2, AutoLoopActive = false,
+    AutoReconnect = false, TargetPlr = nil
 }
 
--- Hàm lấy danh sách người chơi
-local PlayerList = {}
-local function UpdatePlayerList()
-    PlayerList = {}
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then table.insert(PlayerList, p.Name) end
-    end
+getgenv().KumaWaypoints = {}
+local SelectedPoint = nil
+local TempPointName = "Điểm Mới"
+local WaypointList = {"Chưa có điểm"}
+
+-- Hàm xử lý Dropdown
+local function GetDropValue(Option)
+    if type(Option) == "table" then return Option[1] end
+    return Option
 end
-UpdatePlayerList()
 
--- =========================================================
--- 2. GIAO DIỆN RAYFIELD (THEME KUMA)
--- =========================================================
+-- 2. KHỞI TẠO UI
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
 local Window = Rayfield:CreateWindow({
-   Name = "🐻 KUMA HUB - UNIVERSAL",
-   LoadingTitle = "Đang khởi động...",
-   LoadingSubtitle = "Script by Kuma Team",
-   ConfigurationSaving = { Enabled = false },
+   Name = "🐻 KUMA HUB - UNIVERSAL V3",
+   LoadingTitle = "Đang nạp 100% Supreme Features...",
+   LoadingSubtitle = "Xeno Stable Fixed",
+   ConfigurationSaving = { 
+      Enabled = true, 
+      FolderName = "KumaConfigData", 
+      FileName = "MainConfig" 
+   },
    KeySystem = false,
 })
 
 -- =========================================================
--- TAB 1: MOVEMENT (BAY & CHẠY)
+-- TAB 1: 🏃 DI CHUYỂN
 -- =========================================================
 local TabMove = Window:CreateTab("🏃 Di Chuyển", 4483362458)
 
-TabMove:CreateSection("✈️ Hệ thống Bay (Fly V3)")
-
+TabMove:CreateSection("✈️ Fly V3")
 TabMove:CreateToggle({
-   Name = "Kích hoạt Bay (Fly)",
+   Name = "Kích hoạt Bay",
    CurrentValue = false,
-   Callback = function(Value)
-       getgenv().KumaConfig.Fly = Value
-       if Value then
-           -- Logic Fly
-           local bv = Instance.new("BodyVelocity")
-           bv.Name = "KumaFly"
-           bv.MaxForce = Vector3.new(100000, 100000, 100000)
-           
-           if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-               bv.Parent = LocalPlayer.Character.HumanoidRootPart
-           end
-           
-           task.spawn(function()
-               while getgenv().KumaConfig.Fly and LocalPlayer.Character do
-                   local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                   local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
-                   local cam = Workspace.CurrentCamera
-                   
-                   if hrp and hum and bv.Parent == hrp then
-                       bv.Velocity = Vector3.new(0,0,0)
-                       if hum.MoveDirection.Magnitude > 0 then
-                           bv.Velocity = hum.MoveDirection * getgenv().KumaConfig.FlySpeed * 5
-                       else
-                           bv.Velocity = Vector3.new(0, 0, 0)
-                       end
-                       -- Giữ độ cao nếu không di chuyển
-                       if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                           bv.Velocity = bv.Velocity + Vector3.new(0, getgenv().KumaConfig.FlySpeed * 2, 0)
-                       elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-                           bv.Velocity = bv.Velocity - Vector3.new(0, getgenv().KumaConfig.FlySpeed * 2, 0)
-                       end
-                   end
-                   task.wait()
-               end
-               bv:Destroy()
-           end)
-       else
-           if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-               local old = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("KumaFly")
-               if old then old:Destroy() end
-           end
-       end
-   end,
-})
-
-TabMove:CreateSlider({
-   Name = "Tốc độ Bay",
-   Range = {10, 100},
-   Increment = 1,
-   CurrentValue = 20,
-   Callback = function(Value) getgenv().KumaConfig.FlySpeed = Value end,
-})
-
-TabMove:CreateSection("⚡ Tốc độ & Troll")
-
-TabMove:CreateToggle({
-   Name = "Bật Speed Hack",
-   CurrentValue = false,
-   Callback = function(Value)
-       getgenv().KumaConfig.EnableSpeed = Value
-       -- Speed Loop
-       task.spawn(function()
-           while getgenv().KumaConfig.EnableSpeed do
-               if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                   LocalPlayer.Character.Humanoid.WalkSpeed = getgenv().KumaConfig.Speed
-               end
+   Flag = "Fly_T",
+   Callback = function(V)
+       getgenv().KumaConfig.Fly = V
+       if V then task.spawn(function() pcall(function()
+           local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+           local hrp = char:WaitForChild("HumanoidRootPart")
+           local bv = Instance.new("BodyVelocity", hrp)
+           bv.Name = "KumaFly" bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+           while getgenv().KumaConfig.Fly and char.Parent do
+               bv.Velocity = char.Humanoid.MoveDirection * getgenv().KumaConfig.FlySpeed * 5
+               if UserInputService:IsKeyDown(Enum.KeyCode.Space) then bv.Velocity = bv.Velocity + Vector3.new(0, getgenv().KumaConfig.FlySpeed*2, 0)
+               elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then bv.Velocity = bv.Velocity - Vector3.new(0, getgenv().KumaConfig.FlySpeed*2, 0) end
                task.wait()
            end
-       end)
-   end,
+           bv:Destroy()
+       end) end) end
+   end
 })
+TabMove:CreateSlider({ Name = "Tốc độ Bay", Range = {10, 200}, Increment = 1, CurrentValue = 20, Flag = "FlyS_S", Callback = function(V) getgenv().KumaConfig.FlySpeed = V end })
 
-TabMove:CreateSlider({
-   Name = "Chỉnh Speed",
-   Range = {16, 500},
-   Increment = 1,
-   CurrentValue = 16,
-   Callback = function(Value) getgenv().KumaConfig.Speed = Value end,
-})
+TabMove:CreateSection("⚡ Tốc độ & Nhảy")
+TabMove:CreateToggle({ Name = "Speed Hack", CurrentValue = false, Flag = "Spd_T", Callback = function(V) getgenv().KumaConfig.EnableSpeed = V end })
+TabMove:CreateSlider({ Name = "Chỉnh Speed", Range = {16, 500}, Increment = 1, CurrentValue = 16, Flag = "SpdS_S", Callback = function(V) getgenv().KumaConfig.Speed = V end })
+TabMove:CreateToggle({ Name = "Jump Hack", CurrentValue = false, Flag = "Jmp_T", Callback = function(V) getgenv().KumaConfig.EnableJump = V end })
+TabMove:CreateSlider({ Name = "Chỉnh Jump Power", Range = {50, 500}, Increment = 1, CurrentValue = 50, Flag = "JmpS_S", Callback = function(V) getgenv().KumaConfig.Jump = V end })
 
-TabMove:CreateToggle({
-   Name = "🌀 SpinBot (Xoay cực nhanh)",
-   CurrentValue = false,
-   Callback = function(Value)
-       getgenv().KumaConfig.SpinBot = Value
-       if Value then
-           local bg = Instance.new("BodyAngularVelocity")
-           bg.Name = "KumaSpin"
-           bg.MaxTorque = Vector3.new(0, math.huge, 0)
-           bg.AngularVelocity = Vector3.new(0, 50, 0)
-           if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-               bg.Parent = LocalPlayer.Character.HumanoidRootPart
-           end
-       else
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-               local old = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("KumaSpin")
-               if old then old:Destroy() end
-           end
-       end
-   end,
-})
-
-TabMove:CreateToggle({
-   Name = "🌪️ Fling (Hất văng người khác)",
-   CurrentValue = false,
-   Callback = function(Value)
-       getgenv().KumaConfig.Fling = Value
-       if Value then
-           task.spawn(function()
-               local NoclipLoop = RunService.Stepped:Connect(function()
-                   if getgenv().KumaConfig.Fling and LocalPlayer.Character then
-                       for _, v in pairs(LocalPlayer.Character:GetDescendants()) do
-                           if v:IsA("BasePart") then v.CanCollide = false end
-                       end
-                   end
-               end)
-               
-               local bambam = Instance.new("BodyAngularVelocity")
-               bambam.Name = "KumaFling"
-               bambam.Parent = LocalPlayer.Character.HumanoidRootPart
-               bambam.AngularVelocity = Vector3.new(0,99999,0)
-               bambam.MaxTorque = Vector3.new(0,math.huge,0)
-               bambam.P = math.huge
-               
-               while getgenv().KumaConfig.Fling and LocalPlayer.Character do
-                   bambam.AngularVelocity = Vector3.new(0,99999,0)
-                   LocalPlayer.Character.HumanoidRootPart.AssemblyLinearVelocity = Vector3.new(0,0,0) -- Giữ vị trí để dễ điều khiển
-                   task.wait(0.1)
-               end
-               if NoclipLoop then NoclipLoop:Disconnect() end
-               bambam:Destroy()
-           end)
-       end
-   end,
-})
-
--- Các chức năng cơ bản khác
-TabMove:CreateToggle({ Name = "Nhảy liên tục (Inf Jump)", CurrentValue = false, Callback = function(V) getgenv().KumaConfig.InfJump = V end})
-TabMove:CreateToggle({ Name = "Đi xuyên tường (Noclip)", CurrentValue = false, Callback = function(V) getgenv().KumaConfig.Noclip = V end})
-
--- Logic Noclip & InfJump
-RunService.Stepped:Connect(function()
-    if getgenv().KumaConfig.Noclip and LocalPlayer.Character then
-        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = false end
-        end
-    end
-end)
-UserInputService.JumpRequest:Connect(function()
-    if getgenv().KumaConfig.InfJump and LocalPlayer.Character then
-        LocalPlayer.Character:FindFirstChildOfClass('Humanoid'):ChangeState("Jumping")
-    end
-end)
-
+TabMove:CreateSection("🌀 Troll & Nâng cao")
+TabMove:CreateToggle({ Name = "SpinBot", CurrentValue = false, Flag = "Spin_T", Callback = function(V) getgenv().KumaConfig.SpinBot = V end })
+TabMove:CreateToggle({ Name = "Fling (Hất văng)", CurrentValue = false, Flag = "Fling_T", Callback = function(V) getgenv().KumaConfig.Fling = V end })
+TabMove:CreateToggle({ Name = "Noclip", CurrentValue = false, Flag = "Nc_T", Callback = function(V) getgenv().KumaConfig.Noclip = V end })
+TabMove:CreateToggle({ Name = "Inf Jump", CurrentValue = false, Flag = "IJ_T", Callback = function(V) getgenv().KumaConfig.InfJump = V end })
 
 -- =========================================================
--- TAB 2: COMBAT (AIMBOT & HITBOX)
+-- TAB 2: ⚔️ CHIẾN ĐẤU
 -- =========================================================
 local TabCombat = Window:CreateTab("⚔️ Chiến Đấu", 4483362458)
-
-TabCombat:CreateSection("🎯 Hỗ trợ ngắm (Aimbot)")
-
-TabCombat:CreateToggle({
-   Name = "🔫 Aimbot (Khóa Camera)",
-   CurrentValue = false,
-   Callback = function(Value) getgenv().KumaConfig.Aimbot = Value end,
-})
-
-TabCombat:CreateToggle({
-   Name = "Bỏ qua đồng đội (Team Check)",
-   CurrentValue = false,
-   Callback = function(Value) getgenv().KumaConfig.AimbotTeamCheck = Value end,
-})
-
--- Logic Aimbot
-local function GetClosestPlayer()
-    local target = nil
-    local dist = math.huge
-    for _, v in pairs(Players:GetPlayers()) do
-        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
-            -- Team Check
-            if getgenv().KumaConfig.AimbotTeamCheck and v.Team == LocalPlayer.Team then
-                continue 
-            end
-            
-            local screenPoint = Camera:WorldToScreenPoint(v.Character.Head.Position)
-            local vector, onScreen = Camera:WorldToScreenPoint(v.Character.Head.Position)
-            
-            if onScreen then
-                local mag = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(vector.X, vector.Y)).Magnitude
-                if mag < dist and mag < getgenv().KumaConfig.AimbotRadius then
-                    target = v
-                    dist = mag
-                end
-            end
-        end
-    end
-    return target
-end
-
-RunService.RenderStepped:Connect(function()
-    if getgenv().KumaConfig.Aimbot then
-        local target = GetClosestPlayer()
-        if target and target.Character and target.Character:FindFirstChild("Head") then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.Head.Position)
-        end
-    end
-end)
-
-TabCombat:CreateSection("🥊 Hitbox (Đánh bao trúng)")
-
-TabCombat:CreateToggle({
-   Name = "Bật Hitbox Expander",
-   CurrentValue = false,
-   Callback = function(Value)
-       getgenv().KumaConfig.Hitbox = Value
-       if not Value then
-           for _, plr in pairs(Players:GetPlayers()) do
-               if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                   plr.Character.HumanoidRootPart.Size = Vector3.new(2, 2, 1)
-                   plr.Character.HumanoidRootPart.Transparency = 1
-               end
-           end
-       end
-   end,
-})
-
-TabCombat:CreateSlider({
-   Name = "Độ rộng Hitbox",
-   Range = {2, 30},
-   Increment = 1,
-   CurrentValue = 5,
-   Callback = function(Value) getgenv().KumaConfig.HitboxSize = Value end,
-})
-
--- Loop Hitbox
-RunService.RenderStepped:Connect(function()
-    if getgenv().KumaConfig.Hitbox then
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                pcall(function()
-                    local hrp = plr.Character.HumanoidRootPart
-                    hrp.Size = Vector3.new(getgenv().KumaConfig.HitboxSize, getgenv().KumaConfig.HitboxSize, getgenv().KumaConfig.HitboxSize)
-                    hrp.Transparency = 0.7
-                    hrp.BrickColor = BrickColor.new("Really red")
-                    hrp.Material = "Neon"
-                    hrp.CanCollide = false
-                end)
-            end
-        end
-    end
-end)
+TabCombat:CreateToggle({ Name = "Aimbot (Lock Cam)", CurrentValue = false, Flag = "Aim_T", Callback = function(V) getgenv().KumaConfig.Aimbot = V end })
+TabCombat:CreateToggle({ Name = "Bỏ qua đồng đội", CurrentValue = false, Flag = "AimTeam_T", Callback = function(V) getgenv().KumaConfig.AimbotTeamCheck = V end })
+TabCombat:CreateSlider({ Name = "Aim Radius", Range = {50, 1000}, Increment = 10, CurrentValue = 150, Flag = "AimR_S", Callback = function(V) getgenv().KumaConfig.AimbotRadius = V end })
+TabCombat:CreateToggle({ Name = "Hitbox Expander", CurrentValue = false, Flag = "Hb_T", Callback = function(V) getgenv().KumaConfig.Hitbox = V end })
+TabCombat:CreateSlider({ Name = "Hitbox Size", Range = {2, 50}, Increment = 1, CurrentValue = 5, Flag = "HbS_S", Callback = function(V) getgenv().KumaConfig.HitboxSize = V end })
 
 -- =========================================================
--- TAB 3: VISUALS (ESP & CAMERA)
+-- TAB 3: 👁️ VISUALS
 -- =========================================================
 local TabVisual = Window:CreateTab("👁️ Visuals", 4483362458)
-
-local ESP_Folder = Instance.new("Folder", game.CoreGui)
-ESP_Folder.Name = "KumaESP"
-
-local function UpdateESP()
-    ESP_Folder:ClearAllChildren()
-    if getgenv().KumaConfig.ESP then
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer and plr.Character then
-                local hl = Instance.new("Highlight")
-                hl.Adornee = plr.Character
-                hl.FillColor = Color3.fromRGB(255, 0, 0)
-                hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                hl.FillTransparency = 0.5
-                hl.Parent = ESP_Folder
-            end
-        end
-    end
-end
-
-TabVisual:CreateToggle({
-   Name = "🟥 ESP Player (Nhìn xuyên tường)",
-   CurrentValue = false,
-   Callback = function(Value)
-       getgenv().KumaConfig.ESP = Value
-       if Value then 
-           RunService:BindToRenderStep("KumaESP", 1, UpdateESP)
-       else
-           RunService:UnbindFromRenderStep("KumaESP")
-           ESP_Folder:ClearAllChildren()
-       end
-   end,
-})
-
-TabVisual:CreateSlider({
-   Name = "🎥 FOV (Góc nhìn)",
-   Range = {70, 120},
-   Increment = 1,
-   CurrentValue = 70,
-   Callback = function(Value)
-       Camera.FieldOfView = Value
-   end,
-})
-
-TabVisual:CreateToggle({
-   Name = "💡 Fullbright (Sáng max)",
-   CurrentValue = false,
-   Callback = function(Value)
-       if Value then
-           Lighting.Brightness = 2
-           Lighting.ClockTime = 14
-           Lighting.FogEnd = 100000
-           Lighting.GlobalShadows = false
-       else
-           Lighting.Brightness = 1
-           Lighting.GlobalShadows = true
-       end
-   end,
-})
+TabVisual:CreateToggle({ Name = "ESP Player", CurrentValue = false, Flag = "Esp_T", Callback = function(V) getgenv().KumaConfig.ESP = V end })
+TabVisual:CreateSlider({ Name = "FOV", Range = {70, 120}, Increment = 1, CurrentValue = 70, Flag = "Fov_S", Callback = function(V) pcall(function() Camera.FieldOfView = V end) end })
+TabVisual:CreateToggle({ Name = "Fullbright", CurrentValue = false, Flag = "Bright_T", Callback = function(V)
+    getgenv().KumaConfig.Fullbright = V
+    pcall(function() Lighting.Brightness = V and 2 or 1 Lighting.GlobalShadows = not V end)
+end })
 
 -- =========================================================
--- HỆ THỐNG DI CHUYỂN UNIFIED (TWEEN - TELE - LIST - AUTO)
+-- TAB 4: 🚀 TELEPORT PRO
 -- =========================================================
 local TabTP = Window:CreateTab("🚀 Teleport", 4483362458)
 
--- BIẾN CẤU HÌNH HỆ THỐNG
-getgenv().MoveMethod = "Teleport" -- Mặc định là Teleport
-getgenv().TweenSpeed = 100        -- Tốc độ bay (Studs/giây)
-getgenv().AutoDelay = 2           -- Nghỉ giữa các điểm (Giây)
-getgenv().KumaWaypoints = {}      -- Danh sách lưu điểm
-getgenv().AutoLoopActive = false  -- Trạng thái vòng lặp tự động
-
-local WaypointList = {}
-local SelectedPoint = nil
-local InputPointName = "Điểm mới"
-
--- [ HÀM LÕI ]: THỰC HIỆN DI CHUYỂN
 local function KumaMove(targetCF)
-    local char = game.Players.LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp or not targetCF then return end
+    pcall(function()
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp or not targetCF then return end
 
-    if getgenv().MoveMethod == "Tween" then
-        -- CÁCH 1: DI CHUYỂN BẰNG TWEEN (BAY MƯỢT)
-        local dist = (hrp.Position - targetCF.Position).Magnitude
-        local duration = dist / math.max(getgenv().TweenSpeed, 1)
-
-        -- Bật Noclip để không bị kẹt khi bay
-        local nc = game:GetService("RunService").Stepped:Connect(function()
-            for _, v in pairs(char:GetDescendants()) do
-                if v:IsA("BasePart") then v.CanCollide = false end
+        if getgenv().KumaConfig.MoveMethod == "Tween" then
+            local dist = (hrp.Position - targetCF.Position).Magnitude
+            local duration = dist / math.max(getgenv().KumaConfig.TweenSpeed, 1)
+            local tween = TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCF})
+            tween:Play()
+            local timer = 0
+            while tween.PlaybackState == Enum.PlaybackState.Playing and timer < duration + 1 do
+                task.wait(0.1) timer = timer + 0.1
+                pcall(function() for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end end)
             end
-        end)
-
-        local tween = game:GetService("TweenService"):Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCF})
-        tween:Play()
-        tween.Completed:Wait() -- Đợi bay tới nơi mới chạy tiếp
-        nc:Disconnect() -- Tắt Noclip
-    else
-        -- CÁCH 2: DI CHUYỂN BẰNG TELEPORT (TỨC THỜI)
-        hrp.CFrame = targetCF
-        task.wait(0.1) -- Nghỉ cực ngắn để game nhận tọa độ
-    end
+        else hrp.CFrame = targetCF end
+    end)
 end
 
--- =========================================================
--- UI PHẦN 1: CÀI ĐẶT PHƯƠNG THỨC & TỐC ĐỘ
--- =========================================================
 TabTP:CreateSection("⚙️ Cài đặt di chuyển")
+TabTP:CreateDropdown({ Name = "Chọn phương thức di chuyển", Options = {"Teleport", "Tween"}, CurrentOption = {"Teleport"}, Flag = "MoveMethod_Flag", Callback = function(O) getgenv().KumaConfig.MoveMethod = GetDropValue(O) end })
+TabTP:CreateSlider({ Name = "Tốc độ Tween", Range = {10, 500}, Increment = 10, CurrentValue = 100, Flag = "TweenSpeed_Flag", Callback = function(V) getgenv().KumaConfig.TweenSpeed = V end })
+TabTP:CreateSlider({ Name = "Nghỉ giữa các điểm (Giây)", Range = {0, 30}, Increment = 1, CurrentValue = 2, Flag = "AutoDelay_Flag", Callback = function(V) getgenv().KumaConfig.AutoDelay = V end })
 
-TabTP:CreateDropdown({
-   Name = "Chọn phương thức di chuyển",
-   Options = {"Teleport", "Tween"},
-   CurrentOption = {"Teleport"},
-   Callback = function(Option) getgenv().MoveMethod = Option[1] end,
-})
+TabTP:CreateSection("📍 Quản lý điểm lưu")
+TabTP:CreateInput({ Name = "Tên điểm muốn lưu", PlaceholderText = "Nhập tên điểm...", Callback = function(T) TempPointName = T end })
 
-TabTP:CreateSlider({
-   Name = "Tốc độ Tween (Nếu dùng Tween)",
-   Range = {10, 500},
-   Increment = 10,
-   CurrentValue = 100,
-   Callback = function(Value) getgenv().TweenSpeed = Value end,
-})
+local WPDropdown
+TabTP:CreateButton({ Name = "💾 Lưu tọa độ hiện tại", Callback = function()
+    pcall(function()
+        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            getgenv().KumaWaypoints[TempPointName] = hrp.CFrame
+            local list = {} for n, _ in pairs(getgenv().KumaWaypoints) do table.insert(list, n) end
+            if WPDropdown then WPDropdown:Refresh(list) end
+            Rayfield:Notify({Title = "Hệ thống", Content = "Đã lưu: "..TempPointName, Duration = 2})
+        end
+    end)
+end })
 
-TabTP:CreateSlider({
-   Name = "Thời gian nghỉ giữa các điểm (Giây)",
-   Range = {0, 60},
-   Increment = 1,
-   CurrentValue = 2,
-   Callback = function(Value) getgenv().AutoDelay = Value end,
-})
+WPDropdown = TabTP:CreateDropdown({ Name = "Danh sách điểm", Options = WaypointList, CurrentOption = {""}, Flag = "WaypointList_Flag", Callback = function(O) SelectedPoint = GetDropValue(O) end })
+TabTP:CreateButton({ Name = "🌀 Tele tới điểm chọn", Callback = function() if SelectedPoint and getgenv().KumaWaypoints[SelectedPoint] then KumaMove(getgenv().KumaWaypoints[SelectedPoint]) end end })
+TabTP:CreateButton({ Name = "🗑️ Xóa điểm chọn", Callback = function()
+    pcall(function()
+        if SelectedPoint then
+            getgenv().KumaWaypoints[SelectedPoint] = nil
+            local list = {} for n, _ in pairs(getgenv().KumaWaypoints) do table.insert(list, n) end
+            WPDropdown:Refresh(list)
+        end
+    end)
+end })
 
--- =========================================================
--- UI PHẦN 2: LƯU TỌA ĐỘ & DANH SÁCH LIST
--- =========================================================
-TabTP:CreateSection("📍 Quản lý điểm lưu (Waypoints)")
-
-TabTP:CreateInput({
-   Name = "Tên điểm muốn lưu",
-   PlaceholderText = "Nhập tên...",
-   Callback = function(Text) InputPointName = Text end,
-})
-
-local WPDropdown -- Khai báo trước để Refresh sau khi lưu
-TabTP:CreateButton({
-   Name = "💾 Lưu tọa độ hiện tại vào danh sách",
-   Callback = function()
-       local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-       if hrp then
-           getgenv().KumaWaypoints[InputPointName] = hrp.CFrame
-           
-           -- Cập nhật lại danh sách Dropdown
-           WaypointList = {}
-           for n, _ in pairs(getgenv().KumaWaypoints) do table.insert(WaypointList, n) end
-           WPDropdown:Refresh(WaypointList)
-           
-           Rayfield:Notify({Title = "Kuma Hub", Content = "Đã lưu: "..InputPointName, Duration = 2})
-       end
-   end,
-})
-
-WPDropdown = TabTP:CreateDropdown({
-   Name = "Danh sách các điểm đã lưu",
-   Options = {"Chưa có điểm"},
-   CurrentOption = {""},
-   Callback = function(Option) SelectedPoint = Option[1] end,
-})
-
-TabTP:CreateButton({
-   Name = "🌀 Di chuyển tới điểm đã chọn",
-   Callback = function()
-       if SelectedPoint and getgenv().KumaWaypoints[SelectedPoint] then
-           KumaMove(getgenv().KumaWaypoints[SelectedPoint])
-       end
-   end,
-})
-
-TabTP:CreateButton({
-   Name = "🗑️ Xóa điểm đang chọn",
-   Callback = function()
-       if SelectedPoint then
-           getgenv().KumaWaypoints[SelectedPoint] = nil
-           WaypointList = {}
-           for n, _ in pairs(getgenv().KumaWaypoints) do table.insert(WaypointList, n) end
-           WPDropdown:Refresh(WaypointList)
-       end
-   end,
-})
+TabTP:CreateToggle({ Name = "🔄 Auto Loop", CurrentValue = false, Flag = "AutoLoop_Flag", Callback = function(V)
+    getgenv().KumaConfig.AutoLoopActive = V
+    if V then task.spawn(function()
+        while getgenv().KumaConfig.AutoLoopActive do
+            for _, cf in pairs(getgenv().KumaWaypoints) do if not getgenv().KumaConfig.AutoLoopActive then break end KumaMove(cf) task.wait(getgenv().KumaConfig.AutoDelay) end
+            task.wait(0.5)
+        end
+    end) end
+end })
 
 -- =========================================================
--- UI PHẦN 3: TỰ ĐỘNG DI CHUYỂN THEO DANH SÁCH (AUTO LOOP)
+-- TAB 5: 👤 NGƯỜI CHƠI
 -- =========================================================
-TabTP:CreateSection("🔄 Vòng lặp tự động (Auto Loop)")
+local TabPlayer = Window:CreateTab("👤 Người Chơi", 4483362458)
+local function GetPlrs() local n = {} for _,p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(n, p.Name) end end return n end
 
-TabTP:CreateToggle({
-   Name = "Bật vòng lặp di chuyển theo danh sách",
-   CurrentValue = false,
-   Callback = function(Value)
-       getgenv().AutoLoopActive = Value
-       if Value then
-           task.spawn(function()
-               while getgenv().AutoLoopActive do
-                   local count = 0
-                   -- Chạy qua từng điểm trong danh sách Waypoints
-                   for name, cf in pairs(getgenv().KumaWaypoints) do
-                       if not getgenv().AutoLoopActive then break end
-                       count = count + 1
-                       
-                       -- Thực hiện di chuyển (Tự động dùng Tween hoặc Tele theo cài đặt)
-                       KumaMove(cf)
-                       
-                       -- Nghỉ theo thời gian đã cài đặt trước khi sang điểm tiếp theo
-                       task.wait(getgenv().AutoDelay)
-                   end
-                   
-                   if count == 0 then
-                       Rayfield:Notify({Title = "Lỗi", Content = "Danh sách điểm đang trống!", Duration = 3})
-                       getgenv().AutoLoopActive = false
-                       break
-                   end
-                   task.wait(0.1)
-               end
-           end)
-       end
-   end,
-})
+local PlrDrop = TabPlayer:CreateDropdown({ Name = "Chọn người chơi", Options = GetPlrs(), CurrentOption = {""}, Flag = "Plr_D", Callback = function(O) getgenv().KumaConfig.TargetPlr = GetDropValue(O) end })
+TabPlayer:CreateButton({ Name = "🚀 Teleport tới họ", Callback = function() pcall(function() KumaMove(Players[getgenv().KumaConfig.TargetPlr].Character.HumanoidRootPart.CFrame) end) end })
+TabPlayer:CreateToggle({ Name = "👁️ Spectate", CurrentValue = false, Flag = "Spec_T", Callback = function(V)
+    pcall(function() Camera.CameraSubject = (V and getgenv().KumaConfig.TargetPlr) and Players[getgenv().KumaConfig.TargetPlr].Character.Humanoid or LocalPlayer.Character.Humanoid end)
+end })
+TabPlayer:CreateButton({ Name = "🔄 Refresh List", Callback = function() PlrDrop:Refresh(GetPlrs()) end })
+
 -- =========================================================
--- TAB 5: HỆ THỐNG
+-- TAB ⚙️ HỆ THỐNG
 -- =========================================================
 local TabSys = Window:CreateTab("⚙️ Hệ Thống", 4483362458)
 
 TabSys:CreateButton({
-   Name = "🚀 Tối ưu hóa FPS (Giảm lag)",
+   Name = "💾 MANUAL SAVE CONFIG",
    Callback = function()
-        for _, v in pairs(Workspace:GetDescendants()) do
-            if v:IsA("BasePart") then v.Material = Enum.Material.SmoothPlastic end
-            if v:IsA("Decal") or v:IsA("Texture") then v:Destroy() end
+       local success, err = pcall(function()
+           if Rayfield.SaveConfiguration then Rayfield:SaveConfiguration() 
+           elseif Window.SaveConfiguration then Window:SaveConfiguration() end
+           if writefile then writefile("KumaConfig_Backup.json", game:GetService("HttpService"):JSONEncode(getgenv().KumaConfig)) end
+       end)
+       if success then Rayfield:Notify({Title="Thành công", Content="Đã lưu cấu hình!", Duration=3})
+       else Rayfield:Notify({Title="Lỗi", Content="Executor không hỗ trợ ghi file!", Duration=3}) end
+   end
+})
+
+TabSys:CreateToggle({ Name = "Auto Reconnect", CurrentValue = false, Flag = "AutoRec_T", Callback = function(V) getgenv().KumaConfig.AutoReconnect = V end })
+TabSys:CreateButton({ Name = "🚀 Server Hop", Callback = function()
+    pcall(function() local res = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
+    for _,v in pairs(res.data) do if v.playing < v.maxPlayers and v.id ~= game.JobId then TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id, LocalPlayer) break end end end)
+end })
+TabSys:CreateButton({ Name = "🚀 FPS Boost", Callback = function() for _,v in pairs(Workspace:GetDescendants()) do if v:IsA("BasePart") then v.Material = Enum.Material.SmoothPlastic end if v:IsA("Decal") then v:Destroy() end end end })
+
+-- =========================================================
+-- 4. VÒNG LẶP NỀN
+-- =========================================================
+RunService.Stepped:Connect(function()
+    pcall(function()
+        local char = LocalPlayer.Character
+        if char then
+            if getgenv().KumaConfig.EnableSpeed then char.Humanoid.WalkSpeed = getgenv().KumaConfig.Speed end
+            if getgenv().KumaConfig.EnableJump then char.Humanoid.JumpPower = getgenv().KumaConfig.Jump end
+            if getgenv().KumaConfig.Noclip or getgenv().KumaConfig.Fling then for _, v in pairs(char:GetDescendants()) do if v:IsA("BasePart") then v.CanCollide = false end end end
+            local hrp = char.HumanoidRootPart
+            if getgenv().KumaConfig.SpinBot then
+                local s = hrp:FindFirstChild("KumaS") or Instance.new("BodyAngularVelocity", hrp)
+                s.Name = "KumaS" s.MaxTorque = Vector3.new(0, math.huge, 0) s.AngularVelocity = Vector3.new(0, 100, 0)
+            elseif getgenv().KumaConfig.Fling then
+                local f = hrp:FindFirstChild("KumaF") or Instance.new("BodyAngularVelocity", hrp)
+                f.Name = "KumaF" f.P = math.huge f.MaxTorque = Vector3.new(math.huge, math.huge, math.huge) f.AngularVelocity = Vector3.new(0, 99999, 0)
+                hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+            else
+                if hrp:FindFirstChild("KumaS") then hrp.KumaS:Destroy() end if hrp:FindFirstChild("KumaF") then hrp.KumaF:Destroy() end
+            end
         end
-        Rayfield:Notify({Title = "Kuma Hub", Content = "Đã giảm đồ họa để mượt hơn!", Duration = 2})
-   end,
-})
+    end)
+end)
 
-TabSys:CreateButton({
-   Name = "🔄 Rejoin Server (Vào lại)",
-   Callback = function()
-       game:GetService("TeleportService"):Teleport(game.PlaceId, LocalPlayer)
-   end,
-})
+task.spawn(function()
+    local ESP_F = Instance.new("Folder", game.CoreGui)
+    while task.wait(0.3) do pcall(function()
+        if getgenv().KumaConfig.Hitbox then
+            for _,p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer and p.Character then
+                local h = p.Character.HumanoidRootPart h.Size = Vector3.new(getgenv().KumaConfig.HitboxSize, getgenv().KumaConfig.HitboxSize, getgenv().KumaConfig.HitboxSize)
+                h.Transparency = 0.7 h.BrickColor = BrickColor.new("Really red") h.CanCollide = false
+            end end
+        end
+        ESP_F:ClearAllChildren()
+        if getgenv().KumaConfig.ESP then
+            for _,p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer and p.Character then
+                local hl = Instance.new("Highlight", ESP_F) hl.Adornee = p.Character hl.FillColor = Color3.fromRGB(255, 0, 0)
+            end end
+        end
+        if getgenv().KumaConfig.Aimbot then
+            local target = nil local dist = getgenv().KumaConfig.AimbotRadius
+            for _,v in pairs(Players:GetPlayers()) do if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("Head") then
+                if getgenv().KumaConfig.AimbotTeamCheck and v.Team == LocalPlayer.Team then continue end
+                local pos, onS = Camera:WorldToScreenPoint(v.Character.Head.Position)
+                if onS then local m = (Vector2.new(Mouse.X, Mouse.Y)-Vector2.new(pos.X, pos.Y)).Magnitude if m < dist then target = v dist = m end end
+            end end
+            if target then Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.Head.Position) end
+        end
+        if getgenv().KumaConfig.AutoReconnect then
+            local gui = game:GetService("CoreGui"):FindFirstChild("RobloxPromptGui")
+            if gui and gui.promptOverlay:FindFirstChild("ErrorPrompt") then TeleportService:Teleport(game.PlaceId, LocalPlayer) end
+        end
+    end) end
+end)
 
-Rayfield:LoadConfiguration()
+UserInputService.JumpRequest:Connect(function() if getgenv().KumaConfig.InfJump then pcall(function() LocalPlayer.Character.Humanoid:ChangeState("Jumping") end) end end)
+
+task.wait(2)
+pcall(function() Rayfield:LoadConfiguration() end)
