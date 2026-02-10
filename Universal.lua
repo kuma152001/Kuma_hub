@@ -1,18 +1,26 @@
---[[
-    🐻 KUMA HUB - ULTIMATE SUPREME V3 (MASTER FIX FOR XENO)
-    Duy trì 100% tính năng bản V2.
-    Sửa lỗi: SaveConfiguration, Callback Error, Waypoint Refresh.
-]]
--- ĐỢI GAME LOAD XONG 100%
+-- 1. CHỐNG CHẠY NHIỀU LỚP GUI & KIỂM TRA TRẠNG THÁI (Dọn dẹp bản cũ)
+for _, v in pairs(game:GetService("CoreGui"):GetChildren()) do
+    if v:IsA("ScreenGui") and (v:FindFirstChild("Main") or v.Name == "Rayfield") then
+        v:Destroy()
+    end
+end
+
+-- Chặn chạy chồng script (Chỉ cho phép 1 bản chạy)
+if _G.KumaLoaded then return end
+_G.KumaLoaded = true
+
+-- 2. ĐỊNH NGHĨA BIẾN TELEPORT (Chỉ khai báo 1 lần duy nhất)
+local queue_on_teleport = queue_on_teleport or (syn and syn.queue_on_teleport)
+local scriptSource = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/loader.lua"))()]]
+
+-- 3. ĐỢI GAME LOAD XONG 100%
 if not game:IsLoaded() then
     game.Loaded:Wait()
 end
-task.wait(1) -- Đợi thêm 1 giây cho chắc chắn các dịch vụ đã sẵn sàng
+task.wait(1)
 
--- 1. HỆ THỐNG SERVICES
+-- 4. HỆ THỐNG SERVICES
 local Players = game:GetService("Players")
-local queue_on_teleport = queue_on_teleport or (syn and syn.queue_on_teleport)
-local scriptSource = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/loader.lua"))()]]
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
@@ -24,7 +32,8 @@ local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
--- CHÈN VÀO ĐÂY (Dưới dòng local Mouse = ...)
+
+-- 5. CÁC HÀM TIỆN ÍCH
 local function CFtoTab(cf) return {cf:GetComponents()} end
 local function TabtoCF(tab) return CFrame.new(unpack(tab)) end
 
@@ -36,7 +45,7 @@ local function SaveAllData()
     for name, cf in pairs(getgenv().KumaWaypoints) do
         data.Waypoints[name] = CFtoTab(cf)
     end
-    writefile("KumaV3_Storage.json", game:GetService("HttpService"):JSONEncode(data))
+    writefile("KumaV3_Storage.json", HttpService:JSONEncode(data))
 end
 
 local function LoadAllData()
@@ -44,18 +53,14 @@ local function LoadAllData()
         if isfile("KumaV3_Storage.json") then
             local rawData = readfile("KumaV3_Storage.json")
             if rawData and #rawData > 0 then
-                local data = game:GetService("HttpService"):JSONDecode(rawData)
-                
-                -- Kiểm tra và nạp Settings
+                local data = HttpService:JSONDecode(rawData)
                 if data and data.Settings then
                     getgenv().KumaConfig = data.Settings
                 end
-                
-                -- Kiểm tra và nạp Waypoints (Chống lỗi nil index)
                 if data and data.Waypoints then
                     getgenv().KumaWaypoints = {}
                     for name, tab in pairs(data.Waypoints) do
-                        if type(tab) == "table" then -- Chỉ nạp nếu là table hợp lệ
+                        if type(tab) == "table" then
                             getgenv().KumaWaypoints[name] = TabtoCF(tab)
                         end
                     end
@@ -64,10 +69,10 @@ local function LoadAllData()
         end
     end)
 end
--- 1. Nạp dữ liệu từ file trước
+
+-- 6. NẠP DỮ LIỆU & CẤU HÌNH MẶC ĐỊNH
 LoadAllData() 
 
--- 2. Kiểm tra: Nếu nạp thất bại hoặc file chưa tồn tại (KumaConfig vẫn trống) thì mới nạp mặc định
 if not getgenv().KumaConfig or next(getgenv().KumaConfig) == nil then
     getgenv().KumaConfig = {
         Speed = 16, Jump = 50, EnableSpeed = false, EnableJump = false,
@@ -81,7 +86,6 @@ if not getgenv().KumaConfig or next(getgenv().KumaConfig) == nil then
     }
 end
 
--- 3. Khởi tạo Waypoints nếu trống
 if not getgenv().KumaWaypoints then
     getgenv().KumaWaypoints = {}
 end
@@ -89,19 +93,15 @@ end
 local SelectedPoint = nil
 local TempPointName = "Điểm Mới"
 local WaypointList = {}
-
--- Tạo danh sách tên điểm cho Dropdown
-for n, _ in pairs(getgenv().KumaWaypoints) do 
-    table.insert(WaypointList, n) 
-end
+for n, _ in pairs(getgenv().KumaWaypoints) do table.insert(WaypointList, n) end
 if #WaypointList == 0 then table.insert(WaypointList, "Chưa có điểm") end
--- Hàm xử lý Dropdown
+
 local function GetDropValue(Option)
     if type(Option) == "table" then return Option[1] end
     return Option
 end
 
--- 2. KHỞI TẠO UI
+-- 7. KHỞI TẠO UI (RAYFIELD)
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
    Name = "🐻 KUMA HUB - UNIVERSAL V3",
@@ -284,9 +284,7 @@ TabSys:CreateButton({ Name = "🚀 Server Hop", Callback = function()
         local res = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
         for _,v in pairs(res.data) do 
             if v.playing < v.maxPlayers and v.id ~= game.JobId then 
-                -- Thêm dòng này:
-                if queue_on_teleport then queue_on_teleport(scriptSource) end
-                
+                if queue_on_teleport then queue_on_teleport(scriptSource) end -- Chạy lại script sau khi hop
                 TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id, LocalPlayer) 
                 break 
             end 
@@ -347,9 +345,7 @@ task.spawn(function()
         if getgenv().KumaConfig.AutoReconnect then
             local gui = game:GetService("CoreGui"):FindFirstChild("RobloxPromptGui")
             if gui and gui.promptOverlay:FindFirstChild("ErrorPrompt") then 
-                -- Thêm dòng này:
-                if queue_on_teleport then queue_on_teleport(scriptSource) end
-                
+                if queue_on_teleport then queue_on_teleport(scriptSource) end -- Chạy lại script sau khi reconnect
                 TeleportService:Teleport(game.PlaceId, LocalPlayer) 
             end
         end
