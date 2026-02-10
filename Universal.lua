@@ -3,9 +3,16 @@
     Duy trì 100% tính năng bản V2.
     Sửa lỗi: SaveConfiguration, Callback Error, Waypoint Refresh.
 ]]
+-- ĐỢI GAME LOAD XONG 100%
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+task.wait(1) -- Đợi thêm 1 giây cho chắc chắn các dịch vụ đã sẵn sàng
 
 -- 1. HỆ THỐNG SERVICES
 local Players = game:GetService("Players")
+local queue_on_teleport = queue_on_teleport or (syn and syn.queue_on_teleport)
+local scriptSource = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/loader.lua"))()]]
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
@@ -273,8 +280,18 @@ TabSys:CreateButton({
 
 TabSys:CreateToggle({ Name = "Auto Reconnect", CurrentValue = false, Flag = "AutoRec_T", Callback = function(V) getgenv().KumaConfig.AutoReconnect = V end })
 TabSys:CreateButton({ Name = "🚀 Server Hop", Callback = function()
-    pcall(function() local res = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
-    for _,v in pairs(res.data) do if v.playing < v.maxPlayers and v.id ~= game.JobId then TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id, LocalPlayer) break end end end)
+    pcall(function() 
+        local res = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
+        for _,v in pairs(res.data) do 
+            if v.playing < v.maxPlayers and v.id ~= game.JobId then 
+                -- Thêm dòng này:
+                if queue_on_teleport then queue_on_teleport(scriptSource) end
+                
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id, LocalPlayer) 
+                break 
+            end 
+        end 
+    end)
 end })
 TabSys:CreateButton({ Name = "🚀 FPS Boost", Callback = function() for _,v in pairs(Workspace:GetDescendants()) do if v:IsA("BasePart") then v.Material = Enum.Material.SmoothPlastic end if v:IsA("Decal") then v:Destroy() end end end })
 
@@ -329,7 +346,12 @@ task.spawn(function()
         end
         if getgenv().KumaConfig.AutoReconnect then
             local gui = game:GetService("CoreGui"):FindFirstChild("RobloxPromptGui")
-            if gui and gui.promptOverlay:FindFirstChild("ErrorPrompt") then TeleportService:Teleport(game.PlaceId, LocalPlayer) end
+            if gui and gui.promptOverlay:FindFirstChild("ErrorPrompt") then 
+                -- Thêm dòng này:
+                if queue_on_teleport then queue_on_teleport(scriptSource) end
+                
+                TeleportService:Teleport(game.PlaceId, LocalPlayer) 
+            end
         end
     end) end
 end)
