@@ -123,10 +123,10 @@ local Window = Rayfield:CreateWindow({
 
 -- TAB 1: COMBAT (Aura Multi-Target)
 local CombatTab = Window:CreateTab("Combat", 4483362458)
-CombatTab:CreateToggle({Name = "Kill Aura (Multi-Target)", Callback = function(v) Config.KillAura = v end})
-CombatTab:CreateToggle({Name = "Auto Bring All Small Trees", CurrentValue = false, Callback = function(v) Config.AutoBringTrees = v; toggleTreeBring(v) end})
+CombatTab:CreateToggle({Name = "Kill Aura ", Callback = function(v) Config.KillAura = v end})
+CombatTab:CreateToggle({Name = "Gom Cây", CurrentValue = false, Callback = function(v) Config.AutoBringTrees = v; toggleTreeBring(v) end})
 CombatTab:CreateSlider({
-    Name = "Aura Range",
+    Name = "Phạm vi Aura",
     Range = {10, 1000},
     Increment = 10,
     Suffix = " Studs",
@@ -139,25 +139,25 @@ CombatTab:CreateSlider({
 local ItemHub = Window:CreateTab("Item Hub", 4483362458)
 
 ItemHub:CreateSection("Wood Section")
-ItemHub:CreateButton({Name = "BRING ALL Woods", Callback = function() bringItems({"Log", "Chair"}) end})
-ItemHub:CreateButton({Name = "BRING Sapling", Callback = function() bringItems({"Sapling"}) end})
+ItemHub:CreateButton({Name = "thu Hết Gỗ", Callback = function() bringItems({"Log", "Chair"}) end})
+ItemHub:CreateButton({Name = "Thu Mầm Cây", Callback = function() bringItems({"Sapling"}) end})
 
 ItemHub:CreateSection("Automations")
-ItemHub:CreateToggle({Name = "Auto Eat", Callback = function(v) Config.AutoEat = v end})
-ItemHub:CreateToggle({Name = "Auto Feed Campfire", Callback = function(v) Config.AutoFire = v end})
+ItemHub:CreateToggle({Name = "Tự động Ăn", Callback = function(v) Config.AutoEat = v end})
+ItemHub:CreateToggle({Name = "Tự động Đốt lửa", Callback = function(v) Config.AutoFire = v end})
 
-ItemHub:CreateSection("Survival & Food")
-ItemHub:CreateButton({Name = "Bring Medical", Callback = function() bringItems(Brackets.Medical) end})
-ItemHub:CreateButton({Name = "Bring Food", Callback = function() bringItems(Brackets.Food) end})
-ItemHub:CreateButton({Name = "Bring Meat", Callback = function() bringItems(Brackets.Meat) end})
+ItemHub:CreateSection("Sinh Tồn")
+ItemHub:CreateButton({Name = "Lấy Thuốc + Băng gạc", Callback = function() bringItems(Brackets.Medical) end})
+ItemHub:CreateButton({Name = "Lấy Thức Ăn", Callback = function() bringItems(Brackets.Food) end})
+ItemHub:CreateButton({Name = "Lấy Thịt", Callback = function() bringItems(Brackets.Meat) end})
 
 ItemHub:CreateSection("Gear & Equipment")
-ItemHub:CreateButton({Name = "Bring Weapons & Armor", Callback = function() bringItems(Brackets.Weapons); bringItems(Brackets.Armor); bringItems(Brackets.GunsAmmo) end})
-ItemHub:CreateButton({Name = "Bring Misc Tools (Sacks/Flashlights)", Callback = function() bringItems(Brackets.MiscTools) end})
+ItemHub:CreateButton({Name = "Lấy Vũ khí + Giáp", Callback = function() bringItems(Brackets.Weapons); bringItems(Brackets.Armor); bringItems(Brackets.GunsAmmo) end})
+ItemHub:CreateButton({Name = "Lấy công cụ: Túi + đèn pin", Callback = function() bringItems(Brackets.MiscTools) end})
 
 ItemHub:CreateSection("Materials & Fuel")
-ItemHub:CreateButton({Name = "Bring All Fuels", Callback = function() bringItems(Brackets.Fuel) end})
-ItemHub:CreateButton({Name = "Bring Crafting Materials", Callback = function() bringItems(Brackets.Materials); bringItems(Brackets.Pelts) end})
+ItemHub:CreateButton({Name = "Lấy Nhiên liệu", Callback = function() bringItems(Brackets.Fuel) end})
+ItemHub:CreateButton({Name = "Lấy Nguyên liệu chế tạo", Callback = function() bringItems(Brackets.Materials); bringItems(Brackets.Pelts) end})
 ItemHub:CreateButton({Name = "Bring All Chests", Callback = function() bringItems({"Alien Chest", "Stronghold Diamond Chest"}) end})
 
 -- TAB 3: VISUALS (ESP PHÂN LOẠI)
@@ -171,10 +171,10 @@ local function CreateESP(i, col, g)
     table.insert(ESP_Tags[g], b)
 end
 
-ESPTab:CreateToggle({Name = "ESP Mobs (Red)", Callback = function(v) ClearESP("Mobs") if v then for _,m in pairs(workspace.Characters:GetChildren()) do if m ~= LocalPlayer.Character then CreateESP(m, Color3.new(1,0,0), "Mobs") end end end end})
-ESPTab:CreateToggle({Name = "ESP Food & Medical (Green)", Callback = function(v) ClearESP("Food") if v then for _,i in pairs(itemsFolder:GetChildren()) do if table.find(Brackets.Food, i.Name) or table.find(Brackets.Medical, i.Name) then CreateESP(i, Color3.new(0,1,0), "Food") end end end end})
-ESPTab:CreateToggle({Name = "ESP Wood & Materials (Cyan)", Callback = function(v) ClearESP("Mats") if v then for _,i in pairs(itemsFolder:GetChildren()) do if table.find(Brackets.Materials, i.Name) or table.find(Brackets.Fuel, i.Name) or i.Name == "Log" then CreateESP(i, Color3.new(0,1,1), "Mats") end end end end})
-ESPTab:CreateToggle({Name = "ESP Rare & Weapons (Gold)", Callback = function(v) ClearESP("Rare") if v then for _,i in pairs(itemsFolder:GetChildren()) do if table.find(Brackets.Weapons, i.Name) or i.Name:find("Chest") then CreateESP(i, Color3.new(1,0.8,0), "Rare") end end end end})
+ESPTab:CreateToggle({Name = "ESP Quái (Red)", Callback = function(v) ClearESP("Mobs") if v then for _,m in pairs(workspace.Characters:GetChildren()) do if m ~= LocalPlayer.Character then CreateESP(m, Color3.new(1,0,0), "Mobs") end end end end})
+ESPTab:CreateToggle({Name = "ESP Thức Ăn + Y tế (Green)", Callback = function(v) ClearESP("Food") if v then for _,i in pairs(itemsFolder:GetChildren()) do if table.find(Brackets.Food, i.Name) or table.find(Brackets.Medical, i.Name) then CreateESP(i, Color3.new(0,1,0), "Food") end end end end})
+ESPTab:CreateToggle({Name = "ESP Nguyên liệu (Cyan)", Callback = function(v) ClearESP("Mats") if v then for _,i in pairs(itemsFolder:GetChildren()) do if table.find(Brackets.Materials, i.Name) or table.find(Brackets.Fuel, i.Name) or i.Name == "Log" then CreateESP(i, Color3.new(0,1,1), "Mats") end end end end})
+ESPTab:CreateToggle({Name = "ESP Item và Vũ khí (Gold)", Callback = function(v) ClearESP("Rare") if v then for _,i in pairs(itemsFolder:GetChildren()) do if table.find(Brackets.Weapons, i.Name) or i.Name:find("Chest") then CreateESP(i, Color3.new(1,0.8,0), "Rare") end end end end})
 
 -- TAB 4: MISC (Bao gồm Teleport)
 local MiscTab = Window:CreateTab("Misc", 4483362458)
@@ -188,7 +188,7 @@ task.spawn(function() while _G.ScriptRunning do local p = {}; for _,v in pairs(P
 MiscTab:CreateButton({Name = "TP to Player", Callback = function() local t = Players:FindFirstChild(SelP) if t and t.Character then LocalPlayer.Character:PivotTo(t.Character:GetPivot()) end end})
 MiscTab:CreateSection("Settings")
 MiscTab:CreateSlider({
-    Name = "WalkSpeed",
+    Name = "Tốc độ",
     Range = {16, 250},
     Increment = 1,
     Suffix = " Speed",
