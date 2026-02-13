@@ -117,12 +117,12 @@ end
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
     Name = "99 Nights | Kuma Hub V7",
-    LoadingTitle = "Multi-Aura & Detailed ESP Ready",
+    LoadingTitle = "AI SỢ THÌ ĐI VỀ - PHONG CÁCH",
     ConfigurationSaving = { Enabled = false }
 })
 
 -- TAB 1: COMBAT (Aura Multi-Target)
-local CombatTab = Window:CreateTab("Combat", 4483362458)
+local CombatTab = Window:CreateTab("FARM", 4483362458)
 CombatTab:CreateToggle({Name = "Kill Aura ", Callback = function(v) Config.KillAura = v end})
 CombatTab:CreateToggle({Name = "Gom Cây", CurrentValue = false, Callback = function(v) Config.AutoBringTrees = v; toggleTreeBring(v) end})
 CombatTab:CreateSlider({
@@ -136,11 +136,11 @@ CombatTab:CreateSlider({
 })
 
 -- TAB 2: ITEM HUB (Gộp Survival + Gear + Material)
-local ItemHub = Window:CreateTab("Item Hub", 4483362458)
+local ItemHub = Window:CreateTab("VẬT PHẨM", 4483362458)
 
 ItemHub:CreateSection("Wood Section")
-ItemHub:CreateButton({Name = "thu Hết Gỗ", Callback = function() bringItems({"Log", "Chair"}) end})
-ItemHub:CreateButton({Name = "Thu Mầm Cây", Callback = function() bringItems({"Sapling"}) end})
+ItemHub:CreateButton({Name = "Lấy Hết Gỗ", Callback = function() bringItems({"Log", "Chair"}) end})
+ItemHub:CreateButton({Name = "Lấy Mầm Cây", Callback = function() bringItems({"Sapling"}) end})
 
 ItemHub:CreateSection("Automations")
 ItemHub:CreateToggle({Name = "Tự động Ăn", Callback = function(v) Config.AutoEat = v end})
