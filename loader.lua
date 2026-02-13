@@ -24,7 +24,7 @@ local GameDatabase = {
     -- Ví dụ: Blox Fruits (Sea 1, 2, 3)
     [118964786752768] = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/main/herb.lua",
     [92814019058536] = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/plant_brainrot_simulator.lua",
-    [7449423635] = "LINK_SCRIPT_BLOX_FRUITS_HERE",
+    [79546208627805] = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/99_nights_in_the_forest.lua",
     
     -- Ví dụ: Pet Simulator 99
     [8737877270] = "LINK_SCRIPT_PET_SIM_99_HERE",
