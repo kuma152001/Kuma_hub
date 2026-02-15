@@ -5,7 +5,7 @@
 -- Bước 2: Lấy link "Raw" (Ví dụ: https://pastebin.com/raw/AbCdEfGh).
 -- Bước 3: Dán link đó vào giữa dấu ngoặc kép bên dưới.
 
-getgenv().ScriptURL = "https://raw.githubusercontent.com/user/repo/main/script.lua" 
+getgenv().ScriptURL = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/tap_simulator.lua" 
 -- (Nếu bạn để trống hoặc link sai, chức năng tự chạy lại khi Rejoin sẽ không hoạt động)
 
 -- =================================================================
