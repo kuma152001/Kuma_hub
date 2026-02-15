@@ -25,6 +25,7 @@ local GameDatabase = {
     [118964786752768] = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/main/herb.lua",
     [92814019058536] = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/plant_brainrot_simulator.lua",
     [79546208627805] = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/99_nights_in_the_forest.lua",
+    [75992362647444] = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/tap_simulator.lua",
     
     -- Ví dụ: Pet Simulator 99
     [8737877270] = "LINK_SCRIPT_PET_SIM_99_HERE",
