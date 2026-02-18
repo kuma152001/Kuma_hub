@@ -1,1 +1,1059 @@
 
+
+local VERSION = "1.0.0"
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local IsMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+local Config = {
+    KillAura = false,
+    KillAuraRange = 50,
+    KillAuraSpeed = 0.02,
+    MultiTarget = true,
+    AutoEquipBest = false,
+    AutoBuyHatch = false,
+    SelectedEgg = "City Egg",
+    HatchDelay = 1.5,
+    AutoDeletePets = false,
+    DeleteBelowRarity = "Rare",
+    DeleteDelay = 2,
+    AutoRebirth = false,
+    AutoCollect = false,
+    AutoSpin = false,
+    AutoQuest = false,
+    SpeedHack = false,
+    WalkSpeed = 50,
+    NoClip = false,
+    Fly = false,
+    FlySpeed = 50
+}
+
+local EggList = {
+    "Basic Egg", "City Egg", "Chef Egg", "Cake Egg", "Toilet Egg", "Sink Egg",
+    "Sahure Egg", "Adventure Egg", "Lab Egg", "Mecha Egg", "Xenon Egg",
+    "Thanatos Egg", "Angelico Egg", "Hydriant Egg", "Capy Egg", "Ghoulix Egg",
+    "Hydrocore Egg", "God Egg", "Alien Egg", "Ice Egg", "Golem Egg",
+    "Corn Egg", "Flower Egg", "Void Egg", "Mythic Egg", "Legendary Egg"
+}
+
+local RarityList = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret"}
+local RarityOrder = {Common = 1, Uncommon = 2, Rare = 3, Epic = 4, Legendary = 5, Mythic = 6, Secret = 7}
+
+local PetsInfo = nil
+pcall(function()
+    PetsInfo = require(ReplicatedStorage:WaitForChild("GameInfo"):WaitForChild("PetsInfo"))
+end)
+
+local State = {
+    Unloaded = false,
+    LastAttack = 0,
+    LastHatch = 0,
+    LastRebirth = 0,
+    LastCollect = 0,
+    LastSpin = 0,
+    LastQuest = 0,
+    LastDelete = 0,
+    LastEquip = 0,
+    Connections = {},
+    Flying = false,
+    FlyBV = nil,
+    FlyBG = nil,
+    Gui = nil,
+    MobileBtn = nil
+}
+
+local function GetKnitRemote(serviceName, folder, remoteName)
+    local success, result = pcall(function()
+        return ReplicatedStorage.Packages.Knit.Services[serviceName][folder][remoteName]
+    end)
+    return success and result or nil
+end
+
+local Remotes = {
+    RequestAttack = GetKnitRemote("MonsterService", "RF", "RequestAttack"),
+    CanAttack = GetKnitRemote("MonsterService", "RF", "CanAttack"),
+    EquipBest = GetKnitRemote("MonsterService", "RF", "EquipBest"),
+    OpenEgg = GetKnitRemote("EggService", "RF", "OpenEgg"),
+    RequestRebirth = GetKnitRemote("RebirthService", "RF", "RequestRebirth"),
+    PetEquipBest = GetKnitRemote("PetsService", "RF", "EquipBest"),
+    PetDelete = GetKnitRemote("PetsService", "RF", "Delete"),
+    SpinAll = GetKnitRemote("SpinWheelService", "RF", "SpinAll"),
+    SpinWheel = GetKnitRemote("SpinWheelService", "RF", "SpinWheel"),
+    CollectDailyReward = GetKnitRemote("DailyService", "RF", "CollectDailyReward"),
+    ClaimDailyStreak = GetKnitRemote("DailyService", "RF", "ClaimDailyStreak"),
+    CollectAll = GetKnitRemote("IndexService", "RF", "CollectAll"),
+    ClaimQuestReward = GetKnitRemote("QuestService", "RF", "ClaimQuestReward"),
+    RequestLevelUp = GetKnitRemote("LevelService", "RF", "RequestLevelUp")
+}
+
+local Knit, KnitPetsService, KnitRebirthService, KnitSeasonPassService, KnitGiftService
+local KnitDailyService, KnitIndexService, KnitQuestService, KnitShopService
+
+pcall(function()
+    Knit = require(ReplicatedStorage.Packages.Knit)
+    KnitPetsService = Knit.GetService("PetsService")
+    KnitRebirthService = Knit.GetService("RebirthService")
+    KnitSeasonPassService = Knit.GetService("SeasonPassService")
+    KnitGiftService = Knit.GetService("GiftService")
+    KnitDailyService = Knit.GetService("DailyService")
+    KnitIndexService = Knit.GetService("IndexService")
+    KnitQuestService = Knit.GetService("QuestService")
+    KnitShopService = Knit.GetService("ShopService")
+end)
+
+local function GetChar() return LocalPlayer.Character end
+local function GetRoot() local c = GetChar() return c and c:FindFirstChild("HumanoidRootPart") end
+local function GetHum() local c = GetChar() return c and c:FindFirstChildOfClass("Humanoid") end
+
+local function SafeInvoke(remote, ...)
+    if not remote then return nil end
+    local args = {...}
+    local success, result = pcall(function() return remote:InvokeServer(unpack(args)) end)
+    return success and result or nil
+end
+
+local function GetMobs(range)
+    local mobs = {}
+    local root = GetRoot()
+    if not root then return mobs end
+    local myPos = root.Position
+    local char = GetChar()
+    
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj ~= char then
+            local hum = obj:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                local mobRoot = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Torso") or obj:FindFirstChild("Head")
+                if mobRoot then
+                    local dist = (myPos - mobRoot.Position).Magnitude
+                    if dist <= range then
+                        table.insert(mobs, {pos = mobRoot.Position, dist = dist})
+                    end
+                end
+            end
+        end
+    end
+    table.sort(mobs, function(a, b) return a.dist < b.dist end)
+    return mobs
+end
+
+local currentTargetIndex = 1
+local cachedMobs = {}
+local lastMobCache = 0
+
+local function DoKillAura()
+    if not Config.KillAura or not Remotes.RequestAttack then return end
+    local root = GetRoot()
+    if not root then return end
+    
+    local now = tick()
+    if now - lastMobCache > 0.5 then
+        cachedMobs = GetMobs(Config.KillAuraRange)
+        lastMobCache = now
+        currentTargetIndex = 1
+    end
+    
+    if #cachedMobs == 0 then return end
+    
+    local maxTargets = Config.MultiTarget and 5 or 1
+    local attackRange = 5
+    local targetCount = math.min(#cachedMobs, maxTargets)
+    
+    if currentTargetIndex > targetCount then currentTargetIndex = 1 end
+    
+    local mobPos = cachedMobs[currentTargetIndex].pos
+    local fakePlayerPos = mobPos + Vector3.new(0, 0, attackRange)
+    local fakeCFrame = CFrame.new(fakePlayerPos, mobPos)
+    local spoofedAttackCFrame = fakeCFrame * CFrame.new(0, 0, -attackRange)
+    
+    task.spawn(function()
+        pcall(function() Remotes.RequestAttack:InvokeServer(spoofedAttackCFrame) end)
+    end)
+    
+    currentTargetIndex = currentTargetIndex + 1
+end
+
+local function DoEquipBest()
+    pcall(function()
+        if KnitPetsService and KnitPetsService.EquipBest then
+            KnitPetsService:EquipBest()
+        elseif Remotes.EquipBest then
+            Remotes.EquipBest:InvokeServer()
+        elseif Remotes.PetEquipBest then
+            Remotes.PetEquipBest:InvokeServer()
+        end
+    end)
+end
+
+local function DoHatch()
+    local eggName = Config.SelectedEgg
+    SafeInvoke(Remotes.OpenEgg, eggName)
+    SafeInvoke(Remotes.OpenEgg, eggName, 1)
+    SafeInvoke(Remotes.OpenEgg, eggName, true)
+end
+
+local RebirthLevelRequirements = {[2] = 25, [3] = 39, [4] = 60, [5] = 67, [6] = 81, [7] = 95}
+
+local function GetCurrentLevel()
+    local level = 0
+    pcall(function()
+        local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+        if leaderstats then
+            local lvl = leaderstats:FindFirstChild("Level")
+            if lvl then level = tonumber(lvl.Value) or 0 end
+        end
+    end)
+    return level
+end
+
+local function GetCurrentRebirths()
+    local rebirths = 0
+    pcall(function()
+        local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
+        if leaderstats then
+            local rb = leaderstats:FindFirstChild("Rebirths")
+            if rb then rebirths = tonumber(rb.Value) or 0 end
+        end
+    end)
+    return rebirths
+end
+
+local function DoRebirth()
+    local currentRebirths = GetCurrentRebirths()
+    local currentLevel = GetCurrentLevel()
+    local nextRebirth = currentRebirths + 1
+    
+    if nextRebirth > 7 then return end
+    local levelRequired = RebirthLevelRequirements[nextRebirth] or 999
+    if currentLevel < levelRequired then return end
+    
+    pcall(function()
+        if KnitRebirthService and KnitRebirthService.RequestRebirth then
+            KnitRebirthService:RequestRebirth(nextRebirth)
+        elseif Remotes.RequestRebirth then
+            Remotes.RequestRebirth:InvokeServer(nextRebirth)
+        end
+    end)
+end
+
+local function DoCollect()
+    pcall(function()
+        if KnitDailyService then
+            KnitDailyService:CollectDailyReward()
+            task.wait(0.2)
+            KnitDailyService:ClaimDailyStreak()
+        end
+    end)
+    
+    pcall(function()
+        if KnitIndexService and KnitIndexService.CollectAll then
+            KnitIndexService:CollectAll()
+        end
+    end)
+    
+    pcall(function()
+        if KnitGiftService then
+            for i = 1, 30 do
+                pcall(function() KnitGiftService:CollectGift(i) end)
+            end
+        end
+    end)
+    
+    pcall(function()
+        if KnitSeasonPassService then
+            for tier = 1, 50 do
+                pcall(function() KnitSeasonPassService:ClaimPass("Free", tier) end)
+            end
+        end
+    end)
+end
+
+local function DoSpin()
+    SafeInvoke(Remotes.SpinAll)
+    SafeInvoke(Remotes.SpinWheel)
+end
+
+local function GetReplicaData()
+    local data = nil
+    pcall(function()
+        local ReplicaListener = Knit.GetController("ReplicaListener")
+        if ReplicaListener then
+            local replica = ReplicaListener:GetReplica()
+            if replica then data = replica.Data end
+        end
+    end)
+    return data
+end
+
+local function DoQuest()
+    if not KnitQuestService then return end
+    local replicaData = GetReplicaData()
+    if not replicaData or not replicaData.QuestService then return end
+    
+    local questData = replicaData.QuestService
+    
+    if questData.DailyQuests then
+        for questName, status in pairs(questData.DailyQuests) do
+            if status == "Completed" then
+                pcall(function() KnitQuestService:ClaimQuestReward("DailyQuests", questName) end)
+                task.wait(0.3)
+            end
+        end
+    end
+    
+    local achievements = {"EggsAchievement", "AttacksAchievement", "MonstersAchievement", "FoodAchievement"}
+    for _, achieveName in ipairs(achievements) do
+        pcall(function() KnitQuestService:ClaimAchievement(achieveName) end)
+        task.wait(0.2)
+    end
+    
+    pcall(function() KnitQuestService:ClaimCompletionReward() end)
+end
+
+local function RedeemCode()
+    pcall(function()
+        if KnitShopService and KnitShopService.SubmitCode then
+            KnitShopService:SubmitCode("release")
+        end
+    end)
+end
+
+local function GetPetRarity(petName)
+    if not PetsInfo then return "Common" end
+    local info = PetsInfo[petName]
+    if info and info.Design then return info.Design end
+    return "Common"
+end
+
+local function ShouldDeletePet(petRarity)
+    local threshold = RarityOrder[Config.DeleteBelowRarity] or 3
+    local petRank = RarityOrder[petRarity] or 1
+    return petRank < threshold
+end
+
+local function GetBestPetIds()
+    local bestPets = {}
+    local replicaData = GetReplicaData()
+    if not replicaData or not replicaData.PetsService then return bestPets end
+    
+    local petsData = replicaData.PetsService.Pets or {}
+    local petList = {}
+    
+    for petId, petData in pairs(petsData) do
+        local petName = petData.Name
+        local multiplier = 1
+        if PetsInfo and PetsInfo[petName] then
+            multiplier = PetsInfo[petName].Multiplier or 1
+        end
+        table.insert(petList, {id = petId, name = petName, mult = multiplier})
+    end
+    
+    table.sort(petList, function(a, b) return a.mult > b.mult end)
+    
+    local maxEquip = replicaData.PetsService.MaxEquip or 3
+    for i = 1, math.min(maxEquip, #petList) do
+        bestPets[petList[i].id] = true
+    end
+    
+    return bestPets
+end
+
+local function DoDeletePets()
+    if not Config.AutoDeletePets then return end
+    
+    if Config.AutoEquipBest then
+        pcall(function()
+            if KnitPetsService and KnitPetsService.EquipBest then
+                KnitPetsService:EquipBest()
+            end
+        end)
+        task.wait(0.5)
+    end
+    
+    local replicaData = GetReplicaData()
+    if not replicaData then return end
+    
+    local petsData = replicaData.PetsService and replicaData.PetsService.Pets
+    if not petsData then return end
+    
+    local equippedPets = replicaData.PetsService and replicaData.PetsService.EquippedPets or {}
+    local equippedSet = {}
+    for _, petId in pairs(equippedPets) do equippedSet[petId] = true end
+    
+    local bestPetIds = GetBestPetIds()
+    local petsToDelete = {}
+    
+    for petId, petData in pairs(petsData) do
+        local petName = petData.Name
+        local rarity = GetPetRarity(petName)
+        local isEquipped = equippedSet[petId]
+        local isBestPet = bestPetIds[petId]
+        local shouldDelete = ShouldDeletePet(rarity)
+        
+        if not isEquipped and not isBestPet and shouldDelete then
+            table.insert(petsToDelete, petId)
+        end
+    end
+    
+    for i, petId in ipairs(petsToDelete) do
+        if i > 5 then break end
+        
+        local freshData = GetReplicaData()
+        if freshData and freshData.PetsService and freshData.PetsService.EquippedPets then
+            local stillSafe = true
+            for _, eqId in pairs(freshData.PetsService.EquippedPets) do
+                if eqId == petId then stillSafe = false break end
+            end
+            if not stillSafe then continue end
+        end
+        
+        pcall(function()
+            if KnitPetsService and KnitPetsService.Delete then
+                KnitPetsService:Delete({petId})
+            end
+        end)
+        task.wait(0.5)
+    end
+end
+
+local function ToggleFly(on)
+    local root = GetRoot()
+    if not root then return end
+    
+    if on then
+        State.Flying = true
+        if State.FlyBV then State.FlyBV:Destroy() end
+        if State.FlyBG then State.FlyBG:Destroy() end
+        
+        State.FlyBV = Instance.new("BodyVelocity")
+        State.FlyBV.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+        State.FlyBV.Velocity = Vector3.zero
+        State.FlyBV.Parent = root
+        
+        State.FlyBG = Instance.new("BodyGyro")
+        State.FlyBG.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+        State.FlyBG.P = 9e4
+        State.FlyBG.Parent = root
+    else
+        State.Flying = false
+        if State.FlyBV then State.FlyBV:Destroy() State.FlyBV = nil end
+        if State.FlyBG then State.FlyBG:Destroy() State.FlyBG = nil end
+    end
+end
+
+local function UpdateFly()
+    if not State.Flying or not State.FlyBV then return end
+    local root = GetRoot()
+    local cam = Workspace.CurrentCamera
+    if not root or not cam then return end
+    
+    local dir = Vector3.zero
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.CFrame.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.CFrame.RightVector end
+    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.yAxis end
+    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then dir = dir - Vector3.yAxis end
+    
+    State.FlyBV.Velocity = dir.Magnitude > 0 and dir.Unit * Config.FlySpeed or Vector3.zero
+    State.FlyBG.CFrame = cam.CFrame
+end
+
+local function CreateUI()
+    if State.Gui then State.Gui:Destroy() end
+    
+    local screenSize = Workspace.CurrentCamera.ViewportSize
+    local width = IsMobile and math.min(310, screenSize.X - 24) or 320
+    local height = IsMobile and math.min(540, screenSize.Y - 100) or 520
+    local btnH = IsMobile and 46 or 44
+    local pad = 12
+    local fontSize = IsMobile and 14 or 13
+    local openDropdowns = {}
+    
+    local C = {
+        bg = Color3.fromRGB(250, 250, 252),
+        card = Color3.fromRGB(255, 255, 255),
+        cardHover = Color3.fromRGB(245, 247, 250),
+        accent = Color3.fromRGB(0, 122, 255),
+        accentLight = Color3.fromRGB(230, 242, 255),
+        text = Color3.fromRGB(28, 28, 30),
+        textSec = Color3.fromRGB(110, 110, 115),
+        border = Color3.fromRGB(225, 225, 230),
+        toggleOff = Color3.fromRGB(200, 200, 205),
+        success = Color3.fromRGB(52, 199, 89),
+        section = Color3.fromRGB(142, 142, 147)
+    }
+    
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "BrainrotHub"
+    gui.ResetOnSpawn = false
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    local main = Instance.new("Frame")
+    main.Name = "Main"
+    main.Size = UDim2.new(0, width, 0, height)
+    main.Position = UDim2.new(0.5, -width/2, 0.5, -height/2)
+    main.BackgroundColor3 = C.bg
+    main.BorderSizePixel = 0
+    main.ClipsDescendants = true
+    main.Parent = gui
+    Instance.new("UICorner", main).CornerRadius = UDim.new(0, 16)
+    
+    local shadow = Instance.new("ImageLabel")
+    shadow.Size = UDim2.new(1, 30, 1, 30)
+    shadow.Position = UDim2.new(0, -15, 0, -15)
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxassetid://5554236805"
+    shadow.ImageColor3 = Color3.new(0, 0, 0)
+    shadow.ImageTransparency = 0.7
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(23, 23, 277, 277)
+    shadow.ZIndex = 0
+    shadow.Parent = main
+    
+    local header = Instance.new("Frame")
+    header.Size = UDim2.new(1, 0, 0, 52)
+    header.BackgroundTransparency = 1
+    header.Parent = main
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -60, 0, 20)
+    titleLabel.Position = UDim2.new(0, pad, 0, 12)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "Brainrot Evolution"
+    titleLabel.TextColor3 = C.text
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 18
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = header
+    
+    local subtitle = Instance.new("TextLabel")
+    subtitle.Size = UDim2.new(1, -60, 0, 14)
+    subtitle.Position = UDim2.new(0, pad, 0, 33)
+    subtitle.BackgroundTransparency = 1
+    subtitle.Text = "Open Source v" .. VERSION
+    subtitle.TextColor3 = C.textSec
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.TextSize = 11
+    subtitle.TextXAlignment = Enum.TextXAlignment.Left
+    subtitle.Parent = header
+    
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 32, 0, 32)
+    closeBtn.Position = UDim2.new(1, -pad - 32, 0, 10)
+    closeBtn.BackgroundColor3 = C.cardHover
+    closeBtn.Text = "â€”"
+    closeBtn.TextColor3 = C.textSec
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 16
+    closeBtn.Parent = header
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 10)
+    
+    local minimized = false
+    local fullSize = main.Size
+    closeBtn.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        local targetSize = minimized and UDim2.new(0, width, 0, 52) or fullSize
+        TweenService:Create(main, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {Size = targetSize}):Play()
+        closeBtn.Text = minimized and "+" or "â€”"
+    end)
+    
+    local divider = Instance.new("Frame")
+    divider.Size = UDim2.new(1, -pad*2, 0, 1)
+    divider.Position = UDim2.new(0, pad, 0, 51)
+    divider.BackgroundColor3 = C.border
+    divider.BorderSizePixel = 0
+    divider.Parent = main
+    
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Size = UDim2.new(1, 0, 1, -56)
+    scroll.Position = UDim2.new(0, 0, 0, 54)
+    scroll.BackgroundTransparency = 1
+    scroll.ScrollBarThickness = 2
+    scroll.ScrollBarImageColor3 = C.border
+    scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    scroll.Parent = main
+    
+    local function closeAllDropdowns()
+        for _, dropdown in pairs(openDropdowns) do
+            if dropdown and dropdown.Visible then
+                dropdown.Visible = false
+            end
+        end
+    end
+    
+    scroll:GetPropertyChangedSignal("CanvasPosition"):Connect(closeAllDropdowns)
+    
+    local scrollPad = Instance.new("UIPadding")
+    scrollPad.PaddingLeft = UDim.new(0, pad)
+    scrollPad.PaddingRight = UDim.new(0, pad)
+    scrollPad.PaddingTop = UDim.new(0, 6)
+    scrollPad.PaddingBottom = UDim.new(0, pad)
+    scrollPad.Parent = scroll
+    
+    local layout = Instance.new("UIListLayout")
+    layout.Padding = UDim.new(0, 6)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Parent = scroll
+    
+    local order = 0
+    local function nextOrder() order = order + 1 return order end
+    
+    local function Section(name)
+        local sec = Instance.new("TextLabel")
+        sec.Size = UDim2.new(1, 0, 0, 24)
+        sec.BackgroundTransparency = 1
+        sec.Text = string.upper(name)
+        sec.TextColor3 = C.section
+        sec.Font = Enum.Font.GothamBold
+        sec.TextSize = 10
+        sec.TextXAlignment = Enum.TextXAlignment.Left
+        sec.LayoutOrder = nextOrder()
+        sec.Parent = scroll
+    end
+    
+    local function Toggle(name, configKey, callback)
+        local card = Instance.new("Frame")
+        card.Size = UDim2.new(1, 0, 0, btnH)
+        card.BackgroundColor3 = C.card
+        card.LayoutOrder = nextOrder()
+        card.Parent = scroll
+        Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
+        Instance.new("UIStroke", card).Color = C.border
+        
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, -70, 1, 0)
+        lbl.Position = UDim2.new(0, 14, 0, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = name
+        lbl.TextColor3 = C.text
+        lbl.Font = Enum.Font.GothamMedium
+        lbl.TextSize = fontSize
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.Parent = card
+        
+        local toggleBg = Instance.new("Frame")
+        toggleBg.Size = UDim2.new(0, 46, 0, 28)
+        toggleBg.Position = UDim2.new(1, -58, 0.5, -14)
+        toggleBg.BackgroundColor3 = Config[configKey] and C.success or C.toggleOff
+        toggleBg.Parent = card
+        Instance.new("UICorner", toggleBg).CornerRadius = UDim.new(1, 0)
+        
+        local toggleCircle = Instance.new("Frame")
+        toggleCircle.Size = UDim2.new(0, 24, 0, 24)
+        toggleCircle.Position = Config[configKey] and UDim2.new(1, -26, 0.5, -12) or UDim2.new(0, 2, 0.5, -12)
+        toggleCircle.BackgroundColor3 = Color3.new(1, 1, 1)
+        toggleCircle.Parent = toggleBg
+        Instance.new("UICorner", toggleCircle).CornerRadius = UDim.new(1, 0)
+        
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, 0, 1, 0)
+        btn.BackgroundTransparency = 1
+        btn.Text = ""
+        btn.Parent = card
+        
+        btn.MouseButton1Click:Connect(function()
+            Config[configKey] = not Config[configKey]
+            local on = Config[configKey]
+            TweenService:Create(toggleBg, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {BackgroundColor3 = on and C.success or C.toggleOff}):Play()
+            TweenService:Create(toggleCircle, TweenInfo.new(0.2, Enum.EasingStyle.Quint), {Position = on and UDim2.new(1, -26, 0.5, -12) or UDim2.new(0, 2, 0.5, -12)}):Play()
+            if callback then callback(on) end
+        end)
+    end
+    
+    local function Button(name, callback)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, 0, 0, btnH)
+        btn.BackgroundColor3 = C.card
+        btn.Text = name
+        btn.TextColor3 = C.accent
+        btn.Font = Enum.Font.GothamMedium
+        btn.TextSize = fontSize
+        btn.LayoutOrder = nextOrder()
+        btn.Parent = scroll
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 12)
+        Instance.new("UIStroke", btn).Color = C.border
+        
+        btn.MouseEnter:Connect(function()
+            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = C.accentLight}):Play()
+        end)
+        btn.MouseLeave:Connect(function()
+            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = C.card}):Play()
+        end)
+        btn.MouseButton1Click:Connect(callback)
+    end
+    
+    local function Slider(name, configKey, min, max)
+        local card = Instance.new("Frame")
+        card.Size = UDim2.new(1, 0, 0, btnH + 12)
+        card.BackgroundColor3 = C.card
+        card.LayoutOrder = nextOrder()
+        card.Parent = scroll
+        Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
+        Instance.new("UIStroke", card).Color = C.border
+        
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(0.6, 0, 0, 18)
+        lbl.Position = UDim2.new(0, 14, 0, 8)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = name
+        lbl.TextColor3 = C.text
+        lbl.Font = Enum.Font.GothamMedium
+        lbl.TextSize = fontSize - 1
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.Parent = card
+        
+        local valLbl = Instance.new("TextLabel")
+        valLbl.Size = UDim2.new(0.35, 0, 0, 18)
+        valLbl.Position = UDim2.new(0.65, -14, 0, 8)
+        valLbl.BackgroundTransparency = 1
+        valLbl.Text = tostring(Config[configKey])
+        valLbl.TextColor3 = C.accent
+        valLbl.Font = Enum.Font.GothamBold
+        valLbl.TextSize = fontSize
+        valLbl.TextXAlignment = Enum.TextXAlignment.Right
+        valLbl.Parent = card
+        
+        local track = Instance.new("Frame")
+        track.Size = UDim2.new(1, -28, 0, 4)
+        track.Position = UDim2.new(0, 14, 0, 36)
+        track.BackgroundColor3 = C.border
+        track.Parent = card
+        Instance.new("UICorner", track).CornerRadius = UDim.new(1, 0)
+        
+        local fill = Instance.new("Frame")
+        fill.Size = UDim2.new((Config[configKey] - min) / (max - min), 0, 1, 0)
+        fill.BackgroundColor3 = C.accent
+        fill.Parent = track
+        Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
+        
+        local knob = Instance.new("Frame")
+        knob.Size = UDim2.new(0, 20, 0, 20)
+        knob.Position = UDim2.new((Config[configKey] - min) / (max - min), -10, 0.5, -10)
+        knob.BackgroundColor3 = C.accent
+        knob.ZIndex = 2
+        knob.Parent = track
+        Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+        
+        local knobInner = Instance.new("Frame")
+        knobInner.Size = UDim2.new(0, 8, 0, 8)
+        knobInner.Position = UDim2.new(0.5, -4, 0.5, -4)
+        knobInner.BackgroundColor3 = Color3.new(1, 1, 1)
+        knobInner.ZIndex = 3
+        knobInner.Parent = knob
+        Instance.new("UICorner", knobInner).CornerRadius = UDim.new(1, 0)
+        
+        local dragging = false
+        
+        local function update(input)
+            local rel = math.clamp((input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+            local val = min + rel * (max - min)
+            Config[configKey] = max <= 10 and math.floor(val * 10) / 10 or math.floor(val)
+            fill.Size = UDim2.new(rel, 0, 1, 0)
+            knob.Position = UDim2.new(rel, -10, 0.5, -10)
+            valLbl.Text = tostring(Config[configKey])
+        end
+        
+        track.InputBegan:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                update(i)
+            end
+        end)
+        
+        State.Connections["slider_" .. configKey] = UserInputService.InputChanged:Connect(function(i)
+            if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+                update(i)
+            end
+        end)
+        
+        State.Connections["slider_end_" .. configKey] = UserInputService.InputEnded:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+            end
+        end)
+    end
+    
+    local function Dropdown(name, options, configKey)
+        local card = Instance.new("Frame")
+        card.Size = UDim2.new(1, 0, 0, btnH)
+        card.BackgroundColor3 = C.card
+        card.ClipsDescendants = false
+        card.LayoutOrder = nextOrder()
+        card.Parent = scroll
+        Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
+        Instance.new("UIStroke", card).Color = C.border
+        
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(0.4, 0, 1, 0)
+        lbl.Position = UDim2.new(0, 14, 0, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = name
+        lbl.TextColor3 = C.text
+        lbl.Font = Enum.Font.GothamMedium
+        lbl.TextSize = fontSize - 1
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.Parent = card
+        
+        local dropBtn = Instance.new("TextButton")
+        dropBtn.Size = UDim2.new(0.55, -14, 0, 32)
+        dropBtn.Position = UDim2.new(0.45, 0, 0.5, -16)
+        dropBtn.BackgroundColor3 = C.cardHover
+        dropBtn.Text = tostring(Config[configKey]) .. " â–¼"
+        dropBtn.TextColor3 = C.text
+        dropBtn.Font = Enum.Font.Gotham
+        dropBtn.TextSize = fontSize - 1
+        dropBtn.TextTruncate = Enum.TextTruncate.AtEnd
+        dropBtn.Parent = card
+        Instance.new("UICorner", dropBtn).CornerRadius = UDim.new(0, 8)
+        
+        local dropList = Instance.new("Frame")
+        dropList.Name = "DropList"
+        dropList.Size = UDim2.new(0, 0, 0, 0)
+        dropList.BackgroundColor3 = C.card
+        dropList.Visible = false
+        dropList.ZIndex = 999
+        dropList.ClipsDescendants = true
+        dropList.Parent = main
+        Instance.new("UICorner", dropList).CornerRadius = UDim.new(0, 8)
+        local dropStroke = Instance.new("UIStroke", dropList)
+        dropStroke.Color = C.accent
+        
+        table.insert(openDropdowns, dropList)
+        
+        local dropScroll = Instance.new("ScrollingFrame")
+        dropScroll.Size = UDim2.new(1, 0, 1, 0)
+        dropScroll.BackgroundTransparency = 1
+        dropScroll.ScrollBarThickness = 2
+        dropScroll.ScrollBarImageColor3 = C.border
+        dropScroll.CanvasSize = UDim2.new(0, 0, 0, #options * 36)
+        dropScroll.ZIndex = 1000
+        dropScroll.Parent = dropList
+        Instance.new("UIListLayout", dropScroll)
+        
+        for _, opt in ipairs(options) do
+            local optBtn = Instance.new("TextButton")
+            optBtn.Size = UDim2.new(1, 0, 0, 36)
+            optBtn.BackgroundColor3 = C.card
+            optBtn.Text = tostring(opt)
+            optBtn.TextColor3 = C.text
+            optBtn.Font = Enum.Font.Gotham
+            optBtn.TextSize = fontSize - 1
+            optBtn.ZIndex = 1001
+            optBtn.Parent = dropScroll
+            
+            optBtn.MouseEnter:Connect(function() optBtn.BackgroundColor3 = C.accentLight end)
+            optBtn.MouseLeave:Connect(function() optBtn.BackgroundColor3 = C.card end)
+            optBtn.MouseButton1Click:Connect(function()
+                Config[configKey] = opt
+                dropBtn.Text = tostring(opt) .. " â–¼"
+                dropList.Visible = false
+            end)
+        end
+        
+        dropBtn.MouseButton1Click:Connect(function()
+            local wasVisible = dropList.Visible
+            closeAllDropdowns()
+            if not wasVisible then
+                local btnPos = dropBtn.AbsolutePosition
+                local btnSize = dropBtn.AbsoluteSize
+                local mainPos = main.AbsolutePosition
+                local targetH = math.min(#options * 36, 180)
+                dropList.Position = UDim2.new(0, btnPos.X - mainPos.X, 0, btnPos.Y - mainPos.Y + btnSize.Y + 4)
+                dropList.Size = UDim2.new(0, btnSize.X, 0, targetH)
+                dropList.Visible = true
+            end
+        end)
+    end
+    
+    Section("Combat")
+    Toggle("Kill Aura", "KillAura")
+    Toggle("Multi-Target", "MultiTarget")
+    Slider("Range", "KillAuraRange", 10, 100)
+    
+    Section("Pets")
+    Toggle("Auto Equip", "AutoEquipBest")
+    Toggle("Auto Delete", "AutoDeletePets")
+    Dropdown("Keep Above", RarityList, "DeleteBelowRarity")
+    
+    Section("Eggs")
+    Dropdown("Type", EggList, "SelectedEgg")
+    Toggle("Auto Hatch", "AutoBuyHatch")
+    Slider("Delay", "HatchDelay", 1, 5)
+    
+    Section("Rewards")
+    Toggle("Auto Rebirth", "AutoRebirth")
+    Toggle("Auto Collect", "AutoCollect")
+    Toggle("Auto Spin", "AutoSpin")
+    Toggle("Auto Quest", "AutoQuest")
+    
+    Section("Movement")
+    Toggle("Speed", "SpeedHack")
+    Slider("Speed", "WalkSpeed", 16, 200)
+    Toggle("No Clip", "NoClip")
+    Toggle("Fly", "Fly", ToggleFly)
+    
+    Section("Actions")
+    Button("Collect All", DoCollect)
+    Button("Rebirth Now", DoRebirth)
+    Button("Redeem Code", RedeemCode)
+    Button("Exit", function()
+        State.Unloaded = true
+        for _, c in pairs(State.Connections) do pcall(function() c:Disconnect() end) end
+        ToggleFly(false)
+        if State.Gui then State.Gui:Destroy() end
+        if State.MobileBtn then State.MobileBtn:Destroy() end
+    end)
+    
+    local dragStart, startPos
+    header.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragStart = i.Position
+            startPos = main.Position
+        end
+    end)
+    header.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragStart = nil
+        end
+    end)
+    State.Connections.Drag = UserInputService.InputChanged:Connect(function(i)
+        if dragStart and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local delta = i.Position - dragStart
+            main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+    
+    pcall(function() gui.Parent = game:GetService("CoreGui") end)
+    if not gui.Parent then gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+    State.Gui = gui
+    
+    local mobileBtn = Instance.new("Frame")
+    mobileBtn.Size = UDim2.new(0, 48, 0, 48)
+    mobileBtn.Position = UDim2.new(1, -62, 0, 14)
+    mobileBtn.BackgroundColor3 = C.accent
+    mobileBtn.Visible = IsMobile
+    mobileBtn.Parent = gui
+    Instance.new("UICorner", mobileBtn).CornerRadius = UDim.new(1, 0)
+    
+    local mobileIcon = Instance.new("ImageLabel")
+    mobileIcon.Size = UDim2.new(0, 24, 0, 24)
+    mobileIcon.Position = UDim2.new(0.5, -12, 0.5, -12)
+    mobileIcon.BackgroundTransparency = 1
+    mobileIcon.Image = "rbxassetid://7733960981"
+    mobileIcon.ImageColor3 = Color3.new(1, 1, 1)
+    mobileIcon.Parent = mobileBtn
+    
+    local mobileTap = Instance.new("TextButton")
+    mobileTap.Size = UDim2.new(1, 0, 1, 0)
+    mobileTap.BackgroundTransparency = 1
+    mobileTap.Text = ""
+    mobileTap.Parent = mobileBtn
+    
+    if IsMobile then main.Visible = false end
+    
+    mobileTap.MouseButton1Click:Connect(function()
+        main.Visible = not main.Visible
+        mobileIcon.Image = main.Visible and "rbxassetid://7743878857" or "rbxassetid://7733960981"
+    end)
+    
+    State.MobileBtn = mobileBtn
+end
+
+local function MainLoop()
+    if State.Unloaded then return end
+    local now = tick()
+    
+    if Config.KillAura and now - State.LastAttack >= Config.KillAuraSpeed then
+        State.LastAttack = now
+        task.spawn(DoKillAura)
+    end
+    
+    if Config.AutoBuyHatch and now - State.LastHatch >= Config.HatchDelay then
+        State.LastHatch = now
+        task.spawn(DoHatch)
+    end
+    
+    if Config.AutoRebirth and now - State.LastRebirth >= 1 then
+        State.LastRebirth = now
+        task.spawn(DoRebirth)
+    end
+    
+    if Config.AutoCollect and now - State.LastCollect >= 8 then
+        State.LastCollect = now
+        task.spawn(DoCollect)
+    end
+    
+    if Config.AutoSpin and now - State.LastSpin >= 2 then
+        State.LastSpin = now
+        task.spawn(DoSpin)
+    end
+    
+    if Config.AutoQuest and now - State.LastQuest >= 5 then
+        State.LastQuest = now
+        task.spawn(DoQuest)
+    end
+    
+    if Config.AutoEquipBest and now - State.LastEquip >= 3 then
+        State.LastEquip = now
+        task.spawn(DoEquipBest)
+    end
+    
+    if Config.AutoDeletePets and now - State.LastDelete >= math.max(Config.DeleteDelay, 5) then
+        State.LastDelete = now
+        task.spawn(DoDeletePets)
+    end
+    
+    local h = GetHum()
+    if h then
+        if Config.SpeedHack then
+            h.WalkSpeed = Config.WalkSpeed
+        elseif h.WalkSpeed ~= 16 and h.WalkSpeed == Config.WalkSpeed then
+            h.WalkSpeed = 16
+        end
+    end
+    
+    if Config.NoClip then
+        local c = GetChar()
+        if c then
+            for _, p in ipairs(c:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide = false end
+            end
+        end
+    end
+    
+    UpdateFly()
+end
+
+State.Connections.Main = RunService.Heartbeat:Connect(MainLoop)
+
+State.Connections.Char = LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    if Config.AutoEquipBest then DoEquipBest() end
+    if Config.Fly then ToggleFly(true) end
+end)
+
+State.Connections.KeyToggle = UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.Insert or input.KeyCode == Enum.KeyCode.RightShift then
+        if State.Gui then
+            local main = State.Gui:FindFirstChild("Main")
+            if main then main.Visible = not main.Visible end
+        end
+    end
+end)
+
+CreateUI()
+
+task.spawn(function()
+    task.wait(0.5)
+    if Config.AutoEquipBest then DoEquipBest() end
+end)
