@@ -17,48 +17,58 @@ local LOBBY_ID = 102669100769936
 local GAME_ID  = 97689234675651
 
 -- ============================================================
--- HỆ THỐNG ANTI-AFK & AUTO RECONNECT
+-- HỆ THỐNG CHẠY NGẦM (ANTI-AFK, RECONNECT, AUTO-CLOSE)
+-- Sử dụng task.spawn để không làm treo script khi đổi server
 -- ============================================================
 
--- 1. Anti-AFK: Ngăn Roblox kick bạn sau 20 phút không thao tác
-local VirtualUser = game:GetService("VirtualUser")
-lp.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
-    print("[Kuma_Hub] Đã ngăn chặn AFK thành công!")
-end)
+task.spawn(function()
+    -- 1. Anti-AFK
+    local VirtualUser = game:GetService("VirtualUser")
+    lp.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
 
--- 2. Auto Reconnect: Tự động vào lại game nếu bị mất kết nối (Disconnect)
-local TeleportService = game:GetService("TeleportService")
+    -- 2. Auto Reconnect (Sửa lỗi treo script bằng cách thêm timeout)
+    local function checkError()
+        pcall(function()
+            local robloxPrompt = CoreGui:FindFirstChild("RobloxPromptGui")
+            if robloxPrompt then
+                local promptOverlay = robloxPrompt:FindFirstChild("promptOverlay")
+                if promptOverlay then
+                    local errorPrompt = promptOverlay:FindFirstChild("ErrorPrompt")
+                    if errorPrompt and errorPrompt.Visible then
+                        warn("[Kuma_Hub] Phát hiện lỗi, đang kết nối lại...")
+                        task.wait(5)
+                        TeleportService:Teleport(game.PlaceId, lp)
+                    end
+                end
+            end
+        end)
+    end
 
--- Kiểm tra thông báo lỗi từ hệ thống Roblox
-local guiService = game:GetService("GuiService")
-local errorPrompt = CoreGui:WaitForChild("RobloxPromptGui"):WaitForChild("promptOverlay"):WaitForChild("ErrorPrompt")
+    -- 3. Auto Close Robux Prompt (Tự tắt bảng đòi Robux)
+    local function closeRobux()
+        pcall(function()
+            local purchasePrompt = CoreGui:FindFirstChild("PurchasePrompt")
+            if purchasePrompt then
+                local frame = purchasePrompt:FindFirstChild("ProductPurchaseContainer") or purchasePrompt:FindFirstChild("PurchasePromptFrame")
+                if frame and frame.Visible then
+                    game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Escape, false, game)
+                    task.wait(0.1)
+                    game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Escape, false, game)
+                end
+            end
+        end)
+    end
 
-errorPrompt:GetPropertyChangedSignal("Visible"):Connect(function()
-    if errorPrompt.Visible and errorPrompt:FindFirstChild("MessageArea") and errorPrompt.MessageArea:FindFirstChild("ErrorFrame") then
-        local msg = errorPrompt.MessageArea.ErrorFrame.ErrorMessage.Text
-        warn("[Kuma_Hub] Phát hiện ngắt kết nối: " .. msg)
-        
-        -- Đợi 5 giây trước khi reconnect để tránh lỗi server chưa kịp đóng
-        task.wait(5)
-        
-        -- Nếu là server riêng hoặc server đang chơi, ưu tiên quay lại đó
-        if #Players:GetPlayers() <= 1 then
-            TeleportService:Teleport(game.PlaceId, lp)
-        else
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, lp)
-        end
+    -- Vòng lặp kiểm tra ngầm mỗi 2 giây
+    while true do
+        checkError()
+        closeRobux()
+        task.wait(2)
     end
 end)
-
--- Dự phòng: Kiểm tra lỗi crash game hoặc mất kết nối bằng GuiService
-guiService.ErrorMessageChanged:Connect(function()
-    task.wait(5)
-    TeleportService:Teleport(game.PlaceId, lp)
-end)
-
-print("[Kuma_Hub] Anti-AFK và Auto-Reconnect đã sẵn sàng.")
 
 -- ============================================================
 -- HỆ THỐNG LƯU TRỮ (SAVE DATA)
