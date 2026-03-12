@@ -12,9 +12,15 @@ local RS           = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local lp           = Players.LocalPlayer
 -- Lưu ý: CoreGui thật của Roblox luôn nằm trong game:GetService("CoreGui")
-local ActualCoreGui = game:GetService("CoreGui") 
-local MyGuiHolder   = (gethui and gethui()) or ActualCoreGui
+if not game:IsLoaded() then game.Loaded:Wait() end -- Đợi game load xong
 
+local MyGuiHolder = nil
+pcall(function()
+    -- Ưu tiên gethui (chống bị game quét), nếu không có thì dùng CoreGui
+    MyGuiHolder = (gethui and gethui()) or game:GetService("CoreGui")
+end)
+if not MyGuiHolder then MyGuiHolder = lp:WaitForChild("PlayerGui") end -- Dự phòng cuối
+local ActualCoreGui = game:GetService("CoreGui")
 local LOBBY_ID = 102669100769936
 local GAME_ID  = 97689234675651
 
@@ -105,7 +111,7 @@ end
 -- GIAO DIỆN NGƯỜI DÙNG (GUI) - PHIÊN BẢN COMPACT
 -- ============================================================
 pcall(function()
-    for _,v in ipairs(CoreGui:GetChildren()) do
+    for _,v in ipairs(MyGuiHolder:GetChildren()) do -- Dùng MyGuiHolder thay vì CoreGui
         if v.Name=="KumaHub_Main" then v:Destroy() end
     end
 end)
@@ -114,8 +120,11 @@ end)
 _G.AutoUpgrade = true
 _G.AutoRepair = true
 
-local SG = Instance.new("ScreenGui", CoreGui)
-SG.Name="KumaHub_Main"; SG.ResetOnSpawn=false
+local SG = Instance.new("ScreenGui")
+SG.Name = "KumaHub_Main"
+SG.ResetOnSpawn = false
+SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+SG.Parent = MyGuiHolder -- SỬA TẠI ĐÂY: Dùng MyGuiHolder thay vì CoreGui
 
 -- Khung chính của Menu
 local MainFrame = Instance.new("Frame", SG)
@@ -209,8 +218,16 @@ task.spawn(function()
     while true do
         task.wait(1)
         pcall(function()
-            local cash = lp.PlayerGui.Hud.Currency.Amount.Text
-            InfoLbl.Text = "Vàng: " .. Save.TotalGold .. "\nTiền: " .. cash .. "\nThời gian: " .. fmtTime(Save.TotalTime)
+            -- Sử dụng FindFirstChild để không bị treo nếu Hud chưa hiện
+            local hud = lp.PlayerGui:FindFirstChild("Hud")
+            local cash = "0"
+            if hud and hud:FindFirstChild("Currency") and hud.Currency:FindFirstChild("Amount") then
+                cash = hud.Currency.Amount.Text
+            end
+            
+            InfoLbl.Text = "Vàng: " .. (Save.TotalGold or 0) .. 
+                           "\nTiền: " .. cash .. 
+                           "\nThời gian: " .. fmtTime(Save.TotalTime or 0)
         end)
     end
 end)
@@ -426,7 +443,12 @@ elseif game.PlaceId == GAME_ID then
 
     local function getBalance()
         local val = 0
-        pcall(function() val = cleanNumber(lp.PlayerGui.Hud.Currency.Amount.Text) end)
+        pcall(function() 
+            local amountObj = lp.PlayerGui:FindFirstChild("Hud")
+            if amountObj then
+                val = cleanNumber(amountObj.Currency.Amount.Text) 
+            end
+        end)
         return val
     end
 
