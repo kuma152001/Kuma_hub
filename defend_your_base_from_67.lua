@@ -17,6 +17,50 @@ local LOBBY_ID = 102669100769936
 local GAME_ID  = 97689234675651
 
 -- ============================================================
+-- HỆ THỐNG ANTI-AFK & AUTO RECONNECT
+-- ============================================================
+
+-- 1. Anti-AFK: Ngăn Roblox kick bạn sau 20 phút không thao tác
+local VirtualUser = game:GetService("VirtualUser")
+lp.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+    print("[Kuma_Hub] Đã ngăn chặn AFK thành công!")
+end)
+
+-- 2. Auto Reconnect: Tự động vào lại game nếu bị mất kết nối (Disconnect)
+local TeleportService = game:GetService("TeleportService")
+
+-- Kiểm tra thông báo lỗi từ hệ thống Roblox
+local guiService = game:GetService("GuiService")
+local errorPrompt = CoreGui:WaitForChild("RobloxPromptGui"):WaitForChild("promptOverlay"):WaitForChild("ErrorPrompt")
+
+errorPrompt:GetPropertyChangedSignal("Visible"):Connect(function()
+    if errorPrompt.Visible and errorPrompt:FindFirstChild("MessageArea") and errorPrompt.MessageArea:FindFirstChild("ErrorFrame") then
+        local msg = errorPrompt.MessageArea.ErrorFrame.ErrorMessage.Text
+        warn("[Kuma_Hub] Phát hiện ngắt kết nối: " .. msg)
+        
+        -- Đợi 5 giây trước khi reconnect để tránh lỗi server chưa kịp đóng
+        task.wait(5)
+        
+        -- Nếu là server riêng hoặc server đang chơi, ưu tiên quay lại đó
+        if #Players:GetPlayers() <= 1 then
+            TeleportService:Teleport(game.PlaceId, lp)
+        else
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, lp)
+        end
+    end
+end)
+
+-- Dự phòng: Kiểm tra lỗi crash game hoặc mất kết nối bằng GuiService
+guiService.ErrorMessageChanged:Connect(function()
+    task.wait(5)
+    TeleportService:Teleport(game.PlaceId, lp)
+end)
+
+print("[Kuma_Hub] Anti-AFK và Auto-Reconnect đã sẵn sàng.")
+
+-- ============================================================
 -- HỆ THỐNG LƯU TRỮ (SAVE DATA)
 -- ============================================================
 local FILE = "KUMAHUB_SaveData.json"
