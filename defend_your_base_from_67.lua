@@ -3,7 +3,7 @@
 --   Cấu trúc QOT dựa trên mẫu DE Hunter đã được kiểm chứng
 -- ============================================================
 
-local MyLink = "https://raw.githubusercontent.com/ZXCHUB/ZXCHUB-MAIN/refs/heads/main/Defend%20your%20base%20from%2067"
+local MyLink = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/defend_your_base_from_67.lua"
 -- Ghi chú: Link gốc được giữ nguyên để đảm bảo script tải đúng dữ liệu nguồn.
 
 local Players      = game:GetService("Players")
