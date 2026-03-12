@@ -478,7 +478,6 @@ elseif game.PlaceId == GAME_ID then
     for i,t in ipairs(allTiles) do
         if i<=MAX_TURRETS then table.insert(turretTiles,t) else table.insert(farmTiles,t) end
     end
-    setStatus("Tiles: "..#farmTiles.." farm | "..#turretTiles.." trụ")
 
     local function buyUnit(tile, prefix)
         local n,pr,m = prefix.."1",100,0
@@ -511,7 +510,6 @@ elseif game.PlaceId == GAME_ID then
     setStatus("Đang quét dữ liệu giá...")
     for _,obj in ipairs(buildList) do updateObjectData(obj) end
     updateObjectData(myBase.Door)
-    setStatus("Đã kích hoạt Nâng cấp thông minh")
 
     -- Theo dõi Boss
     local defenseMode=false
@@ -526,15 +524,16 @@ elseif game.PlaceId == GAME_ID then
     end
 
     local function getNilByDebugId(name,debugId)
-        for _,obj in pairs(getnilinstances()) do
-            if obj.Name==name and obj:GetDebugId()==debugId then return obj end
+        if getnilinstances then
+            for _,obj in pairs(getnilinstances()) do
+                if obj.Name==name and obj:GetDebugId()==debugId then return obj end
+            end
         end
         return nil
     end
 
     local function sellAllFarms()
         if farmsSold then return end
-        setStatus("CHẾ ĐỘ PHÒNG THỦ - Đang bán farm...")
         for _,obj in ipairs(buildList) do
             if obj~=mainFarm and obj.Name:find("Farm") then
                 pcall(function()
@@ -547,18 +546,15 @@ elseif game.PlaceId == GAME_ID then
             end
         end
         farmsSold=true
-        setStatus("PHÒNG THỦ - Chỉ giữ Trụ và Cửa")
     end
 
     local function restoreFarms()
         if not farmsSold then return end
-        setStatus("Boss đã chết - Đang xây lại farm...")
         farmsSold=false
         for _,t in ipairs(farmTiles) do
             local m=buyUnit(t,"Farm")
             if m then table.insert(buildList,m); updateObjectData(m) end
         end
-        setStatus("Đã khôi phục kinh tế")
     end
 
     task.spawn(function()
@@ -573,40 +569,32 @@ elseif game.PlaceId == GAME_ID then
         end
     end)
 
-    -- Vòng lặp nâng cấp chính (ĐÃ SỬA LỖI KẸT CỬA LV3)
+    -- VÒNG LẶP NÂNG CẤP CHÍNH (FIX CÚ PHÁP VÀ KẸT CỬA)
     while true do
         local bestTarget, lowestPrice, maxUnitLevel = nil, math.huge, 0
         local dData = priceCache[myBase.Door]
 
-        -- 1. TÌM LEVEL CAO NHẤT HIỆN TẠI CỦA UNIT
         for obj, data in pairs(priceCache) do
             if obj and obj.Parent and obj ~= myBase.Door then
                 if data.level > maxUnitLevel then maxUnitLevel = data.level end
             end
         end
 
-        -- 2. KIỂM TRA ĐIỀU KIỆN TIÊN QUYẾT (CỬA LV3)
-        -- Nếu có unit đạt lv2 mà cửa vẫn đang dưới lv3, ép nâng cửa lên lv3 trước
         if dData and dData.level < 3 and maxUnitLevel >= 2 then
             bestTarget = myBase.Door
             lowestPrice = dData.cost
         else
-            -- 3. LOGIC TÌM MỤC TIÊU RẺ NHẤT NHƯ CŨ
             for obj, data in pairs(priceCache) do
                 if obj and obj.Parent and not data.isMax then
                     local isFarm = obj ~= mainFarm and obj.Name:find("Farm")
-                    if defenseMode and isFarm then continue end -- Bỏ qua farm khi đang thủ
-                    
-                    -- Giới hạn Farm chính theo biến MAIN_FARM_LIMIT
-                    if obj == mainFarm and data.level >= MAIN_FARM_LIMIT then continue end
-
-                    if data.cost > 0 and data.cost < lowestPrice then
-                        lowestPrice, bestTarget = data.cost, obj
+                    if not(defenseMode and isFarm) then
+                        if obj == mainFarm and data.level >= MAIN_FARM_LIMIT then continue end
+                        if data.cost > 0 and data.cost < lowestPrice then
+                            lowestPrice, bestTarget = data.cost, obj
+                        end
                     end
                 end
             end
-
-            -- 4. ƯU TIÊN NÂNG CỬA THEO TIẾN ĐỘ UNIT (Cửa luôn >= Unit Level + 1)
             if dData and not dData.isMax then
                 if dData.level < (maxUnitLevel + 1) or (maxUnitLevel >= 4 and dData.level < 6) then
                     if dData.cost < lowestPrice then
@@ -616,24 +604,18 @@ elseif game.PlaceId == GAME_ID then
             end
         end
 
-        -- THỰC THI NÂNG CẤP
         if bestTarget then
-            local currentLevel = priceCache[bestTarget] and priceCache[bestTarget].level or "?"
-            setStatus((defenseMode and "[THỦ] " or "").."-> "..bestTarget.Name.." lv"..currentLevel.." $"..lowestPrice)
-            
             if getBalance() >= lowestPrice then
-                -- Teleport để kích hoạt menu trước khi nhấn Remote (đảm bảo server nhận lệnh)
                 tp(bestTarget)
                 task.wait(0.1)
                 UpgradeEvent:FireServer("upgrade", bestTarget)
                 task.wait(0.5)
-                updateObjectData(bestTarget) -- Cập nhật giá mới sau khi nâng
+                updateObjectData(bestTarget)
             end
         else
-            setStatus("Đang quét lại toàn bộ...")
             updateObjectData(myBase.Door)
             for _, obj in ipairs(buildList) do updateObjectData(obj) end
         end
-        task.wait(0.8) -- Tăng nhẹ delay để tránh spam remote quá nhanh
+        task.wait(0.8)
     end
 end
