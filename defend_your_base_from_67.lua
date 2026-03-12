@@ -70,7 +70,7 @@ end
 registerQOT()
 
 -- ============================================================
--- GIAO DIỆN NGƯỜI DÙNG (GUI)
+-- GIAO DIỆN NGƯỜI DÙNG (GUI) - PHIÊN BẢN COMPACT
 -- ============================================================
 pcall(function()
     for _,v in ipairs(CoreGui:GetChildren()) do
@@ -78,82 +78,110 @@ pcall(function()
     end
 end)
 
+-- Biến điều khiển tính năng (Thêm vào để các vòng lặp phía dưới check)
+_G.AutoUpgrade = true
+_G.AutoRepair = true
+
 local SG = Instance.new("ScreenGui", CoreGui)
-SG.Name="KumaHub_Main"; SG.ResetOnSpawn=false; SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+SG.Name="KumaHub_Main"; SG.ResetOnSpawn=false
 
-local Overlay = Instance.new("Frame", SG)
-Overlay.Size=UDim2.fromScale(1,1)
-Overlay.BackgroundColor3=Color3.fromRGB(40,0,70)
-Overlay.BackgroundTransparency=0.5; Overlay.BorderSizePixel=0; Overlay.ZIndex=1
-local OG=Instance.new("UIGradient",Overlay)
-OG.Color=ColorSequence.new{
-    ColorSequenceKeypoint.new(0,Color3.fromRGB(60,0,100)),
-    ColorSequenceKeypoint.new(0.5,Color3.fromRGB(20,0,50)),
-    ColorSequenceKeypoint.new(1,Color3.fromRGB(80,10,120)),
-}; OG.Rotation=135
+-- Khung chính của Menu
+local MainFrame = Instance.new("Frame", SG)
+MainFrame.Size = UDim2.new(0, 220, 0, 280)
+MainFrame.Position = UDim2.new(0.05, 0, 0.4, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 10, 45)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true -- Hỗ trợ kéo thả đơn giản
 
-local TopBar=Instance.new("Frame",SG)
-TopBar.Size=UDim2.new(1,0,0,44)
-TopBar.BackgroundColor3=Color3.fromRGB(25,0,45)
-TopBar.BackgroundTransparency=0.15; TopBar.BorderSizePixel=0; TopBar.ZIndex=10
-local TBG=Instance.new("UIGradient",TopBar)
-TBG.Color=ColorSequence.new{
-    ColorSequenceKeypoint.new(0,Color3.fromRGB(90,20,180)),
-    ColorSequenceKeypoint.new(1,Color3.fromRGB(30,5,80)),
-}
+local Corner = Instance.new("UICorner", MainFrame)
+Corner.CornerRadius = UDim.new(0, 10)
 
-local Logo=Instance.new("TextLabel",TopBar)
-Logo.Size=UDim2.new(0,220,1,0); Logo.Position=UDim2.fromOffset(16,0)
-Logo.BackgroundTransparency=1; Logo.Text="K U M A  H U B"
-Logo.TextColor3=Color3.fromRGB(220,160,255); Logo.Font=Enum.Font.GothamBlack
-Logo.TextSize=20; Logo.TextXAlignment=Enum.TextXAlignment.Left; Logo.ZIndex=11
+local Stroke = Instance.new("UIStroke", MainFrame)
+Stroke.Color = Color3.fromRGB(110, 40, 200)
+Stroke.Thickness = 2
 
-local VBadge=Instance.new("TextLabel",TopBar)
-VBadge.Size=UDim2.new(0,60,0,24); VBadge.Position=UDim2.new(0,225,0.5,-12)
-VBadge.BackgroundColor3=Color3.fromRGB(110,40,200); VBadge.Text="v3.1"
-VBadge.TextColor3=Color3.new(1,1,1); VBadge.Font=Enum.Font.GothamBold
-VBadge.TextSize=12; VBadge.ZIndex=11
-Instance.new("UICorner",VBadge).CornerRadius=UDim.new(0,6)
+-- Tiêu đề (Header)
+local Header = Instance.new("TextLabel", MainFrame)
+Header.Size = UDim2.new(1, 0, 0, 35)
+Header.BackgroundColor3 = Color3.fromRGB(45, 15, 80)
+Header.Text = "KUMA HUB V3.1"
+Header.TextColor3 = Color3.new(1, 1, 1)
+Header.Font = Enum.Font.GothamBlack
+Header.TextSize = 14
+Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 10)
 
-local StatusLbl=Instance.new("TextLabel",TopBar)
-StatusLbl.Size=UDim2.new(0,500,1,0); StatusLbl.Position=UDim2.new(1,-505,0,0)
-StatusLbl.BackgroundTransparency=1; StatusLbl.Text="Đang khởi tạo..."
-StatusLbl.TextColor3=Color3.fromRGB(180,255,180); StatusLbl.Font=Enum.Font.GothamBold
-StatusLbl.TextSize=13; StatusLbl.TextXAlignment=Enum.TextXAlignment.Right; StatusLbl.ZIndex=11
-local function setStatus(txt) StatusLbl.Text="@ "..txt end
+-- Status Label (Hiển thị trạng thái đang làm gì)
+local MiniStatus = Instance.new("TextLabel", MainFrame)
+MiniStatus.Size = UDim2.new(1, -20, 0, 20)
+MiniStatus.Position = UDim2.new(0, 10, 0, 40)
+MiniStatus.BackgroundTransparency = 1
+MiniStatus.Text = "Sẵn sàng"
+MiniStatus.TextColor3 = Color3.fromRGB(180, 255, 180)
+MiniStatus.Font = Enum.Font.GothamBold
+MiniStatus.TextSize = 11
+MiniStatus.TextXAlignment = Enum.TextXAlignment.Left
 
-local BotBar=Instance.new("Frame",SG)
-BotBar.Size=UDim2.new(1,0,0,36); BotBar.Position=UDim2.new(0,0,1,-36)
-BotBar.BackgroundColor3=Color3.fromRGB(20,0,40); BotBar.BackgroundTransparency=0.2
-BotBar.BorderSizePixel=0; BotBar.ZIndex=10
-local BBG=Instance.new("UIGradient",BotBar)
-BBG.Color=ColorSequence.new{
-    ColorSequenceKeypoint.new(0,Color3.fromRGB(30,5,80)),
-    ColorSequenceKeypoint.new(1,Color3.fromRGB(90,20,180)),
-}
-local function mkBotLbl(xScale,color)
-    local l=Instance.new("TextLabel",BotBar)
-    l.Size=UDim2.new(0.33,0,1,0); l.Position=UDim2.fromScale(xScale,0)
-    l.BackgroundTransparency=1; l.Font=Enum.Font.GothamBold
-    l.TextSize=14; l.ZIndex=11; l.TextColor3=color
-    return l
+local function setStatus(txt) MiniStatus.Text = "@: " .. txt end
+
+-- Hàm tạo nút Toggle (Bật/Tắt)
+local function createToggle(name, default, yPos, callback)
+    local btn = Instance.new("TextButton", MainFrame)
+    btn.Size = UDim2.new(1, -20, 0, 35)
+    btn.Position = UDim2.new(0, 10, 0, yPos)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.BorderSizePixel = 0
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    
+    local enabled = default
+    local function update()
+        btn.Text = name .. ": " .. (enabled and "BẬT" or "TẮT")
+        btn.BackgroundColor3 = enabled and Color3.fromRGB(40, 140, 40) or Color3.fromRGB(140, 30, 30)
+        callback(enabled)
+    end
+    
+    btn.MouseButton1Click:Connect(function()
+        enabled = not enabled
+        update()
+    end)
+    update()
 end
-local TimeLbl=mkBotLbl(0,Color3.fromRGB(200,160,255))
-local GoldLbl=mkBotLbl(0.33,Color3.fromRGB(255,220,100))
-local CashLbl=mkBotLbl(0.66,Color3.fromRGB(100,255,160))
+
+-- Danh sách các nút chức năng
+createToggle("Tự Động Hàng Chờ", Save.AutoStartQueue, 70, function(v)
+    Save.AutoStartQueue = v
+    saveData()
+end)
+
+createToggle("Tự Động Nâng Cấp", _G.AutoUpgrade, 115, function(v)
+    _G.AutoUpgrade = v
+end)
+
+createToggle("Tự Động Sửa Nhà", _G.AutoRepair, 160, function(v)
+    _G.AutoRepair = v
+end)
+
+-- Hiển thị thông tin tiền/vàng gọn nhẹ ở dưới cùng
+local InfoLbl = Instance.new("TextLabel", MainFrame)
+InfoLbl.Size = UDim2.new(1, -20, 0, 60)
+InfoLbl.Position = UDim2.new(0, 10, 0, 210)
+InfoLbl.BackgroundTransparency = 1
+InfoLbl.Text = "Vàng: 0\nTiền: 0"
+InfoLbl.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+InfoLbl.Font = Enum.Font.Gotham
+InfoLbl.TextSize = 12
+InfoLbl.TextXAlignment = Enum.TextXAlignment.Left
 
 task.spawn(function()
     while true do
         task.wait(1)
-        Save.TotalTime=Save.TotalTime+1
-        if Save.TotalTime%10==0 then saveData() end
-        TimeLbl.Text="Thời gian: "..fmtTime(Save.TotalTime)
-        GoldLbl.Text="Vàng: "..Save.TotalGold
-        pcall(function() CashLbl.Text="Tiền: "..lp.PlayerGui.Hud.Currency.Amount.Text end)
+        pcall(function()
+            local cash = lp.PlayerGui.Hud.Currency.Amount.Text
+            InfoLbl.Text = "Vàng: " .. Save.TotalGold .. "\nTiền: " .. cash .. "\nThời gian: " .. fmtTime(Save.TotalTime)
+        end)
     end
 end)
-
-setStatus("Đang kiểm tra server...")
 
 -- ============================================================
 -- LOGIC PHÒNG CHỜ (LOBBY)
@@ -435,7 +463,10 @@ elseif game.PlaceId == GAME_ID then
     setStatus("Căn cứ: "..myBase.Name)
 
     task.spawn(function()
-        while true do BaseEvent:FireServer("repair"); task.wait(0.5) end
+        while true do 
+            if _G.AutoRepair then BaseEvent:FireServer("repair") end
+            task.wait(0.5) 
+        end
     end)
 
     -- GIAI ĐOẠN 1: Cửa lv2
@@ -571,6 +602,7 @@ elseif game.PlaceId == GAME_ID then
 
     -- VÒNG LẶP NÂNG CẤP CHÍNH (FIX CÚ PHÁP VÀ KẸT CỬA)
     while true do
+        if not _G.AutoUpgrade then task.wait(1); continue end -- Dừng nếu tắt Auto
         local bestTarget, lowestPrice, maxUnitLevel = nil, math.huge, 0
         local dData = priceCache[myBase.Door]
 
