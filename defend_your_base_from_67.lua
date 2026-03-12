@@ -1,24 +1,26 @@
 -- ============================================================
---   Kuma_Hub MegaScript v3.1  |  Base Tycoon + Lobby
---   Cấu trúc QOT dựa trên mẫu DE Hunter đã được kiểm chứng
+--   Kuma_Hub MegaScript v3.2  |  Base Tycoon + Lobby
+--   Đã sửa lỗi Treo Script (Infinite Yield) & Auto Reconnect
 -- ============================================================
 
 local MyLink = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/defend_your_base_from_67.lua"
--- Ghi chú: Link gốc được giữ nguyên để đảm bảo script tải đúng dữ liệu nguồn.
 
 local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local HttpService  = game:GetService("HttpService")
 local RS           = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
 local lp           = Players.LocalPlayer
-local CoreGui      = (gethui and gethui()) or game:GetService("CoreGui")
+-- Lưu ý: CoreGui thật của Roblox luôn nằm trong game:GetService("CoreGui")
+local ActualCoreGui = game:GetService("CoreGui") 
+local MyGuiHolder   = (gethui and gethui()) or ActualCoreGui
 
 local LOBBY_ID = 102669100769936
 local GAME_ID  = 97689234675651
 
 -- ============================================================
 -- HỆ THỐNG CHẠY NGẦM (ANTI-AFK, RECONNECT, AUTO-CLOSE)
--- Sử dụng task.spawn để không làm treo script khi đổi server
+-- Tách riêng luồng để không làm treo logic chính
 -- ============================================================
 
 task.spawn(function()
@@ -29,28 +31,26 @@ task.spawn(function()
         VirtualUser:ClickButton2(Vector2.new())
     end)
 
-    -- 2. Auto Reconnect (Sửa lỗi treo script bằng cách thêm timeout)
-    local function checkError()
+    -- 2. Auto Reconnect & Auto Close Robux (Kiểm tra an toàn)
+    while true do
+        task.wait(2)
         pcall(function()
-            local robloxPrompt = CoreGui:FindFirstChild("RobloxPromptGui")
+            -- Kiểm tra bảng thông báo lỗi Roblox (Reconnect)
+            local robloxPrompt = ActualCoreGui:FindFirstChild("RobloxPromptGui")
             if robloxPrompt then
                 local promptOverlay = robloxPrompt:FindFirstChild("promptOverlay")
                 if promptOverlay then
                     local errorPrompt = promptOverlay:FindFirstChild("ErrorPrompt")
                     if errorPrompt and errorPrompt.Visible then
-                        warn("[Kuma_Hub] Phát hiện lỗi, đang kết nối lại...")
-                        task.wait(5)
+                        warn("[Kuma_Hub] Phát hiện ngắt kết nối, đang thử lại...")
+                        task.wait(2)
                         TeleportService:Teleport(game.PlaceId, lp)
                     end
                 end
             end
-        end)
-    end
 
-    -- 3. Auto Close Robux Prompt (Tự tắt bảng đòi Robux)
-    local function closeRobux()
-        pcall(function()
-            local purchasePrompt = CoreGui:FindFirstChild("PurchasePrompt")
+            -- Kiểm tra bảng mua Robux (Auto Close)
+            local purchasePrompt = ActualCoreGui:FindFirstChild("PurchasePrompt")
             if purchasePrompt then
                 local frame = purchasePrompt:FindFirstChild("ProductPurchaseContainer") or purchasePrompt:FindFirstChild("PurchasePromptFrame")
                 if frame and frame.Visible then
@@ -61,14 +61,23 @@ task.spawn(function()
             end
         end)
     end
-
-    -- Vòng lặp kiểm tra ngầm mỗi 2 giây
-    while true do
-        checkError()
-        closeRobux()
-        task.wait(2)
-    end
 end)
+
+-- ============================================================
+-- HỖ TRỢ QOT (Tự động chạy lại khi đổi server)
+-- ============================================================
+local function registerQOT()
+    local qot = nil
+    pcall(function()
+        qot = queue_on_teleport or (syn and syn.queue_on_teleport) or (fluxus and fluxus.queue_on_teleport)
+        local genv = getgenv and getgenv()
+        if not qot and genv then qot = genv.queue_on_teleport end
+    end)
+    if qot then
+        qot('repeat task.wait() until game:IsLoaded(); loadstring(game:HttpGet("' .. MyLink .. '"))()')
+    end
+end
+registerQOT()
 
 -- ============================================================
 -- HỆ THỐNG LƯU TRỮ (SAVE DATA)
@@ -92,37 +101,6 @@ end
 local function fmtTime(s)
     return string.format("%02d:%02d:%02d",math.floor(s/3600),math.floor(s%3600/60),s%60)
 end
-
--- ============================================================
--- HỖ TRỢ QOT (Tự động chạy lại khi đổi server)
--- ============================================================
-local function registerQOT()
-    local qot = nil
-    pcall(function()
-        if queue_on_teleport then qot = queue_on_teleport; return end
-        if queue_on_teleports then qot = queue_on_teleports; return end
-        if syn and syn.queue_on_teleport then qot = syn.queue_on_teleport; return end
-        if fluxus and fluxus.queue_on_teleport then qot = fluxus.queue_on_teleport; return end
-        if solara and solara.queue_on_teleport then qot = solara.queue_on_teleport; return end
-        if wave and wave.queue_on_teleport then qot = wave.queue_on_teleport; return end
-        if oxy and oxy.queue_on_teleport then qot = oxy.queue_on_teleport; return end
-        if cocoz and cocoz.queue_on_teleport then qot = cocoz.queue_on_teleport; return end
-        if sentinel and sentinel.queue_on_teleport then qot = sentinel.queue_on_teleport; return end
-        if Hydrogen and Hydrogen.queue_on_teleport then qot = Hydrogen.queue_on_teleport; return end
-        local genv = getgenv and getgenv() or {}
-        if genv.queue_on_teleport then qot = genv.queue_on_teleport; return end
-        if genv.queue_on_teleports then qot = genv.queue_on_teleports; return end
-    end)
-    if qot then
-        qot('repeat task.wait() until game:IsLoaded(); loadstring(game:HttpGet("' .. MyLink .. '"))()')
-        print("[Kuma_Hub] Đã đăng ký QOT thành công")
-    else
-        warn("[Kuma_Hub] Trình thực thi này không hỗ trợ QOT")
-    end
-end
-
-registerQOT()
-
 -- ============================================================
 -- GIAO DIỆN NGƯỜI DÙNG (GUI) - PHIÊN BẢN COMPACT
 -- ============================================================
