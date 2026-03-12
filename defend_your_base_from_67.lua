@@ -459,7 +459,7 @@ elseif game.PlaceId == GAME_ID then
         task.wait(0.5)
         local d = getUIData()
         if d then
-            if d.level >= 3 then break end
+            if d.level >= 2 then break end
             if getBalance() >= d.cost then UpgradeEvent:FireServer("upgrade",mainFarm); task.wait(0.5) end
         end
     until false
