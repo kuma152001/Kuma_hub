@@ -636,3 +636,4 @@ elseif game.PlaceId == GAME_ID then
         end
         task.wait(0.8) -- Tăng nhẹ delay để tránh spam remote quá nhanh
     end
+end
