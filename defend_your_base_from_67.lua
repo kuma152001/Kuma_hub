@@ -1,10 +1,10 @@
 -- ============================================================
 --   Kuma_Hub MegaScript v3.1  |  Base Tycoon + Lobby
---   Giữ nguyên 100% cấu trúc gốc - Không thiếu một dòng code
---   Sửa lỗi: Bán Farm khởi đầu để tránh kẹt yêu cầu nâng Cửa
+--   Cấu trúc QOT dựa trên mẫu DE Hunter đã được kiểm chứng
 -- ============================================================
 
 local MyLink = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/defend_your_base_from_67.lua"
+-- Ghi chú: Link gốc được giữ nguyên để đảm bảo script tải đúng dữ liệu nguồn.
 
 local Players      = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -40,7 +40,7 @@ local function fmtTime(s)
 end
 
 -- ============================================================
--- QOT HELPER (Tự động chạy lại khi đổi server)
+-- HỖ TRỢ QOT (Tự động chạy lại khi đổi server)
 -- ============================================================
 local function registerQOT()
     local qot = nil
@@ -61,16 +61,16 @@ local function registerQOT()
     end)
     if qot then
         qot('repeat task.wait() until game:IsLoaded(); loadstring(game:HttpGet("' .. MyLink .. '"))()')
-        print("[Kuma_Hub] QOT đã được đăng ký")
+        print("[Kuma_Hub] Đã đăng ký QOT thành công")
     else
-        warn("[Kuma_Hub] Executor không hỗ trợ QOT")
+        warn("[Kuma_Hub] Trình thực thi này không hỗ trợ QOT")
     end
 end
 
 registerQOT()
 
 -- ============================================================
--- GIAO DIỆN NGƯỜI DÙNG (GUI) - GIỮ NGUYÊN 100% STYLE GỐC
+-- GIAO DIỆN NGƯỜI DÙNG (GUI)
 -- ============================================================
 pcall(function()
     for _,v in ipairs(CoreGui:GetChildren()) do
@@ -82,7 +82,8 @@ local SG = Instance.new("ScreenGui", CoreGui)
 SG.Name="KumaHub_Main"; SG.ResetOnSpawn=false; SG.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
 
 local Overlay = Instance.new("Frame", SG)
-Overlay.Size=UDim2.fromScale(1,1); Overlay.BackgroundColor3=Color3.fromRGB(40,0,70)
+Overlay.Size=UDim2.fromScale(1,1)
+Overlay.BackgroundColor3=Color3.fromRGB(40,0,70)
 Overlay.BackgroundTransparency=0.5; Overlay.BorderSizePixel=0; Overlay.ZIndex=1
 local OG=Instance.new("UIGradient",Overlay)
 OG.Color=ColorSequence.new{
@@ -92,7 +93,8 @@ OG.Color=ColorSequence.new{
 }; OG.Rotation=135
 
 local TopBar=Instance.new("Frame",SG)
-TopBar.Size=UDim2.new(1,0,0,44); TopBar.BackgroundColor3=Color3.fromRGB(25,0,45)
+TopBar.Size=UDim2.new(1,0,0,44)
+TopBar.BackgroundColor3=Color3.fromRGB(25,0,45)
 TopBar.BackgroundTransparency=0.15; TopBar.BorderSizePixel=0; TopBar.ZIndex=10
 local TBG=Instance.new("UIGradient",TopBar)
 TBG.Color=ColorSequence.new{
@@ -154,16 +156,16 @@ end)
 setStatus("Đang kiểm tra server...")
 
 -- ============================================================
--- PHẦN LOBBY (SẢNH CHỜ)
+-- LOGIC PHÒNG CHỜ (LOBBY)
 -- ============================================================
 if game.PlaceId == LOBBY_ID then
     setStatus("Sảnh Chờ")
 
     local MapData={["Rừng"]="Map1",["Sa Mạc"]="Map2",["Băng Giá"]="Map3",
-        ["Núi Lửa"]="Map4",["Thiên Hà"]="Map5",["Giới Hạn"]="Map6",["Tốt nhất"]="Best"}
+        ["Núi Lửa"]="Map4",["Thiên Hà"]="Map5",["Giới Hạn"]="Map6",["Bản đồ tốt nhất"]="Best"}
     local MapOrder={"Map5","Map4","Map3","Map2","Map1"}
-    local DiffList={"Dễ","Trung Bình","Khó","Vô Tận","Tốt nhất"}
-    local DiffMap={["Dễ"]="Easy",["Trung Bình"]="Medium",["Khó"]="Hard",["Vô Tận"]="Endless",["Tốt nhất"]="Best difficulty"}
+    local DiffList={"Dễ","Trung Bình","Khó","Vô Tận","Độ khó tốt nhất"}
+    local DiffMap={["Dễ"]="Easy",["Trung Bình"]="Medium",["Khó"]="Hard",["Vô Tận"]="Endless",["Độ khó tốt nhất"]="Best difficulty"}
 
     local F=Instance.new("Frame",SG)
     F.Size=UDim2.new(0,420,0,520); F.Position=UDim2.new(0.5,-210,0.5,-260)
@@ -175,12 +177,10 @@ if game.PlaceId == LOBBY_ID then
         ColorSequenceKeypoint.new(0,Color3.fromRGB(35,8,65)),
         ColorSequenceKeypoint.new(1,Color3.fromRGB(12,2,28)),
     }; FG.Rotation=45
-    
     local FAcc=Instance.new("Frame",F)
     FAcc.Size=UDim2.new(1,0,0,3); FAcc.BackgroundColor3=Color3.fromRGB(130,50,255)
     FAcc.BorderSizePixel=0; FAcc.ZIndex=21
     Instance.new("UICorner",FAcc).CornerRadius=UDim.new(0,4)
-
     local FT=Instance.new("TextLabel",F)
     FT.Size=UDim2.new(1,0,0,40); FT.Position=UDim2.fromOffset(0,6)
     FT.BackgroundTransparency=1; FT.Text="QUẢN LÝ HÀNG CHỜ"
@@ -193,7 +193,6 @@ if game.PlaceId == LOBBY_ID then
         lbl.BackgroundTransparency=1; lbl.Text=title
         lbl.TextColor3=Color3.fromRGB(150,100,220); lbl.Font=Enum.Font.GothamBold
         lbl.TextSize=12; lbl.TextXAlignment=Enum.TextXAlignment.Left; lbl.ZIndex=21
-        
         local sf=Instance.new("ScrollingFrame",F)
         sf.Size=UDim2.new(1,-32,0,110); sf.Position=UDim2.fromOffset(16,yOff+20)
         sf.BackgroundColor3=Color3.fromRGB(10,2,22); sf.BackgroundTransparency=0.3
@@ -201,11 +200,9 @@ if game.PlaceId == LOBBY_ID then
         sf.ScrollBarImageColor3=Color3.fromRGB(110,40,200)
         sf.CanvasSize=UDim2.new(0,0,0,#items*38); sf.ZIndex=21
         Instance.new("UICorner",sf).CornerRadius=UDim.new(0,10)
-        
         local ll=Instance.new("UIListLayout",sf); ll.Padding=UDim.new(0,4)
         local pad=Instance.new("UIPadding",sf)
         pad.PaddingTop=UDim.new(0,6); pad.PaddingLeft=UDim.new(0,6); pad.PaddingRight=UDim.new(0,6)
-        
         local btns={}
         for _,name in ipairs(items) do
             local btn=Instance.new("TextButton",sf)
@@ -215,14 +212,12 @@ if game.PlaceId == LOBBY_ID then
             local act=isActive(name)
             btn.BackgroundColor3=act and Color3.fromRGB(110,40,200) or Color3.fromRGB(35,15,60)
             btn.TextColor3=act and Color3.new(1,1,1) or Color3.fromRGB(180,140,220)
-            
             btn.MouseEnter:Connect(function()
                 if not isActive(name) then TweenService:Create(btn,TweenInfo.new(0.1),{BackgroundColor3=Color3.fromRGB(60,25,100)}):Play() end
             end)
             btn.MouseLeave:Connect(function()
                 if not isActive(name) then TweenService:Create(btn,TweenInfo.new(0.1),{BackgroundColor3=Color3.fromRGB(35,15,60)}):Play() end
             end)
-            
             btn.MouseButton1Click:Connect(function()
                 for _,b in pairs(btns) do
                     TweenService:Create(b,TweenInfo.new(0.1),{BackgroundColor3=Color3.fromRGB(35,15,60)}):Play()
@@ -236,19 +231,19 @@ if game.PlaceId == LOBBY_ID then
         end
     end
 
-    mkSection("CHỌN BẢN ĐỒ",48,{"Rừng","Sa Mạc","Băng Giá","Núi Lửa","Thiên Hà","Giới Hạn","Tốt nhất"},
+    mkSection("CHỌN BẢN ĐỒ",48,{"Rừng","Sa Mạc","Băng Giá","Núi Lửa","Thiên Hà","Giới Hạn","Bản đồ tốt nhất"},
         function(v)
-            if v=="Tốt nhất" then Save.IsBestMap=true
+            if v=="Bản đồ tốt nhất" then Save.IsBestMap=true
             else Save.IsBestMap=false; Save.SelectedMap=MapData[v] end
             saveData()
         end,
-        function(n) return (MapData[n]==Save.SelectedMap and not Save.IsBestMap) or (n=="Tốt nhất" and Save.IsBestMap) end)
+        function(n) return (MapData[n]==Save.SelectedMap and not Save.IsBestMap) or (n=="Bản đồ tốt nhất" and Save.IsBestMap) end)
 
     mkSection("CHỌN ĐỘ KHÓ",195,DiffList,
         function(v)
-            local rv = DiffMap[v]
-            if rv=="Best difficulty" then Save.IsBestDiff=true
-            else Save.IsBestDiff=false; Save.SelectedDiff=rv end
+            local realVal = DiffMap[v]
+            if realVal=="Best difficulty" then Save.IsBestDiff=true
+            else Save.IsBestDiff=false; Save.SelectedDiff=realVal end
             saveData()
         end,
         function(n) return (DiffMap[n]==Save.SelectedDiff and not Save.IsBestDiff) or (DiffMap[n]=="Best difficulty" and Save.IsBestDiff) end)
@@ -261,7 +256,6 @@ if game.PlaceId == LOBBY_ID then
         Instance.new("UICorner",btn).CornerRadius=UDim.new(0,10)
         local st=Instance.new("UIStroke",btn)
         st.Color=color; st.Thickness=1.5; st.Transparency=0.5
-        
         btn.MouseEnter:Connect(function() TweenService:Create(btn,TweenInfo.new(0.1),{BackgroundTransparency=0.15}):Play(); st.Transparency=0 end)
         btn.MouseLeave:Connect(function() TweenService:Create(btn,TweenInfo.new(0.1),{BackgroundTransparency=0}):Play(); st.Transparency=0.5 end)
         btn.MouseButton1Click:Connect(cb)
@@ -275,19 +269,30 @@ if game.PlaceId == LOBBY_ID then
     local function fireQueue()
         setStatus("Đang tham gia hàng chờ...")
         pcall(function()
-            local qf = workspace:FindFirstChild("Queues")
-            if qf then
-                for _, q in ipairs(qf:GetChildren()) do
+            local queuesFolder = workspace:FindFirstChild("Queues")
+            if queuesFolder then
+                for _, q in ipairs(queuesFolder:GetChildren()) do
                     local hb = q:FindFirstChild("Hitbox")
-                    if hb then lp.Character.HumanoidRootPart.CFrame = hb.CFrame; break end
+                    if hb then
+                        lp.Character.HumanoidRootPart.CFrame = hb.CFrame
+                        break
+                    end
                 end
             end
         end)
         task.wait(0.5)
 
         local Remote = nil
-        pcall(function() Remote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 5):WaitForChild("Queue", 5) end)
-        if not Remote then setStatus("LỖI: Không thấy Remote!"); return end
+        pcall(function()
+            Remote = game:GetService("ReplicatedStorage")
+                :WaitForChild("Remotes", 5)
+                :WaitForChild("Queue", 5)
+        end)
+
+        if not Remote then
+            setStatus("LỖI: Không tìm thấy Remote Hàng chờ!")
+            return
+        end
 
         local maps  = Save.IsBestMap  and MapOrder                          or {Save.SelectedMap}
         local diffs = Save.IsBestDiff and {"Endless","Hard","Medium","Easy"} or {Save.SelectedDiff}
@@ -310,23 +315,34 @@ if game.PlaceId == LOBBY_ID then
     end)
 
     local dragging,dragStart,startPos
-    F.InputBegan:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true; dragStart=inp.Position; startPos=F.Position end end)
-    game:GetService("UserInputService").InputChanged:Connect(function(inp)
-        if inp.UserInputType==Enum.UserInputType.MouseMovement and dragging then
-            local d=inp.Position-dragStart; F.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)
+    F.InputBegan:Connect(function(inp)
+        if inp.UserInputType==Enum.UserInputType.MouseButton1 then
+            dragging=true; dragStart=inp.Position; startPos=F.Position
         end
     end)
-    game:GetService("UserInputService").InputEnded:Connect(function(inp) if inp.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end end)
+    game:GetService("UserInputService").InputChanged:Connect(function(inp)
+        if inp.UserInputType==Enum.UserInputType.MouseMovement and dragging then
+            local d=inp.Position-dragStart
+            F.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+d.X,startPos.Y.Scale,startPos.Y.Offset+d.Y)
+        end
+    end)
+    game:GetService("UserInputService").InputEnded:Connect(function(inp)
+        if inp.UserInputType==Enum.UserInputType.MouseButton1 then dragging=false end
+    end)
 
     if Save.AutoStartQueue then
         task.spawn(function()
-            for i=5,1,-1 do startBtn.Text="BẮT ĐẦU TRONG "..i.."s"; setStatus("Bắt đầu trong "..i.."s..."); task.wait(1) end
+            for i=5,1,-1 do
+                startBtn.Text="TỰ ĐỘNG SAU "..i.."s"
+                setStatus("Tự động bắt đầu sau "..i.."s...")
+                task.wait(1)
+            end
             startBtn.Text="BẮT ĐẦU HÀNG CHỜ"; fireQueue()
         end)
     end
 
 -- ============================================================
--- PHẦN GAMEPLAY (TYCOON) - KHÔI PHỤC 100% LOGIC THÔNG MINH
+-- LOGIC TRONG TRẬN ĐẤU (TYCOON)
 -- ============================================================
 elseif game.PlaceId == GAME_ID then
 
@@ -344,6 +360,7 @@ elseif game.PlaceId == GAME_ID then
     local function cleanNumber(text)
         if not text then return 0 end
         local s = tostring(text):gsub("<[^>]+>",""):gsub("[^%d]","")
+        if s == "" then return 0 end
         return tonumber(s) or 0
     end
 
@@ -356,7 +373,8 @@ elseif game.PlaceId == GAME_ID then
     local function tp(cf)
         local char = lp.Character or lp.CharacterAdded:Wait()
         local hrp = char:WaitForChild("HumanoidRootPart")
-        hrp.CFrame = typeof(cf)=="CFrame" and cf or (cf:IsA("Model") and cf:GetPivot() or cf.CFrame)
+        hrp.CFrame = typeof(cf)=="CFrame" and cf
+            or (cf:IsA("Model") and cf:GetPivot() or cf.CFrame)
     end
 
     local function getUIData()
@@ -367,7 +385,8 @@ elseif game.PlaceId == GAME_ID then
         return {
             cost  = cleanNumber(holder.Stats.Cost.AmountHolder.Amount.Text),
             level = cleanNumber(holder.Info.Level.Before.Text),
-            isMax = holder.Info.Level.After.Text:find("MAX") ~= nil or holder.Info.Level.After.Text:find("Макс") ~= nil,
+            isMax = holder.Info.Level.After.Text:find("MAX") ~= nil
+                 or holder.Info.Level.After.Text:find("Макс") ~= nil,
         }
     end
 
@@ -377,37 +396,50 @@ elseif game.PlaceId == GAME_ID then
         for i=1,10 do
             task.wait(0.2)
             local d = getUIData()
-            if d and d.level > 0 then priceCache[obj] = d return d end
+            if d and d.level > 0 then
+                priceCache[obj] = {cost=d.cost, level=d.level, isMax=d.isMax}
+                return priceCache[obj]
+            end
         end
         return nil
     end
 
-    -- Theo dõi kết quả trận
+    -- Theo dõi kết quả trận đấu
     task.spawn(function()
         while true do
             local ok,vis = pcall(function() return lp.PlayerGui.Menus.GameResult.Visible end)
             if ok and vis then
-                setStatus("Trận đấu kết thúc — Dịch chuyển...")
-                pcall(function() Save.TotalGold = Save.TotalGold + cleanNumber(lp.PlayerGui.Hud.Reward.GoldAmount.Text) saveData() end)
-                ResultRemote:FireServer("teleport"); task.wait(5)
+                setStatus("Kết thúc trận — Đang dịch chuyển...")
+                pcall(function()
+                    Save.TotalGold = Save.TotalGold + cleanNumber(lp.PlayerGui.Hud.Reward.GoldAmount.Text)
+                    saveData()
+                end)
+                ResultRemote:FireServer("teleport")
+                task.wait(5)
             end
             task.wait(1)
         end
     end)
 
+    -- Tìm căn cứ
     setStatus("Đang tìm căn cứ...")
     while not myBase do
         for _,b in pairs(workspace.Bases:GetChildren()) do
             local owner = b:GetAttribute("owner") or (b:FindFirstChild("Owner") and b.Owner.Value)
-            if owner==lp.Name or owner=="" or owner==nil or owner=="None" then myBase=b; break end
+            if owner==lp.Name or owner=="" or owner==nil or owner=="None" then
+                myBase=b; break
+            end
         end
         task.wait(1)
     end
     setStatus("Căn cứ: "..myBase.Name)
-    task.spawn(function() while true do BaseEvent:FireServer("repair"); task.wait(0.5) end end)
 
-    -- PHASE 1: Cửa lv2
-    setStatus("Nâng Cửa lên lv2...")
+    task.spawn(function()
+        while true do BaseEvent:FireServer("repair"); task.wait(0.5) end
+    end)
+
+    -- GIAI ĐOẠN 1: Cửa lv2
+    setStatus("Nâng cấp Cửa lv2...")
     tp(myBase.Door)
     repeat
         task.wait(0.5)
@@ -418,22 +450,35 @@ elseif game.PlaceId == GAME_ID then
         end
     until false
 
-    -- PHASE 1b: BÁN FARM KHỞI ĐẦU (Sửa lỗi kẹt yêu cầu Cửa)
-    setStatus("BÁN Farm chính để giải phóng vị trí...")
+    -- GIAI ĐOẠN 1b: Farm chính lv3
+    setStatus("Nâng cấp Farm lv3...")
     local mainFarm = nil
     repeat mainFarm=myBase.Tiles.Starter:FindFirstChild("Farm3"); task.wait(0.5) until mainFarm
-    tp(mainFarm); task.wait(0.5)
-    -- Gọi lệnh bán từ Remote gốc
-    pcall(function() UpgradeEvent:FireServer("sell", mainFarm) end)
-    task.wait(1)
+    tp(mainFarm)
+    repeat
+        task.wait(0.5)
+        local d = getUIData()
+        if d then
+            if d.level >= 2 then break end
+            if getBalance() >= d.cost then UpgradeEvent:FireServer("upgrade",mainFarm); task.wait(0.5) end
+        end
+    until false
 
-    -- PHASE 2: Sắp xếp Tiles
+    -- GIAI ĐOẠN 2: Sắp xếp vị trí
     setStatus("Đang phân loại vị trí...")
     local allTiles = {}
-    for _,t in pairs(myBase.Tiles:GetChildren()) do if t.Name=="Tile" or t:IsA("BasePart") then table.insert(allTiles,t) end end
-    table.sort(allTiles,function(a,b) return (a:GetPivot().Position-myBase.Door:GetPivot().Position).Magnitude < (b:GetPivot().Position-myBase.Door:GetPivot().Position).Magnitude end)
+    for _,t in pairs(myBase.Tiles:GetChildren()) do
+        if t.Name=="Tile" or t:IsA("BasePart") then table.insert(allTiles,t) end
+    end
+    table.sort(allTiles,function(a,b)
+        return (a:GetPivot().Position-myBase.Door:GetPivot().Position).Magnitude
+             < (b:GetPivot().Position-myBase.Door:GetPivot().Position).Magnitude
+    end)
     local turretTiles,farmTiles={},{}
-    for i,t in ipairs(allTiles) do if i<=MAX_TURRETS then table.insert(turretTiles,t) else table.insert(farmTiles,t) end end
+    for i,t in ipairs(allTiles) do
+        if i<=MAX_TURRETS then table.insert(turretTiles,t) else table.insert(farmTiles,t) end
+    end
+    setStatus("Tiles: "..#farmTiles.." farm | "..#turretTiles.." trụ")
 
     local function buyUnit(tile, prefix)
         local n,pr,m = prefix.."1",100,0
@@ -446,26 +491,75 @@ elseif game.PlaceId == GAME_ID then
             end
         end)
         while getBalance()<pr do task.wait(1) end
-        tp(tile); task.wait(0.5); UnitEvent:FireServer("buy",n,tile); task.wait(1)
+        tp(tile); task.wait(0.5)
+        UnitEvent:FireServer("buy",n,tile)
+        task.wait(1)
         return tile:FindFirstChildOfClass("Model")
     end
 
-    local buildList={}
-    setStatus("Đang xây Nông trại...")
-    for _,t in ipairs(farmTiles) do local m=buyUnit(t,"Farm"); if m then table.insert(buildList,m) end end
+    local buildList={mainFarm}
+    setStatus("Đang xây Farm...")
+    for _,t in ipairs(farmTiles) do
+        local m=buyUnit(t,"Farm"); if m then table.insert(buildList,m) end
+    end
     setStatus("Đang xây Trụ...")
-    for _,t in ipairs(turretTiles) do local m=buyUnit(t,"Turret"); if m then table.insert(buildList,m) end end
+    for _,t in ipairs(turretTiles) do
+        local m=buyUnit(t,"Turret"); if m then table.insert(buildList,m) end
+    end
 
-    -- Theo dõi Boss & Chế độ phòng thủ (Giữ nguyên thuật toán bán farm khi Boss ra)
-    local defenseMode, farmsSold = false, false
+    -- GIAI ĐOẠN 3: Tính toán giá
+    setStatus("Đang quét dữ liệu giá...")
+    for _,obj in ipairs(buildList) do updateObjectData(obj) end
+    updateObjectData(myBase.Door)
+    setStatus("Đã kích hoạt Nâng cấp thông minh")
+
+    -- Theo dõi Boss
+    local defenseMode=false
+    local farmsSold=false
+
     local function getBossLevel()
         local ok,text=pcall(function() return lp.PlayerGui.Hud.Boss.Title.Lvl.Text end)
         if not ok or not text then return nil,nil end
-        local s = text:gsub("<[^>]+>","")
-        local cur,max = s:match("(%d+)%s*/%s*(%d+)")
-        return tonumber(cur), tonumber(max)
+        local stripped=text:gsub("<[^>]+>",""):gsub("</[^>]+>","")
+        local cur,max=stripped:match("(%d+)%s*/%s*(%d+)")
+        return tonumber(cur),tonumber(max)
     end
-    local function getNilObj(name,id) for _,o in pairs(getnilinstances()) do if o.Name==name and o:GetDebugId()==id then return o end end return nil end
+
+    local function getNilByDebugId(name,debugId)
+        for _,obj in pairs(getnilinstances()) do
+            if obj.Name==name and obj:GetDebugId()==debugId then return obj end
+        end
+        return nil
+    end
+
+    local function sellAllFarms()
+        if farmsSold then return end
+        setStatus("CHẾ ĐỘ PHÒNG THỦ - Đang bán farm...")
+        for _,obj in ipairs(buildList) do
+            if obj~=mainFarm and obj.Name:find("Farm") then
+                pcall(function()
+                    local target=getNilByDebugId(obj.Name,obj:GetDebugId())
+                    if not target then target=obj end
+                    UpgradeEvent:FireServer("sell",target)
+                    task.wait(0.3)
+                    priceCache[obj]=nil
+                end)
+            end
+        end
+        farmsSold=true
+        setStatus("PHÒNG THỦ - Chỉ giữ Trụ và Cửa")
+    end
+
+    local function restoreFarms()
+        if not farmsSold then return end
+        setStatus("Boss đã chết - Đang xây lại farm...")
+        farmsSold=false
+        for _,t in ipairs(farmTiles) do
+            local m=buyUnit(t,"Farm")
+            if m then table.insert(buildList,m); updateObjectData(m) end
+        end
+        setStatus("Đã khôi phục kinh tế")
+    end
 
     task.spawn(function()
         while true do
@@ -473,47 +567,72 @@ elseif game.PlaceId == GAME_ID then
             local cur,max=getBossLevel()
             if cur and max then
                 local danger=(cur>=max-2)
-                if danger and not defenseMode then
-                    defenseMode=true; farmsSold=true; setStatus("CHẾ ĐỘ THỦ - Đang bán Farm...")
-                    for _,o in ipairs(buildList) do if o.Name:find("Farm") then
-                        local t = getNilObj(o.Name, o:GetDebugId()) or o
-                        pcall(function() UpgradeEvent:FireServer("sell", t) end) task.wait(0.2) priceCache[o]=nil
-                    end end
-                elseif not danger and defenseMode then
-                    defenseMode=false; farmsSold=false; setStatus("Đang khôi phục Nông trại...")
-                    for _,t in ipairs(farmTiles) do local m=buyUnit(t,"Farm"); if m then table.insert(buildList,m); updateObjectData(m) end end
-                end
+                if danger and not defenseMode then defenseMode=true; sellAllFarms()
+                elseif not danger and defenseMode then defenseMode=false; restoreFarms() end
             end
         end
     end)
 
-    -- Vòng lặp nâng cấp thông minh
-    setStatus("Đang quét giá..."); for _,o in ipairs(buildList) do updateObjectData(o) end updateObjectData(myBase.Door)
-    setStatus("Đã kích hoạt Nâng cấp thông minh")
-
+    -- Vòng lặp nâng cấp chính (ĐÃ SỬA LỖI KẸT CỬA LV3)
     while true do
-        local best, low, maxLvl = nil, math.huge, 0
+        local bestTarget, lowestPrice, maxUnitLevel = nil, math.huge, 0
+        local dData = priceCache[myBase.Door]
+
+        -- 1. TÌM LEVEL CAO NHẤT HIỆN TẠI CỦA UNIT
         for obj, data in pairs(priceCache) do
-            if obj and obj.Parent and not data.isMax then
-                if data.level > maxLvl then maxLvl = data.level end
-                if defenseMode and obj.Name:find("Farm") then continue end
-                if obj ~= myBase.Door and data.cost < low then low, best = data.cost, obj end
+            if obj and obj.Parent and obj ~= myBase.Door then
+                if data.level > maxUnitLevel then maxUnitLevel = data.level end
             end
         end
 
-        -- Logic Cửa thông minh (Theo sát cấp độ Unit)
-        local dData = priceCache[myBase.Door]
-        if dData and not dData.isMax then
-            if best and priceCache[best].level >= 4 and dData.level < 6 then best, low = myBase.Door, dData.cost end
-            if dData.level < (maxLvl + 1) and dData.cost < low then low, best = dData.cost, myBase.Door end
+        -- 2. KIỂM TRA ĐIỀU KIỆN TIÊN QUYẾT (CỬA LV3)
+        -- Nếu có unit đạt lv2 mà cửa vẫn đang dưới lv3, ép nâng cửa lên lv3 trước
+        if dData and dData.level < 3 and maxUnitLevel >= 2 then
+            bestTarget = myBase.Door
+            lowestPrice = dData.cost
+        else
+            -- 3. LOGIC TÌM MỤC TIÊU RẺ NHẤT NHƯ CŨ
+            for obj, data in pairs(priceCache) do
+                if obj and obj.Parent and not data.isMax then
+                    local isFarm = obj ~= mainFarm and obj.Name:find("Farm")
+                    if defenseMode and isFarm then continue end -- Bỏ qua farm khi đang thủ
+                    
+                    -- Giới hạn Farm chính theo biến MAIN_FARM_LIMIT
+                    if obj == mainFarm and data.level >= MAIN_FARM_LIMIT then continue end
+
+                    if data.cost > 0 and data.cost < lowestPrice then
+                        lowestPrice, bestTarget = data.cost, obj
+                    end
+                end
+            end
+
+            -- 4. ƯU TIÊN NÂNG CỬA THEO TIẾN ĐỘ UNIT (Cửa luôn >= Unit Level + 1)
+            if dData and not dData.isMax then
+                if dData.level < (maxUnitLevel + 1) or (maxUnitLevel >= 4 and dData.level < 6) then
+                    if dData.cost < lowestPrice then
+                        lowestPrice, bestTarget = dData.cost, myBase.Door
+                    end
+                end
+            end
         end
 
-        if best then
-            setStatus((defenseMode and "[THỦ] " or "")..best.Name.." lv"..priceCache[best].level.." $"..low)
-            if getBalance()>=low then updateObjectData(best); UpgradeEvent:FireServer("upgrade", best); task.wait(0.5); updateObjectData(best) end
+        -- THỰC THI NÂNG CẤP
+        if bestTarget then
+            local currentLevel = priceCache[bestTarget] and priceCache[bestTarget].level or "?"
+            setStatus((defenseMode and "[THỦ] " or "").."-> "..bestTarget.Name.." lv"..currentLevel.." $"..lowestPrice)
+            
+            if getBalance() >= lowestPrice then
+                -- Teleport để kích hoạt menu trước khi nhấn Remote (đảm bảo server nhận lệnh)
+                tp(bestTarget)
+                task.wait(0.1)
+                UpgradeEvent:FireServer("upgrade", bestTarget)
+                task.wait(0.5)
+                updateObjectData(bestTarget) -- Cập nhật giá mới sau khi nâng
+            end
         else
-            for _,o in ipairs(buildList) do updateObjectData(o) end updateObjectData(myBase.Door)
+            setStatus("Đang quét lại toàn bộ...")
+            updateObjectData(myBase.Door)
+            for _, obj in ipairs(buildList) do updateObjectData(obj) end
         end
-        task.wait(1)
+        task.wait(0.8) -- Tăng nhẹ delay để tránh spam remote quá nhanh
     end
-end
