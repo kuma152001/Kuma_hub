@@ -1,17 +1,26 @@
--- 1. CHỐNG CHẠY NHIỀU LỚP GUI & KIỂM TRA TRẠNG THÁI (Dọn dẹp bản cũ)
-for _, v in pairs(game:GetService("CoreGui"):GetChildren()) do
-    if v:IsA("ScreenGui") and (v:FindFirstChild("Main") or v.Name == "Rayfield") then
-        v:Destroy()
+
+-- 1. Dọn dẹp bản cũ
+pcall(function()
+    for _, v in pairs(game:GetService("CoreGui"):GetChildren()) do
+        if v:IsA("ScreenGui") and (v:FindFirstChild("Main") or v.Name == "Rayfield") then
+            v:Destroy()
+        end
     end
+end)
+
+print("Dang tai Rayfield...") -- Dong nay de kiem tra trong F9
+
+-- 2. LOAD RAYFIELD (Nên dùng pcall để tránh crash)
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+end)
+
+if not success or not Rayfield then
+    warn("Khong the tai thu vien Rayfield! Kiem tra mang hoac link.")
+    return
 end
 
--- Chặn chạy chồng script (Chỉ cho phép 1 bản chạy)
-if _G.KumaLoaded then return end
-_G.KumaLoaded = true
-
--- 2. ĐỊNH NGHĨA BIẾN TELEPORT (Chỉ khai báo 1 lần duy nhất)
-local queue_on_teleport = queue_on_teleport or (syn and syn.queue_on_teleport)
-local scriptSource = [[loadstring(game:HttpGet("https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/loader.lua"))()]]
+-- Tiep tuc cac phan code Window...
 
 -- 3. ĐỢI GAME LOAD XONG 100%
 if not game:IsLoaded() then
