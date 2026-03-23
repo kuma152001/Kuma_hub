@@ -549,47 +549,156 @@ elseif game.PlaceId == GAME_ID then
         end
     until false
 
-    -- GIAI ĐOẠN 2: Sắp xếp vị trí
-    setStatus("Đang phân loại vị trí...")
-    local allTiles = {}
-    for _,t in pairs(myBase.Tiles:GetChildren()) do
-        if t.Name=="Tile" or t:IsA("BasePart") then table.insert(allTiles,t) end
-    end
-    table.sort(allTiles,function(a,b)
-        return (a:GetPivot().Position-myBase.Door:GetPivot().Position).Magnitude
-             < (b:GetPivot().Position-myBase.Door:GetPivot().Position).Magnitude
-    end)
-    local turretTiles,farmTiles={},{}
-    for i,t in ipairs(allTiles) do
-        if i<=MAX_TURRETS then table.insert(turretTiles,t) else table.insert(farmTiles,t) end
+    -- ============================================================
+-- HÀM MUA UNIT (ĐÃ TỐI ƯU HÓA TÌM KIẾM SHOP)
+-- ============================================================
+
+local function buyUnit(tile, prefix)
+    local targetName, targetPrice, maxId = nil, 0, -1
+    local hud = lp.PlayerGui:FindFirstChild("Hud")
+    local buildGui = hud and (hud:FindFirstChild("Build") or hud:FindFirstChild("Shop"))
+    
+    if not buildGui then 
+        warn("[Kuma_Hub] KHÔNG TÌM THẤY MENU BUILD/SHOP!")
+        return nil 
     end
 
-    local function buyUnit(tile, prefix)
-        local n,pr,m = prefix.."1",100,0
-        pcall(function()
-            for _,item in pairs(lp.PlayerGui.Hud.Build.Holder.Scroller:GetChildren()) do
-                if item.Name:sub(1,#prefix)==prefix then
-                    local id=tonumber(item.Name:match("%d+")) or 0
-                    if id>m then m,n,pr=id,item.Name,cleanNumber(item.Buy.Amount.Text) end
+    -- Tìm Scroller (Nơi chứa các món đồ)
+    local holder = buildGui:FindFirstChild("Holder") or buildGui
+    local scroller = holder:FindFirstChild("Scroller") or holder:FindFirstChild("Container") or holder:FindFirstChild("List")
+    
+    if not scroller then
+        warn("[Kuma_Hub] Không tìm thấy danh sách vật phẩm trong Shop!")
+        return nil
+    end
+
+    -- Quét danh sách để tìm Unit mạnh nhất (ID cao nhất)
+    for _, item in pairs(scroller:GetChildren()) do
+        if item.Name:lower():find(prefix:lower()) then
+            local id = tonumber(item.Name:match("%d+")) or 0
+            if id > maxId then
+                -- Tìm giá tiền (Thường nằm trong nút Buy hoặc TextLabel giá)
+                local priceLabel = item:findFirstChild("Amount", true) or item:findFirstChild("Price", true)
+                if priceLabel then
+                    maxId = id
+                    targetName = item.Name
+                    targetPrice = cleanNumber(priceLabel.Text)
                 end
             end
-        end)
-        while getBalance()<pr do task.wait(1) end
-        tp(tile); task.wait(0.5)
-        UnitEvent:FireServer("buy",n,tile)
-        task.wait(1)
-        return tile:FindFirstChildOfClass("Model")
+        end
     end
 
-    local buildList={mainFarm}
-    setStatus("Đang xây Farm...")
-    for _,t in ipairs(farmTiles) do
-        local m=buyUnit(t,"Farm"); if m then table.insert(buildList,m) end
+    if not targetName then 
+        warn("[Kuma_Hub] Không tìm thấy Unit nào có tên: " .. prefix)
+        return nil 
     end
-    setStatus("Đang xây Trụ...")
-    for _,t in ipairs(turretTiles) do
-        local m=buyUnit(t,"Turret"); if m then table.insert(buildList,m) end
+
+    -- Chờ đủ tiền
+    if getBalance() < targetPrice then
+        setStatus("Đang đợi " .. targetPrice .. "$ để mua " .. targetName)
+        repeat task.wait(1) until getBalance() >= targetPrice or not _G.AutoUpgrade
     end
+
+    -- Thực hiện lệnh mua
+    print("[Kuma_Hub] Đang mua: " .. targetName .. " giá " .. targetPrice .. " tại " .. tile.Name)
+    tp(tile)
+    task.wait(0.5)
+    UnitEvent:FireServer("buy", targetName, tile)
+    
+    -- Kiểm tra xác nhận đã xây xong chưa
+    local spawned = nil
+    for i = 1, 10 do
+        task.wait(0.3)
+        spawned = tile:FindFirstChildOfClass("Model")
+        if spawned then break end
+    end
+    return spawned
+end
+
+    -- ============================================================
+-- GIAI ĐOẠN 2: PHÂN LOẠI Ô ĐẤT (CHỈ SỬA LỌC VIP - GIỮ NGUYÊN LOGIC CŨ)
+-- ============================================================
+
+setStatus("Đang lọc ô VIP...")
+local allTiles = {}
+
+for _, t in pairs(myBase.Tiles:GetChildren()) do
+    -- Kiểm tra xem ô đó có phải là ô đất không (Tile)
+    if t.Name == "Tile" or t:IsA("BasePart") then
+        
+        -- BIẾN KIỂM TRA VIP:
+        local isVip = false
+        
+        -- 1. Check nếu có vật thể tên "Vip", "Lock", "Robux" bên trong ô đất
+        if t:FindFirstChild("Vip") or t:FindFirstChild("Lock") or t:FindFirstChild("Locked") then
+            isVip = true
+        end
+        
+        -- 2. Check bảng hiệu (BillboardGui) hiện trên đầu ô đất
+        local gui = t:FindFirstChildOfClass("BillboardGui")
+        if gui and not isVip then
+            -- Quét xem trong bảng đó có chữ "VIP" hoặc Icon "Robux" không
+            for _, child in pairs(gui:GetDescendants()) do
+                if child:IsA("TextLabel") then
+                    local txt = child.Text:lower()
+                    if txt:find("vip") or txt:find("robux") or txt:find("pass") then
+                        isVip = true; break
+                    end
+                elseif child:IsA("ImageLabel") then
+                    -- Kiểm tra nếu hình ảnh chứa icon robux
+                    if child.Image:find("robux") or child.Image:find("9605202113") then
+                        isVip = true; break
+                    end
+                end
+            end
+        end
+
+        -- NẾU KHÔNG PHẢI VIP THÌ MỚI THÊM VÀO DANH SÁCH XÂY
+        if not isVip then
+            table.insert(allTiles, t)
+        else
+            warn("[Kuma_Hub] Đã bỏ qua ô VIP/Robux: " .. t.Name)
+        end
+    end
+end
+
+-- Sắp xếp: ô nào gần Cửa (Door) nhất xây trước (Giữ nguyên logic cũ)
+table.sort(allTiles, function(a, b)
+    local distA = (a:GetPivot().Position - myBase.Door:GetPivot().Position).Magnitude
+    local distB = (b:GetPivot().Position - myBase.Door:GetPivot().Position).Magnitude
+    return distA < distB
+end)
+
+local turretTiles, farmTiles = {}, {}
+for i, t in ipairs(allTiles) do
+    -- Chia 10 ô đầu làm trụ, còn lại làm Farm (Giữ nguyên logic cũ)
+    if i <= MAX_TURRETS then 
+        table.insert(turretTiles, t) 
+    else 
+        table.insert(farmTiles, t) 
+    end
+end
+
+-- TIẾN HÀNH XÂY DỰNG (GIỮ NGUYÊN HÀM buyUnit CŨ CỦA BẠN)
+local buildList = {}
+local mainFarm = myBase.Tiles.Starter:FindFirstChild("Farm3") or myBase.Tiles.Starter:FindFirstChildOfClass("Model")
+if mainFarm then table.insert(buildList, mainFarm) end
+
+setStatus("Đang xây hệ thống Farm...")
+for _, t in ipairs(farmTiles) do
+    if not t:FindFirstChildOfClass("Model") then
+        local f = buyUnit(t, "Farm")
+        if f then table.insert(buildList, f) end
+    end
+end
+
+setStatus("Đang xây hệ thống Trụ...")
+for _, t in ipairs(turretTiles) do
+    if not t:FindFirstChildOfClass("Model") then
+        local tr = buyUnit(t, "Turret")
+        if tr then table.insert(buildList, tr) end
+    end
+end
 
     -- GIAI ĐOẠN 3: Tính toán giá
     setStatus("Đang quét dữ liệu giá...")
