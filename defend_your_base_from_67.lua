@@ -556,109 +556,64 @@ elseif game.PlaceId == GAME_ID then
 local function buyUnit(tile, prefix)
     local targetName, targetPrice, maxId = nil, 0, -1
     local hud = lp.PlayerGui:FindFirstChild("Hud")
-    local buildGui = hud and (hud:FindFirstChild("Build") or hud:FindFirstChild("Shop"))
+    local buildGui = hud:FindFirstChild("Build") or hud:FindFirstChild("Shop")
     
-    if not buildGui then 
-        warn("[Kuma_Hub] KHÔNG TÌM THẤY MENU BUILD/SHOP!")
-        return nil 
-    end
+    local scroller = buildGui:findFirstChild("Scroller", true) or buildGui:findFirstChild("Container", true)
+    if not scroller then return nil end
 
-    -- Tìm Scroller (Nơi chứa các món đồ)
-    local holder = buildGui:FindFirstChild("Holder") or buildGui
-    local scroller = holder:FindFirstChild("Scroller") or holder:FindFirstChild("Container") or holder:FindFirstChild("List")
-    
-    if not scroller then
-        warn("[Kuma_Hub] Không tìm thấy danh sách vật phẩm trong Shop!")
-        return nil
-    end
-
-    -- Quét danh sách để tìm Unit mạnh nhất (ID cao nhất)
     for _, item in pairs(scroller:GetChildren()) do
         if item.Name:lower():find(prefix:lower()) then
             local id = tonumber(item.Name:match("%d+")) or 0
             if id > maxId then
-                -- Tìm giá tiền (Thường nằm trong nút Buy hoặc TextLabel giá)
-                local priceLabel = item:findFirstChild("Amount", true) or item:findFirstChild("Price", true)
-                if priceLabel then
+                local priceObj = item:findFirstChild("Amount", true) or item:findFirstChild("Price", true)
+                if priceObj then
                     maxId = id
                     targetName = item.Name
-                    targetPrice = cleanNumber(priceLabel.Text)
+                    targetPrice = cleanNumber(priceObj.Text)
                 end
             end
         end
     end
 
-    if not targetName then 
-        warn("[Kuma_Hub] Không tìm thấy Unit nào có tên: " .. prefix)
-        return nil 
-    end
+    if not targetName then return nil end
+    while getBalance() < targetPrice do task.wait(1) end
 
-    -- Chờ đủ tiền
-    if getBalance() < targetPrice then
-        setStatus("Đang đợi " .. targetPrice .. "$ để mua " .. targetName)
-        repeat task.wait(1) until getBalance() >= targetPrice or not _G.AutoUpgrade
-    end
-
-    -- Thực hiện lệnh mua
-    print("[Kuma_Hub] Đang mua: " .. targetName .. " giá " .. targetPrice .. " tại " .. tile.Name)
-    tp(tile)
-    task.wait(0.5)
-    UnitEvent:FireServer("buy", targetName, tile)
+    tp(tile); task.wait(0.5)
+    game:GetService("ReplicatedStorage").Remotes.Unit:FireServer("buy", targetName, tile)
     
-    -- Kiểm tra xác nhận đã xây xong chưa
     local spawned = nil
-    for i = 1, 10 do
-        task.wait(0.3)
+    for i=1, 10 do
+        task.wait(0.5)
         spawned = tile:FindFirstChildOfClass("Model")
         if spawned then break end
     end
     return spawned
 end
-
     -- ============================================================
 -- GIAI ĐOẠN 2: PHÂN LOẠI Ô ĐẤT (CHỈ SỬA LỌC VIP - GIỮ NGUYÊN LOGIC CŨ)
 -- ============================================================
 
+-- GIAI ĐOẠN 2: PHÂN LOẠI Ô ĐẤT (ĐÃ FIX VIP)
 setStatus("Đang lọc ô VIP...")
 local allTiles = {}
-
 for _, t in pairs(myBase.Tiles:GetChildren()) do
-    -- Kiểm tra xem ô đó có phải là ô đất không (Tile)
     if t.Name == "Tile" or t:IsA("BasePart") then
-        
-        -- BIẾN KIỂM TRA VIP:
         local isVip = false
-        
-        -- 1. Check nếu có vật thể tên "Vip", "Lock", "Robux" bên trong ô đất
+        -- Kiểm tra vật thể Lock hoặc Billboard Robux ẩn
         if t:FindFirstChild("Vip") or t:FindFirstChild("Lock") or t:FindFirstChild("Locked") then
             isVip = true
-        end
-        
-        -- 2. Check bảng hiệu (BillboardGui) hiện trên đầu ô đất
-        local gui = t:FindFirstChildOfClass("BillboardGui")
-        if gui and not isVip then
-            -- Quét xem trong bảng đó có chữ "VIP" hoặc Icon "Robux" không
-            for _, child in pairs(gui:GetDescendants()) do
-                if child:IsA("TextLabel") then
-                    local txt = child.Text:lower()
-                    if txt:find("vip") or txt:find("robux") or txt:find("pass") then
-                        isVip = true; break
-                    end
-                elseif child:IsA("ImageLabel") then
-                    -- Kiểm tra nếu hình ảnh chứa icon robux
-                    if child.Image:find("robux") or child.Image:find("9605202113") then
+        else
+            local gui = t:FindFirstChildOfClass("BillboardGui")
+            if gui then
+                for _, v in pairs(gui:GetDescendants()) do
+                    if (v:IsA("TextLabel") and (v.Text:lower():find("vip") or v.Text:lower():find("robux"))) or
+                       (v:IsA("ImageLabel") and v.Image:find("robux")) then
                         isVip = true; break
                     end
                 end
             end
         end
-
-        -- NẾU KHÔNG PHẢI VIP THÌ MỚI THÊM VÀO DANH SÁCH XÂY
-        if not isVip then
-            table.insert(allTiles, t)
-        else
-            warn("[Kuma_Hub] Đã bỏ qua ô VIP/Robux: " .. t.Name)
-        end
+        if not isVip then table.insert(allTiles, t) end
     end
 end
 
