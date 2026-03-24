@@ -280,27 +280,107 @@ TabSys:CreateButton({
    Name = "💾 MANUAL SAVE ALL DATA",
    Callback = function()
        local success, err = pcall(function()
-           SaveAllData() -- Sử dụng hàm lưu mới của chúng ta
+           SaveAllData()
        end)
        if success then Rayfield:Notify({Title="Thành công", Content="Đã lưu cấu hình & tọa độ!", Duration=3})
        else Rayfield:Notify({Title="Lỗi", Content="Không thể lưu file!", Duration=3}) end
    end
 })
 
+TabSys:CreateSection("🛡️ Treo Máy & Tối Ưu")
+
+-- Chức năng Giảm FPS + Trắng màn hình (Treo máy)
+local GPUOverlay = nil
+TabSys:CreateToggle({
+    Name = "Chế độ Treo Máy (Giảm GPU/CPU)",
+    CurrentValue = false,
+    Flag = "GPUSaver_T",
+    Callback = function(V)
+        getgenv().GPUSaver = V
+        if V then
+            -- Tạo lớp phủ trắng màn hình
+            if not GPUOverlay then
+                GPUOverlay = Instance.new("ScreenGui")
+                GPUOverlay.Name = "KumaGPUSaver"
+                GPUOverlay.IgnoreGuiInset = true
+                GPUOverlay.DisplayOrder = 999999
+                local Frame = Instance.new("Frame", GPUOverlay)
+                Frame.Size = UDim2.new(1, 0, 1, 0)
+                Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- Màu trắng (để màu đen thì chỉnh 0,0,0)
+                local Text = Instance.new("TextLabel", Frame)
+                Text.Size = UDim2.new(1, 0, 1, 0)
+                Text.BackgroundTransparency = 1
+                Text.Text = "ĐANG TRONG CHẾ ĐỘ TIẾT KIỆM GPU...\nTẮT TOGGLE ĐỂ QUAY LẠI"
+                Text.TextColor3 = Color3.fromRGB(0, 0, 0)
+                Text.TextSize = 25
+            end
+            GPUOverlay.Parent = game:GetService("CoreGui")
+            
+            -- Giảm FPS (Yêu cầu executor hỗ trợ setfpscap)
+            if setfpscap then setfpscap(15) end
+            
+            -- Tắt render 3D (Cực kỳ hiệu quả để giảm GPU)
+            game:GetService("RunService"):Set3dRenderingEnabled(false)
+        else
+            if GPUOverlay then GPUOverlay.Parent = nil end
+            if setfpscap then setfpscap(60) end -- Hoặc số FPS bạn muốn
+            game:GetService("RunService"):Set3dRenderingEnabled(true)
+        end
+    end
+})
+
 TabSys:CreateToggle({ Name = "Auto Reconnect", CurrentValue = false, Flag = "AutoRec_T", Callback = function(V) getgenv().KumaConfig.AutoReconnect = V end })
-TabSys:CreateButton({ Name = "🚀 Server Hop", Callback = function()
-    pcall(function() 
-        local res = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
-        for _,v in pairs(res.data) do 
-            if v.playing < v.maxPlayers and v.id ~= game.JobId then 
-                if queue_on_teleport then queue_on_teleport(scriptSource) end -- Chạy lại script sau khi hop
-                TeleportService:TeleportToPlaceInstance(game.PlaceId, v.id, LocalPlayer) 
-                break 
+
+-- Sửa lại Server Hop (Logic ổn định hơn)
+TabSys:CreateButton({ 
+    Name = "🚀 Server Hop (Đổi Server)", 
+    Callback = function()
+        local PlaceId = game.PlaceId
+        local JobId = game.JobId
+        local function Hop()
+            local Servers = {}
+            local URL = "https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100"
+            local Raw = game:HttpGet(URL)
+            local Decoded = HttpService:JSONDecode(Raw)
+            
+            if Decoded and Decoded.data then
+                for _, v in pairs(Decoded.data) do
+                    if type(v) == "table" and v.playing < v.maxPlayers and v.id ~= JobId then
+                        table.insert(Servers, v.id)
+                    end
+                end
+            end
+            
+            if #Servers > 0 then
+                TeleportService:TeleportToPlaceInstance(PlaceId, Servers[math.random(1, #Servers)])
+            else
+                Rayfield:Notify({Title = "Hệ thống", Content = "Không tìm thấy server khác!", Duration = 3})
+            end
+        end
+        Hop()
+    end 
+})
+
+TabSys:CreateButton({ 
+    Name = "🚀 FPS Boost (Xóa Texture)", 
+    Callback = function() 
+        for _,v in pairs(Workspace:GetDescendants()) do 
+            if v:IsA("BasePart") then 
+                v.Material = Enum.Material.SmoothPlastic 
             end 
-        end 
-    end)
-end })
-TabSys:CreateButton({ Name = "🚀 FPS Boost", Callback = function() for _,v in pairs(Workspace:GetDescendants()) do if v:IsA("BasePart") then v.Material = Enum.Material.SmoothPlastic end if v:IsA("Decal") then v:Destroy() end end end })
+            if v:IsA("Decal") or v:IsA("Texture") then 
+                v:Destroy() 
+            end 
+        end
+        -- Tắt hiệu ứng ánh sáng
+        local Lighting = game:GetService("Lighting")
+        for _, v in pairs(Lighting:GetChildren()) do
+            if v:IsA("PostProcessEffect") or v:IsA("BloomEffect") or v:IsA("BlurEffect") then
+                v.Enabled = false
+            end
+        end
+    end 
+})
 
 -- =========================================================
 -- 4. VÒNG LẶP NỀN
