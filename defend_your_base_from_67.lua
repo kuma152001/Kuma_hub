@@ -564,62 +564,33 @@ elseif game.PlaceId == GAME_ID then
         if i<=MAX_TURRETS then table.insert(turretTiles,t) else table.insert(farmTiles,t) end
     end
 
-    -- ============================================================
-    -- PHẦN SỬA ĐỔI: FIX LỖI MUA UNIT (FARM/TURRET)
-    -- ============================================================
-    local function buyUnit(tile, unitName)
-        local pr = 100 -- Giá mặc định
-        
-        -- Quét giá thực tế từ Shop dựa trên tên "farm" hoặc "turret"
+    local function buyUnit(tile, prefix)
+        local n,pr,m = prefix.."1",100,0
         pcall(function()
-            local shopItem = lp.PlayerGui.Hud.Build.Holder.Scroller:FindFirstChild(unitName)
-            if shopItem and shopItem:FindFirstChild("Buy") then
-                pr = cleanNumber(shopItem.Buy.Amount.Text)
+            for _,item in pairs(lp.PlayerGui.Hud.Build.Holder.Scroller:GetChildren()) do
+                if item.Name:sub(1,#prefix)==prefix then
+                    local id=tonumber(item.Name:match("%d+")) or 0
+                    if id>m then m,n,pr=id,item.Name,cleanNumber(item.Buy.Amount.Text) end
+                end
             end
         end)
-
-        setStatus("Đợi đủ " .. pr .. " để mua " .. unitName)
-        while getBalance() < pr do task.wait(1) end
-        
-        tp(tile)
-        task.wait(0.5)
-        
-        -- Gửi Remote chính xác như SimpleSpy: "buy", "farm" hoặc "turret"
-        UnitEvent:FireServer("buy", unitName, tile)
-        
-        -- Đợi Model xuất hiện trong Tile để xác nhận đã mua xong
-        local model = nil
-        for i = 1, 10 do
-            model = tile:FindFirstChildOfClass("Model")
-            if model then break end
-            task.wait(0.3)
-        end
-        
-        if model then setStatus("Đã mua " .. unitName) end
-        return model
+        while getBalance()<pr do task.wait(1) end
+        tp(tile); task.wait(0.5)
+        UnitEvent:FireServer("buy",n,tile)
+        task.wait(1)
+        return tile:FindFirstChildOfClass("Model")
     end
 
-    local buildList = {mainFarm}
-    
+    local buildList={mainFarm}
     setStatus("Đang xây Farm...")
-    for _, t in ipairs(farmTiles) do
-        -- Kiểm tra nếu ô đất chưa có lính thì mới mua
-        if not t:FindFirstChildOfClass("Model") then
-            local m = buyUnit(t, "farm") -- Gửi "farm" viết thường, không số
-            if m then table.insert(buildList, m) end
-        end
+    for _,t in ipairs(farmTiles) do
+        local m=buyUnit(t,"Farm"); if m then table.insert(buildList,m) end
+    end
+    setStatus("Đang xây Trụ...")
+    for _,t in ipairs(turretTiles) do
+        local m=buyUnit(t,"Turret"); if m then table.insert(buildList,m) end
     end
 
-    setStatus("Đang xây Trụ...")
-    for _, t in ipairs(turretTiles) do
-        if not t:FindFirstChildOfClass("Model") then
-            local m = buyUnit(t, "turret") -- Gửi "turret" viết thường, không số
-            if m then table.insert(buildList, m) end
-        end
-    end
-    -- ============================================================
-    -- KẾT THÚC PHẦN SỬA ĐỔI
-    -- ============================================================
     -- GIAI ĐOẠN 3: Tính toán giá
     setStatus("Đang quét dữ liệu giá...")
     for _,obj in ipairs(buildList) do updateObjectData(obj) end
