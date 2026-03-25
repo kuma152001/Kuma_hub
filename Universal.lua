@@ -325,24 +325,33 @@ TabSys:CreateToggle({
 local function SafeServerHop()
     local Http = game:GetService("HttpService")
     local TPS = game:GetService("TeleportService")
-    local Api = "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Desc&limit=100"
     
     Rayfield:Notify({Title = "Hệ thống", Content = "Đang tìm Server mới...", Duration = 3})
     
     local Success, Result = pcall(function()
+        local Api = "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100&excludeFullGames=true"
         return Http:JSONDecode(game:HttpGet(Api))
     end)
     
-    if Success and Result.data then
-        for _, server in pairs(Result.data) do
-            if server.playing < server.maxPlayers and server.id ~= game.JobId then
-                TPS:TeleportToPlaceInstance(game.PlaceId, server.id, game.Players.LocalPlayer)
-                return
-            end
+    if not Success or not Result or not Result.data then
+        Rayfield:Notify({Title = "Lỗi", Content = "Không lấy được danh sách server!", Duration = 3})
+        return
+    end
+
+    for _, server in pairs(Result.data) do
+        if type(server.id) == "string" 
+            and server.id ~= game.JobId 
+            and server.playing ~= nil
+            and server.maxPlayers ~= nil
+            and server.playing < server.maxPlayers then
+                local ok, err = pcall(function()
+                    TPS:TeleportToPlaceInstance(game.PlaceId, server.id, LocalPlayer)
+                end)
+                if ok then return end
         end
     end
     
-    Rayfield:Notify({Title = "Lỗi", Content = "Không tìm thấy server nào khác!", Duration = 3})
+    Rayfield:Notify({Title = "Lỗi", Content = "Không tìm thấy server phù hợp!", Duration = 3})
 end
 
 TabSys:CreateButton({
@@ -372,6 +381,26 @@ TabSys:CreateButton({
    end
 })
 
+TabSys:CreateToggle({
+    Name = "Anti-AFK",
+    CurrentValue = false,
+    Flag = "AntiAFK_T",
+    Callback = function(V)
+        getgenv().AntiAFKEnabled = V
+        if V then
+            task.spawn(function()
+                while getgenv().AntiAFKEnabled do
+                    task.wait(60)
+                    if getgenv().AntiAFKEnabled then
+                        VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+                        task.wait(0.1)
+                        VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+                    end
+                end
+            end)
+        end
+    end
+})
 -- =========================================================
 -- 4. VÒNG LẶP NỀN
 -- =========================================================
