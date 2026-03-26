@@ -302,25 +302,6 @@ end
 
 TabSys:CreateSection("🛡️ Treo Máy & Tối Ưu")
 
-TabSys:CreateToggle({
-    Name = "White Screen + Giảm FPS (Treo Máy)",
-    CurrentValue = false,
-    Flag = "WhiteScreen_T",
-    Callback = function(V)
-        getgenv().WhiteScreenEnabled = V
-        if V then
-            CreateWhiteScreen()
-            WhiteScreenGui.Parent = game:GetService("CoreGui")
-            if setfpscap then setfpscap(10) end -- Giảm xuống 10 FPS để siêu nhẹ
-            game:GetService("RunService"):Set3dRenderingEnabled(false) -- Tắt hoàn toàn render 3D
-        else
-            if WhiteScreenGui then WhiteScreenGui.Parent = nil end
-            if setfpscap then setfpscap(60) end
-            game:GetService("RunService"):Set3dRenderingEnabled(true)
-        end
-    end
-})
-
 -- 2. FIX SERVER HOP (Dùng API v2 ổn định hơn)
 local function SafeServerHop()
     local Http = game:GetService("HttpService")
