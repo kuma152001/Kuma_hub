@@ -32,6 +32,7 @@ local GameDatabase = {
     
     -- Ví dụ: King Legacy
     [124473577469410] = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/be_a_lucky_block.lua",
+    [78320694285708] = "https://raw.githubusercontent.com/kuma152001/Kuma_hub/refs/heads/main/animal_training.lua",
     
     -- THÊM GAME KHÁC VÀO ĐÂY THEO CẤU TRÚC: [ID] = "LINK",
 }
