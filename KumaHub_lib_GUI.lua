@@ -227,11 +227,11 @@ local function makeItemRow(parent, height, T)
     padding(0, 12, 0, 12, row)
 
     -- hover effect
-    row.MouseEnter:Connect and row.MouseEnter:Connect(function()
+    row.MouseEnter:Connect(function()
         tw(row, {BackgroundColor3 = T.bgHover})
         tw(s, {Color = T.borderLight})
     end)
-    row.MouseLeave:Connect and row.MouseLeave:Connect(function()
+    row.MouseLeave:Connect(function()
         tw(row, {BackgroundColor3 = T.bgItem})
         tw(s, {Color = T.border})
     end)
