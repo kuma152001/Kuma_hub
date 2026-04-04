@@ -691,8 +691,8 @@ do
     local p=EventPage
 
     -- Cơ chế y hệt farm, chỉ khác tọa độ đứng chờ model
-    local EVENT_STAND_POS = Vector3.new(707.205810546875, 38.86445236206055, -2115.524658203125)
-    local COLLECT_BASE    = workspace:WaitForChild("CollectZones"):WaitForChild("base14")
+    local EVENT_STAND_POS = Vector3.new(427, 61, -2133)
+    local COLLECT_BASE    = workspace:WaitForChild("CollectZones"):WaitForChild("base4")
 
     -- Status card
     local statCard=frame({Size=UDim2.new(1,0,0,54),BackgroundColor3=C.surface2,BackgroundTransparency=0},p)
@@ -717,83 +717,68 @@ do
 
                 -- Step 1: Lấy char
                 local _,root,hum=getCharParts()
-                if not root then setEvStat("⚠ Chờ nhân vật...",C.warn); task.wait(1); continue end
+                if not root then setFarmLbl("⚠ Chờ nhân vật...",C.warn); task.wait(1); continue end
 
-                -- Step 2: Tele đến điểm event + StartRun + StartMove
-                setEvStat("🏃 Đang vào event...",C.event)
-                root.CFrame=CFrame.new(EVENT_STAND_POS); task.wait(0.3)
-                hum:MoveTo(EVENT_STAND_POS)
-                pcall(function() startRun:InvokeServer() end); task.wait(0.2)
-                pcall(function() startMove:InvokeServer() end); task.wait(0.2)
+                -- Step 2: Tele về vị trí start
+                root.CFrame=CFrame.new(716,39,-2122); task.wait(0.3)
+                hum:MoveTo(Vector3.new(710, 39, -2122))
 
-                -- Step 3: Chờ model xuất hiện (timeout cứng 14s)
-                setEvStat("🎯 Chờ model...",C.accent)
+                -- Step 3: Chờ model xuất hiện (timeout cứng 12s)
+                setFarmLbl("🎯 Chờ model...",C.accent)
                 local model=nil
                 local gotModel=safeWait(function()
                     model=getMyModel(); return model~=nil
-                end,14,0.25)
+                end,12,0.25)
 
-                if not eOn or not _G.ScriptRunning then break end
+                if not farmOn or not _G.ScriptRunning then break end
                 if not gotModel then
-                    setEvStat("⚠ Timeout, tự reset...",C.warn)
+                    setFarmLbl("⚠ Timeout, tự reset...",C.warn)
                     doReset(); task.wait(0.5); continue
                 end
 
-                -- Step 4: Tele model đến collect zone (y hệt farm)
-                setEvStat("📦 Đang thu...",C.success)
+                -- Step 4: Tele model đến collect zone
+                setFarmLbl("📦 Đang thu...",C.success)
                 teleModel(model,COLLECT_BASE.CFrame); task.wait(0.6)
                 teleModel(model,COLLECT_BASE.CFrame*CFrame.new(0,-5,0))
 
-                -- Step 5: Chờ model biến mất (timeout cứng 14s)
+                -- Step 5: Chờ model biến mất (timeout cứng 12s)
                 local modelGone=safeWait(function()
                     return getMyModel()==nil
-                end,14,0.3)
+                end,12,0.3)
 
-                if not eOn or not _G.ScriptRunning then break end
+                if not farmOn or not _G.ScriptRunning then break end
                 if not modelGone then
                     local m2=getMyModel()
                     if m2 then teleModel(m2,COLLECT_BASE.CFrame*CFrame.new(0,-10,0)) end
                     task.wait(1)
                 end
 
-                -- Step 6: Chờ respawn (timeout cứng 14s)
-                setEvStat("♻ Đang respawn...",C.accentHov)
-                notify("⚡ Event vòng "..eCyc.." xong!",C.success)
+                -- Step 6: Chờ respawn (timeout cứng 12s)
+                setFarmLbl("♻ Đang respawn...",C.accentHov)
                 local oldChar=player.Character
                 local spawned=safeWait(function()
                     local c=player.Character
                     return c~=nil and c~=oldChar and c:FindFirstChild("HumanoidRootPart")~=nil
-                end,14,0.2)
+                end,12,0.2)
 
-                if not eOn or not _G.ScriptRunning then break end
+                if not farmOn or not _G.ScriptRunning then break end
                 if not spawned then
-                    setEvStat("⚠ Không respawn, tự reset...",C.warn)
+                    setFarmLbl("⚠ Không respawn, tự reset...",C.warn)
                     doReset(); task.wait(0.5); continue
                 end
 
-                -- Step 7: Tele về điểm chờ (y hệt farm)
+                -- Step 7: Tele về vị trí chờ
                 task.wait(0.4)
                 local _,newRoot=getCharParts()
-                if newRoot then newRoot.CFrame=CFrame.new(EVENT_STAND_POS) end
+                if newRoot then newRoot.CFrame=CFrame.new(737,39,-2118) end
 
-                setEvStat("✅ Vòng "..eCyc.." xong!",C.success)
+                setFarmLbl("✅ Vòng xong!",C.success)
                 task.wait(2)
             end
-
-            eOn=false; _G.EventRunning=false
-            setEvStat("Đã dừng",C.textMuted); setStatus("Sẵn sàng",C.success)
+            farmOn=false; _G.FarmRunning=false
+            setFarmLbl("⏸ Đã dừng",C.textMuted); setStatus("Sẵn sàng",C.success)
         end)
     end,p)
-
-    mkButton("Reset Thống Kê",Color3.fromRGB(55,55,80),function()
-        eCyc=0; eCycleLbl.Text="Vòng: 0"
-        notify("🔄 Đã reset thống kê",C.accent)
-    end,p)
-
-    mkSection("Lưu Ý",p)
-    local nc=frame({Size=UDim2.new(1,0,0,76),BackgroundColor3=Color3.fromRGB(38,32,12),BackgroundTransparency=0},p)
-    corner(8,nc); stroke(1,C.warn,nc); pad(8,10,8,10,nc)
-    label({Size=UDim2.new(1,0,1,0),Text="⚡ Cơ chế event y hệt farm:\n• Tele đến (707.2, 38.86, -2115.5)\n• StartRun + StartMove → chờ model spawn (14s)\n• Model xuất hiện → tele về base14 → chờ biến mất\n• Chờ respawn → lặp lại (ưu tiên hơn farm)",TextSize=11,Font=Enum.Font.Gotham,TextColor3=C.warn,TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top},nc)
 end
 
 -- ════════════════════════════════════════════════════════
@@ -837,7 +822,7 @@ end
 -- ════════════════════════════════════════════════════════
 do
     local p=BrainrotPage
-    local COLLECT_BASE=workspace:WaitForChild("CollectZones"):WaitForChild("base14")
+    local COLLECT_BASE=workspace:WaitForChild("CollectZones"):WaitForChild("base15")
 
     mkSection("Điều Khiển Boss",p)
     local storedParts={}; local bossFolder=workspace:WaitForChild("BossTouchDetectors")
@@ -845,13 +830,13 @@ do
         if s then
             storedParts={}
             for _,obj in ipairs(bossFolder:GetChildren()) do
-                if obj.Name~="base14" then table.insert(storedParts,obj); obj.Parent=nil end
+                if obj.Name~="base15" then table.insert(storedParts,obj); obj.Parent=nil end
             end
         else
             for _,obj in ipairs(storedParts) do if obj then obj.Parent=bossFolder end end; storedParts={}
         end
     end,p)
-    mkButton("Dịch Chuyển Tất Cả Đến Cuối",Color3.fromRGB(139,92,246),function()
+    mkButton("Dịch Chuyển Tất Cả Đến Cuối",Color3.fromRGB(100,292,300),function()
         local mf=workspace:WaitForChild("RunningModels")
         for _,obj in ipairs(mf:GetChildren()) do
             if obj:IsA("Model") then
@@ -891,8 +876,8 @@ do
                 if not root then setFarmLbl("⚠ Chờ nhân vật...",C.warn); task.wait(1); continue end
 
                 -- Step 2: Tele về vị trí start
-                root.CFrame=CFrame.new(715,39,-2122); task.wait(0.3)
-                hum:MoveTo(Vector3.new(710,39,-2122))
+                root.CFrame=CFrame.new(716,39,-2122); task.wait(0.3)
+                hum:MoveTo(Vector3.new(710, 39, -2122))
 
                 -- Step 3: Chờ model xuất hiện (timeout cứng 12s)
                 setFarmLbl("🎯 Chờ model...",C.accent)
